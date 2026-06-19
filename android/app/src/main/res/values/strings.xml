@@ -3,4 +3,5 @@
     <string name="app_name">Haul</string>
     <string name="widget_list_description">Shopping list with checkboxes. Check off items as you shop.</string>
     <string name="widget_progress_description">Shopping progress at a glance. Tap to open the full list.</string>
+    <string name="widget_shop_description">Shop mode: progress and items left to buy. Tap an item to mark it bought.</string>
 </resources>

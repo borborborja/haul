@@ -28,6 +28,9 @@ object WidgetUpdater {
             manager.getGlanceIds(ShoppingProgressWidget::class.java).forEach { glanceId ->
                 ShoppingProgressWidget().update(context, glanceId)
             }
+            manager.getGlanceIds(ShopModeWidget::class.java).forEach { glanceId ->
+                ShopModeWidget().update(context, glanceId)
+            }
         }
     }
 }
