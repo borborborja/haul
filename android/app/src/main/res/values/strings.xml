@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Haul</string>
+    <string name="widget_list_description">Shopping list with checkboxes. Check off items as you shop.</string>
+    <string name="widget_progress_description">Shopping progress at a glance. Tap to open the full list.</string>
+</resources>

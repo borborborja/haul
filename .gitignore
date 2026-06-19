@@ -1,0 +1,32 @@
+# OS
+.DS_Store
+
+# Web
+web/node_modules/
+web/dist/
+web/dev-dist/
+web/.vite/
+node_modules/
+
+# Capacitor native projects (generated)
+web/android/
+web/ios/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/keystore.properties
+android/app/release.jks
+android/captures/
+*.apk
+
+# Go / PocketBase
+backend/pb_data/
+backend/__pycache__/
+
+# Misc
+*.log
+.env
+.env.local

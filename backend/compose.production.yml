@@ -1,0 +1,41 @@
+services:
+  shoplist:
+    image: ${SHOPLIST_IMAGE:-borborbor/shoppinglist:v2.1.0}
+    restart: unless-stopped
+    volumes:
+      - pb_data:/pb_data
+    env_file: .env
+    networks: [internal]
+
+  proxy:
+    image: caddy:2.10.0-alpine
+    restart: unless-stopped
+    depends_on: [shoplist]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [internal]
+
+  bring-connector:
+    image: ${BRING_IMAGE:-borborbor/shoppinglist-bring:v2.1.0}
+    restart: unless-stopped
+    profiles: ["bring"]
+    depends_on: [shoplist]
+    env_file: .env
+    environment:
+      - PB_URL=http://shoplist:8090
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  pb_data:
+  caddy_data:
+  caddy_config:

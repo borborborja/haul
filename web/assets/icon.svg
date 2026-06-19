@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="80%">
+      <stop offset="0%" stop-color="#3a4ed8"/>
+      <stop offset="55%" stop-color="#2a2fb0"/>
+      <stop offset="100%" stop-color="#171a6e"/>
+    </radialGradient>
+    <linearGradient id="basket" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e7ecff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#bg)"/>
+
+  <g transform="translate(512 540)">
+    <!-- Handles -->
+    <path d="M -190 -150
+             C -190 -270, -60 -310, -60 -210
+             L -60 -150"
+          fill="none" stroke="url(#basket)" stroke-width="44" stroke-linecap="round"/>
+    <path d="M 190 -150
+             C 190 -270, 60 -310, 60 -210
+             L 60 -150"
+          fill="none" stroke="url(#basket)" stroke-width="44" stroke-linecap="round"/>
+
+    <!-- Basket body (trapezoid with rounded corners) -->
+    <path d="M -300 -130
+             Q -320 -150 -300 -150
+             L 300 -150
+             Q 320 -150 300 -130
+             L 230 210
+             Q 220 250 180 250
+             L -180 250
+             Q -220 250 -230 210
+             Z"
+          fill="url(#basket)"/>
+
+    <!-- Checkmark inside basket -->
+    <path d="M -130 30
+             L -30 130
+             L 160 -80"
+          fill="none" stroke="#2a2fb0" stroke-width="56"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+# PocketBase
+/pb_data/
+/pocketbase
+/pb_public/
+/server.log
+/index.html
+
+# Node.js
+**/node_modules/
+/web/dist/
+/extensions/bring-connector/dist/
+
+# Editor / tooling
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.local
+
+# Go
+bin/
+web/android/keystore.properties
+web/android/app/shoppinglist.jks
+
+# Binary
+shoplist

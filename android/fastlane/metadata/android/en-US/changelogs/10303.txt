@@ -1,0 +1,2 @@
+- New vector app icon.
+- Initial F-Droid release.

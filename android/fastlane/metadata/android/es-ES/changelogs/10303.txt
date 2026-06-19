@@ -1,0 +1,2 @@
+- Nuevo icono vectorial.
+- Primera versión publicada en F-Droid.

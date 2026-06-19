@@ -1,0 +1,40 @@
+services:
+  shoplist:
+    build: .
+    container_name: shoplist
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pb_data:/pb_data
+    environment:
+      - SMTP_ENABLED=${SMTP_ENABLED:-false}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_SENDER_NAME=${SMTP_SENDER_NAME:-ShoppingList}
+      - SMTP_SENDER_ADDRESS=${SMTP_SENDER_ADDRESS:-noreply@example.com}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/api/shoplist/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  bring-connector:
+    build: ./extensions/bring-connector
+    restart: unless-stopped
+    profiles: ["bring"]
+    depends_on:
+      shoplist:
+        condition: service_healthy
+    environment:
+      - PB_URL=http://shoplist:8090
+      - PB_SERVICE_EMAIL=${PB_SERVICE_EMAIL:-}
+      - PB_SERVICE_PASSWORD=${PB_SERVICE_PASSWORD:-}
+      - BRING_EMAIL=${BRING_EMAIL:-}
+      - BRING_PASSWORD=${BRING_PASSWORD:-}
+      - SYNC_INTERVAL_MS=${SYNC_INTERVAL_MS:-60000}
+
+volumes:
+  pb_data:

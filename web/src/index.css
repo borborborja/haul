@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html,
+body,
+#root {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  /* `clip` hides horizontal overflow WITHOUT turning these elements into a
+     scroll container. `overflow-x: hidden` here breaks vertical touch
+     scrolling inside mobile WebViews (iOS WKWebView / Android), which is why
+     the page would not scroll on the phone while wheel-scroll worked on
+     desktop. */
+  overflow-x: clip;
+  position: relative;
+  /* Prevent bounce/overscroll */
+  overscroll-behavior: none;
+  /* Allow vertical scrolling but block other gestures like double-tap zoom */
+  touch-action: pan-y;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-white dark:bg-darkBg transition-colors duration-500;
+  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-black/5 dark:border-white/5;
+  }
+
+  .glass-footer {
+    @apply bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-black/5 dark:border-white/5;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pb-safe-offset-2 {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+  }
+}
+
+@theme {
+  /* ===== v2 "innovador" design system ===== */
+  /* Typography */
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Brand */
+  --color-mint: #10B981;
+  --color-mint-deep: #0B7A5B;
+  --color-mint-ink: #06231A;
+  /* text/icon on mint */
+  --color-amber: #F5B700;
+
+  /* Light surfaces */
+  --color-page: #E7E5DF;
+  --color-appbg: #F6F7F3;
+  --color-card: #FFFFFF;
+  --color-card2: #FBFCFA;
+  --color-chip: #F2F4F0;
+  --color-ink: #0E1B16;
+  --color-inkMute: #6B7A72;
+  --color-inkFaint: #9AA8A0;
+
+  /* Dark surfaces (also drives existing dark: utilities) */
+  --color-darkBg: #0A1512;
+  --color-darkSurface: #13261F;
+  --color-darkSurface2: #0E1D17;
+  --color-cream: #EAF2EC;
+  --color-creamMute: #A9BBB1;
+  --color-creamFaint: #7E938A;
+
+  --animate-shake: shake 0.5s cubic-bezier(.36, .07, .19, .97) both infinite;
+  --animate-fade-in: fadeIn 0.3s ease-out forwards;
+  --animate-slide-up: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pop: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  @keyframes shake {
+
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+
+    25% {
+      transform: rotate(1deg);
+    }
+
+    75% {
+      transform: rotate(-1deg);
+    }
+  }
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    0% {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pop {
+    0% {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+/* Theme overrides */
+.dark.amoled {
+  --color-darkBg: #000000;
+  --color-darkSurface: #0a0a0a;
+}
+
+/* Haul prototype animations (used by the new UI shells) */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .4; transform: scale(.85); }
+}
+@keyframes popIn {
+  0% { transform: scale(.6); opacity: 0; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

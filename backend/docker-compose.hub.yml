@@ -1,0 +1,34 @@
+# =============================================================================
+# Docker Compose for ShoppingList (Using DockerHub Image)
+# =============================================================================
+# This is the recommended way to deploy ShoppingList.
+# Uses the pre-built image from DockerHub.
+#
+# Usage:
+#   docker-compose -f docker-compose.hub.yml up -d
+#
+# =============================================================================
+
+version: '3.8'
+
+services:
+  shoplist:
+    image: borborbor/shoppinglist:main
+    container_name: shoplist
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pb_data:/pb_data
+    environment:
+      # SMTP Configuration (optional, for email verification)
+      - SMTP_ENABLED=${SMTP_ENABLED:-false}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_SENDER_NAME=${SMTP_SENDER_NAME:-ShoppingList}
+      - SMTP_SENDER_ADDRESS=${SMTP_SENDER_ADDRESS:-noreply@example.com}
+
+volumes:
+  pb_data:

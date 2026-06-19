@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="basket" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e7ecff"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(512 540)">
+    <path d="M -190 -150
+             C -190 -270, -60 -310, -60 -210
+             L -60 -150"
+          fill="none" stroke="url(#basket)" stroke-width="44" stroke-linecap="round"/>
+    <path d="M 190 -150
+             C 190 -270, 60 -310, 60 -210
+             L 60 -150"
+          fill="none" stroke="url(#basket)" stroke-width="44" stroke-linecap="round"/>
+
+    <path d="M -300 -130
+             Q -320 -150 -300 -150
+             L 300 -150
+             Q 320 -150 300 -130
+             L 230 210
+             Q 220 250 180 250
+             L -180 250
+             Q -220 250 -230 210
+             Z"
+          fill="url(#basket)"/>
+
+    <path d="M -130 30
+             L -30 130
+             L 160 -80"
+          fill="none" stroke="#2a2fb0" stroke-width="56"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

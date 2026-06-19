@@ -1,0 +1,21 @@
+Una llista de la compra ràpida i offline-first, nativa en Kotlin i Jetpack Compose. Planifica a casa, compra a la botiga i comparteix la llista en temps real amb qui vulguis, fent servir el teu propi servidor PocketBase autoallotjat, o un mode totalment local sense servidor.
+
+<b>Funcions</b>
+
+* Modes Planificar i Comprar — prepara la llista i després compra amb una barra de progrés en directe.
+* Múltiples vistes (llista, compacta, graella), agrupant per categoria o per ordre alfabètic.
+* Autocompletat de catàleg amb detecció automàtica de categoria, ítems i categories personalitzades, selector d'emojis.
+* Sincronització en temps real entre dispositius sobre PocketBase SSE, amb cau local en Room i cua de reintents — els canvis offline es reconcilien en reconnectar.
+* Compartir — crea o uneix-te a llistes amb un codi, rotació de codis, deep links i share-sheet.
+* Comptes — sessions d'invitat anònimes, reclamació a compte real, recupera llistes, àlies opcionals, indicador "veient ara".
+* Widgets de pantalla — llista completa amb checkboxes i un widget compacte de progrés.
+* Temes clar, fosc, AMOLED i segons el sistema; color dinàmic Material 3 a Android 12+.
+* Interfície multi-idioma (català, castellà, anglès).
+
+<b>Privacitat</b>
+
+L'aplicació només es comunica amb el servidor PocketBase que tu configures. No hi ha analítica, ni tracking, ni SDKs de tercers. Pots fer-la servir en mode local sense xarxa.
+
+<b>Codi font</b>
+
+https://github.com/bor_devs/shoppinglist-android

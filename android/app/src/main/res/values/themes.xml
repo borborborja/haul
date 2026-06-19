@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base app theme; Compose drives the real colors at runtime. -->
+    <style name="Theme.ShoppingList" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash screen theme (androidx core-splashscreen). -->
+    <style name="Theme.ShoppingList.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.ShoppingList</item>
+    </style>
+</resources>

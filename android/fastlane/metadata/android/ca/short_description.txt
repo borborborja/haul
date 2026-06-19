@@ -1,0 +1,1 @@
+Llista de la compra col·laborativa, offline-first i sincronitzada amb el teu servidor.

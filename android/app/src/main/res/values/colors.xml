@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <!-- Splash background (light blue-50 from the web app) -->
+    <color name="splash_background">#EFF6FF</color>
+    <color name="splash_background_dark">#0F172A</color>
+    <color name="brand">#10B981</color>
+</resources>

@@ -1,0 +1,238 @@
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Plus, Search } from 'lucide-react';
+import { useShopStore } from '../../store/shopStore';
+import { translations, categoryStyles } from '../../data/constants';
+import { getLocalizedItemName } from '../../utils/helpers';
+import { triggerHaptic } from '../../utils/haptics';
+import type { LocalizedItem } from '../../types';
+import CategoryPickerModal from '../modals/CategoryPickerModal';
+
+interface SuggestionItem {
+    name: string;
+    category: string;
+    categoryIcon: string;
+    item: LocalizedItem;
+}
+
+const AddItemInput = ({ embedded = false }: { embedded?: boolean } = {}) => {
+    const [val, setVal] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [selectedIndex, setSelectedIndex] = useState(-1);
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const { addItem, addCategoryItem, categories, lang } = useShopStore();
+    const t = translations[lang];
+
+    // Build flat list of all catalog items with their categories
+    const allItems = useMemo((): SuggestionItem[] => {
+        const items: SuggestionItem[] = [];
+        Object.entries(categories).forEach(([catKey, cat]) => {
+            cat.items.forEach((item) => {
+                items.push({
+                    name: getLocalizedItemName(item, lang),
+                    category: catKey,
+                    categoryIcon: cat.icon,
+                    item
+                });
+            });
+        });
+        return items;
+    }, [categories, lang]);
+
+    // Filter suggestions based on input (minimum 2 chars)
+    const suggestions = useMemo((): SuggestionItem[] => {
+        if (val.length < 2) return [];
+        const query = val.toLowerCase().trim();
+        return allItems
+            .filter(item => item.name.toLowerCase().includes(query))
+            .slice(0, 8); // Limit to 8 suggestions
+    }, [val, allItems]);
+
+    // Check if current input exactly matches a suggestion
+    const exactMatch = useMemo(() => {
+        const query = val.toLowerCase().trim();
+        return suggestions.find(s => s.name.toLowerCase() === query);
+    }, [val, suggestions]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(e.target as Node) &&
+                inputRef.current &&
+                !inputRef.current.contains(e.target as Node)
+            ) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setVal(e.target.value);
+        setSelectedIndex(-1);
+        setShowSuggestions(e.target.value.length >= 2);
+    };
+
+    const handleSelectSuggestion = (suggestion: SuggestionItem) => {
+        addItem(suggestion.name, suggestion.category);
+        setVal('');
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        triggerHaptic(20);
+    };
+
+    const handleSubmit = () => {
+        if (!val.trim()) return;
+
+        // If there's a selected suggestion, use it
+        if (selectedIndex >= 0 && suggestions[selectedIndex]) {
+            handleSelectSuggestion(suggestions[selectedIndex]);
+            return;
+        }
+
+        // If input exactly matches a catalog item, use that category
+        if (exactMatch) {
+            addItem(exactMatch.name, exactMatch.category);
+            setVal('');
+            setShowSuggestions(false);
+            triggerHaptic(20);
+            return;
+        }
+
+        // Otherwise, show category picker for custom product
+        setShowSuggestions(false);
+        setShowCategoryPicker(true);
+    };
+
+    const handleCategoryConfirm = (category: string, addToCatalog: boolean) => {
+        const name = val.trim();
+        addItem(name, category);
+
+        if (addToCatalog) {
+            const newItem: LocalizedItem = { es: name, ca: name, en: name, [lang]: name };
+            addCategoryItem(category, newItem);
+        }
+
+        setVal('');
+        setShowCategoryPicker(false);
+        triggerHaptic(20);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (!showSuggestions || suggestions.length === 0) {
+            if (e.key === 'Enter') {
+                handleSubmit();
+            }
+            return;
+        }
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                setSelectedIndex(prev =>
+                    prev < suggestions.length - 1 ? prev + 1 : prev
+                );
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+                break;
+            case 'Enter':
+                e.preventDefault();
+                handleSubmit();
+                break;
+            case 'Escape':
+                setShowSuggestions(false);
+                setSelectedIndex(-1);
+                break;
+        }
+    };
+
+    return (
+        <>
+            <div className={`relative group z-30 ${embedded ? 'mb-0 w-full' : 'mb-6'}`}>
+                <div className="absolute -inset-[3px] bg-gradient-to-r from-mint to-amber rounded-2xl opacity-25 group-hover:opacity-40 transition duration-500 blur-[7px]"></div>
+                <div className="relative flex shadow-[0_8px_22px_rgba(16,185,129,.10)] rounded-2xl overflow-hidden bg-white dark:bg-darkSurface transition-colors ring-1 ring-black/5 dark:ring-white/10 h-[54px]">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        <Search size={18} />
+                    </div>
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={val}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        onFocus={() => val.length >= 2 && setShowSuggestions(true)}
+                        className="flex-grow py-2 pl-10 pr-4 bg-transparent focus:outline-none dark:text-white placeholder-slate-400 text-lg font-medium h-full"
+                        placeholder={t.placeholder}
+                        autoComplete="off"
+                    />
+                    <button
+                        onClick={handleSubmit}
+                        className="bg-mint hover:bg-mint-deep text-white px-4 font-bold transition flex items-center justify-center w-12 h-full"
+                    >
+                        <Plus size={20} strokeWidth={2.6} />
+                    </button>
+                </div>
+
+                {/* Suggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                    <div
+                        ref={dropdownRef}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-darkSurface rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-[60] animate-pop"
+                    >
+                        {suggestions.map((suggestion, idx) => {
+                            const style = categoryStyles[suggestion.category] || categoryStyles['other'];
+                            return (
+                                <button
+                                    key={`${suggestion.category}-${suggestion.name}-${idx}`}
+                                    onClick={() => handleSelectSuggestion(suggestion)}
+                                    className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${idx === selectedIndex
+                                        ? 'bg-mint/10 dark:bg-mint/10'
+                                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                        } ${idx !== 0 ? 'border-t border-slate-100 dark:border-slate-700/50' : ''}`}
+                                >
+                                    <span className="text-xl">{suggestion.categoryIcon}</span>
+                                    <span className="flex-grow font-medium text-slate-700 dark:text-slate-200">
+                                        {suggestion.name}
+                                    </span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${style.pill}`}>
+                                        {t.cats[suggestion.category as keyof typeof t.cats] || suggestion.category}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* No matches hint */}
+                {showSuggestions && val.length >= 2 && suggestions.length === 0 && (
+                    <div
+                        ref={dropdownRef}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-darkSurface rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-[60] animate-pop"
+                    >
+                        <div className="px-4 py-3 text-center text-slate-500 dark:text-slate-400 text-sm">
+                            {t.noMatches} — <span className="text-mint">Enter</span> {t.add.toLowerCase()}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Category Picker Modal */}
+            {showCategoryPicker && (
+                <CategoryPickerModal
+                    productName={val.trim()}
+                    onClose={() => setShowCategoryPicker(false)}
+                    onConfirm={handleCategoryConfirm}
+                />
+            )}
+        </>
+    );
+};
+
+export default AddItemInput;
