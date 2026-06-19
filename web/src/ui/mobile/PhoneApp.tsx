@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import {
     Search, Plus, Settings, Trash2, X, Check, ChevronDown,
-    List, AlignJustify, LayoutGrid,
+    List, AlignJustify, LayoutGrid, Clock,
 } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel } from '../shared/model';
+import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
 import {
     ACCENT, ACCENT_INK, AMBER, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor,
@@ -64,7 +65,7 @@ export default function PhoneApp({ openSettings }: { openSettings: () => void })
     return (
         <div style={{ fontFamily: 'var(--font-sans)', minHeight: '100dvh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', color: 'var(--text)' }}>
             {/* Header */}
-            <div style={{ padding: '14px 22px 12px', flex: 'none' }}>
+            <div style={{ padding: 'calc(env(safe-area-inset-top) + 10px) 22px 12px', flex: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                     <button onClick={() => setShowSheet(true)} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <h1 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 23, letterSpacing: '-.02em', color: 'var(--text)', margin: 0 }}>{listName || t.myList}</h1>
@@ -93,7 +94,7 @@ export default function PhoneApp({ openSettings }: { openSettings: () => void })
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     {/* add bar */}
                     <div style={{ padding: '0 22px 14px', flex: 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', borderRadius: 15, height: 52, paddingLeft: 15, overflow: 'hidden', border: '1px solid var(--line)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', borderRadius: 15, height: 52, paddingLeft: 15, overflow: 'hidden', border: '1px solid var(--line)', boxShadow: '0 4px 14px rgba(16,185,129,.06)' }}>
                             <Search size={18} color="var(--muted)" strokeWidth={2} />
                             <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()}
                                 placeholder={t.placeholder}
@@ -213,7 +214,7 @@ export default function PhoneApp({ openSettings }: { openSettings: () => void })
 }
 
 function ShopMode({ m, grid, ViewSelector, onToggle, onClear }: any) {
-    const autoclean = useShopStore((s) => s.autoClearEnabled);
+    const ac = useAutoClean();
     const t = m.t;
     const pctLabel = Math.round(m.frac * 100) + '%';
     const remain = m.total - m.done;
@@ -232,15 +233,16 @@ function ShopMode({ m, grid, ViewSelector, onToggle, onClear }: any) {
                         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, color: 'var(--text)', letterSpacing: '-.02em', lineHeight: 1 }}>
                             {m.done}<span style={{ color: 'var(--muted)', fontSize: 20 }}> / {m.total}</span>
                         </div>
-                        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>{remain > 0 ? `${t.previouslyUsed ? '' : ''}Queden ${remain} productes.` : 'Tot llest!'}</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>{remain > 0 ? `Queden ${remain} productes.` : 'Tot llest!'}</div>
                     </div>
                 </div>
             </div>
             {/* autoclean + view selector */}
             <div style={{ padding: '0 22px 12px', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                {autoclean && m.done > 0 ? (
+                {ac.active ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: alpha(AMBER, 0.14), padding: '8px 11px', borderRadius: 10 }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#C99700', fontFamily: 'inherit' }}>{t.autoCleanup}</span>
+                        <Clock size={14} color={AMBER} strokeWidth={2.2} />
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#C99700', fontFamily: 'inherit' }}>{t.autoCleanup} · {ac.label}</span>
                     </div>
                 ) : (
                     <span style={seg.label}>Vista</span>

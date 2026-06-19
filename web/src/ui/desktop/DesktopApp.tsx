@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Search, Plus, Trash2, Check, Sun, Moon, Settings, RotateCcw } from 'lucide-react';
+import { Search, Plus, Trash2, Check, Sun, Moon, Settings, RotateCcw, Clock } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel } from '../shared/model';
+import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
 import { guessCategory } from '../shared/guess';
 import {
-    ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor,
+    ACCENT, ACCENT_INK, AMBER, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor,
 } from '../theme';
 
 export default function DesktopApp({ openSettings }: { openSettings: () => void }) {
@@ -16,6 +17,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
         switchList, createList, setTheme, setAutoClearEnabled,
     } = useShopStore();
     const [draft, setDraft] = useState('');
+    const ac = useAutoClean();
     const t = m.t;
     const isPlan = appMode === 'planning';
 
@@ -82,7 +84,9 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                             <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)' }}>{auth.username || 'Haul'}</div>
                             <div style={{ fontSize: 11, color: 'var(--muted)' }}>{sync.connected && sync.code ? `${t.sync} · ${sync.code}` : t.settings}</div>
                         </div>
-                        <Settings size={15} color="var(--muted)" />
+                        {sync.connected
+                            ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT, animation: 'pulseDot 1.8s ease-in-out infinite' }} />
+                            : <Settings size={15} color="var(--muted)" />}
                     </button>
                 </div>
             </div>
@@ -149,6 +153,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                             <div style={{ padding: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {m.recent.map((r) => (
                                     <button key={r.id} onClick={() => useShopStore.getState().addBackToList(r.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface2)', border: '1px solid var(--line)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <span style={{ fontSize: 16 }}>{m.categories[r.category]?.icon || '🛒'}</span>
                                         <span style={{ flex: 1, fontWeight: 600, fontSize: 13.5, color: 'var(--muted)' }}>{r.name}</span>
                                         <Plus size={14} color={ACCENT} strokeWidth={2.6} />
                                     </button>
@@ -171,7 +176,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                 <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: ACCENT, marginTop: 2 }}>{m.total - m.done > 0 ? `${m.total - m.done} productes` : '🎉'}</div>
                             </div>
                             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '15px 16px', marginBottom: 14 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: ac.active ? 12 : 0 }}>
                                     <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{t.autoCleanup}</span>
                                     <button onClick={() => setAutoClearEnabled(!autoClearEnabled)} aria-label={t.autoCleanup} style={{ border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }}>
                                         <div style={{ width: 44, height: 26, borderRadius: 999, background: autoClearEnabled ? ACCENT : 'var(--seg)', position: 'relative', transition: 'background .2s' }}>
@@ -179,6 +184,13 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                         </div>
                                     </button>
                                 </div>
+                                {ac.active && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: alpha(AMBER, 0.14), borderRadius: 11, padding: '10px 12px' }}>
+                                        <Clock size={15} color="#C99700" strokeWidth={2.2} />
+                                        <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>Esborra els comprats en</span>
+                                        <span style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: '#C99700', fontWeight: 500 }}>{ac.label}</span>
+                                    </div>
+                                )}
                             </div>
                             {m.done > 0 && (
                                 <button onClick={clearCompleted} style={{ marginTop: 'auto', width: '100%', background: 'transparent', border: `1px solid ${alpha(DANGER, 0.3)}`, borderRadius: 13, padding: 12, fontWeight: 700, fontSize: 13, color: DANGER, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
