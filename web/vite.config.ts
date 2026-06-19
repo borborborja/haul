@@ -23,7 +23,14 @@ export default defineConfig({
         name: 'Haul',
         short_name: 'Haul',
         description: 'Collaborative Shopping List',
-        theme_color: '#ffffff',
+        lang: 'ca',
+        display: 'standalone',
+        display_override: ['standalone', 'fullscreen'],
+        orientation: 'portrait',
+        start_url: '.',
+        scope: '.',
+        theme_color: '#FBFCFA',
+        background_color: '#FBFCFA',
         icons: [
           {
             src: 'pwa-192x192.png',

@@ -67,11 +67,14 @@ function App() {
       document.documentElement.classList.remove('amoled');
     }
 
-    // Also set meta theme-color for mobile browsrs
+    // Also set meta theme-color for mobile browsers (Haul palette).
+    // Drop the media-scoped tags so this single value wins at runtime.
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m, i) => {
+      if (i === 0) m.setAttribute('content', isDark ? '#0A1512' : '#FBFCFA');
+      else m.removeAttribute('media');
+    });
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (metaThemeColor) {
-      metaThemeColor.setAttribute('content', isAmoled ? '#000000' : isDark ? '#0f172a' : '#ffffff');
-    }
+    if (metaThemeColor) metaThemeColor.setAttribute('content', isDark ? '#0A1512' : '#FBFCFA');
   }, [isDark, isAmoled]);
 
   // --- Global Lifecycle & updates ---
