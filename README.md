@@ -38,6 +38,14 @@ Haul is one product across three clients sharing a single backend: a responsive 
 - **Android:** download the APK from the [latest release](https://github.com/borborborja/haul/releases/latest).
 - **Docker:** `docker run -p 8090:8090 -v haul_data:/pb_data ghcr.io/borborborja/haul:latest`
 
+### Screenshots
+
+<p align="center">
+  <img src="assets/store/en-1.png" width="240" alt="Plan without effort" />
+  <img src="assets/store/en-2.png" width="240" alt="Shop with intent" />
+  <img src="assets/store/en-3.png" width="240" alt="Shop together" />
+</p>
+
 ---
 
 ## 🇨🇦 Català
@@ -88,6 +96,8 @@ Haul es un único producto con tres clientes que comparten un backend: una **app
 
 ---
 
+<div align="center"><img src="assets/banner.png" width="820" alt="Your data. Your rules. Self-host Haul." /></div>
+
 ## Monorepo
 
 | Path        | What                                                                 |
@@ -95,7 +105,7 @@ Haul es un único producto con tres clientes que comparten un backend: una **app
 | `web/`      | React + Vite + Tailwind app (responsive desktop + mobile, PWA, Capacitor) |
 | `android/`  | Native Kotlin + Jetpack Compose app (+ home-screen widgets)          |
 | `backend/`  | Go + PocketBase server (REST + realtime SSE)                          |
-| `assets/`   | Brand & store graphics (logo, feature graphics)                       |
+| `assets/`   | Brand & store graphics (logo, feature graphics, store screenshots, social squares) |
 | `DESIGN.md` | Shared Haul design tokens (fonts, palette, category accents, shapes)  |
 
 ## Develop
