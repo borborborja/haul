@@ -44,6 +44,8 @@ android {
                 storePassword = keystoreProps.getProperty("storePassword")
                 keyAlias = keystoreProps.getProperty("keyAlias")
                 keyPassword = keystoreProps.getProperty("keyPassword")
+                // CI keystore is PKCS12 (generated with openssl); default to it.
+                storeType = keystoreProps.getProperty("storeType") ?: "pkcs12"
             }
         }
     }
