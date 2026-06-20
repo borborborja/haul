@@ -44,6 +44,7 @@ export interface UIDict {
     server: string; localMode: string; sync: string; syncCode: string; connected: string;
     sourceCode: string; version: string; aboutTagline: string;
     updateAvailable: string; updateNow: string; whatsNew: string; upToDate: string;
+    deactivate: string; reactivate: string; tapToToggle: string;
     manageCatalog: string; manageCatalogSub: string; addNamed: string;
     cats: Record<CatKey, string>;
 }
@@ -63,6 +64,7 @@ const en: UIDict = {
     server: 'Server', localMode: 'Local mode', sync: 'Sync', syncCode: 'List code', connected: 'Synced',
     sourceCode: 'Source code', version: 'version', aboutTagline: 'Shopping in motion. A real-time collaborative list, open-source and self-hostable.',
     updateAvailable: 'Update available', updateNow: 'Update', whatsNew: "What's new", upToDate: "You're up to date",
+    deactivate: 'Deactivate', reactivate: 'Reactivate', tapToToggle: 'Tap a product to deactivate it for this list',
     manageCatalog: 'Manage catalog', manageCatalogSub: 'Add or remove products and categories', addNamed: 'Add «{x}»',
     cats: { fruit: 'Fruit', veg: 'Vegetables', meat: 'Meat/Fish', dairy: 'Dairy', pantry: 'Pantry/Bread', cleaning: 'Cleaning/Hygiene', home: 'Home', snacks: 'Snacks/Sweets', frozen: 'Frozen', processed: 'Processed', drinks: 'Drinks', spices: 'Spices', other: 'General/Other' },
 };
@@ -85,6 +87,7 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         server: 'Servidor', localMode: 'Modo local', sync: 'Sincronización', syncCode: 'Código de la lista', connected: 'Sincronizado',
         sourceCode: 'Código fuente', version: 'versión', aboutTagline: 'La compra, en movimiento. Lista colaborativa en tiempo real, de código abierto y autoalojable.',
         updateAvailable: 'Actualización disponible', updateNow: 'Actualizar', whatsNew: 'Novedades', upToDate: 'Estás al día',
+        deactivate: 'Desactivar', reactivate: 'Reactivar', tapToToggle: 'Toca un producto para desactivarlo en esta lista',
         manageCatalog: 'Gestión del catálogo', manageCatalogSub: 'Añade o elimina productos y categorías', addNamed: 'Añade «{x}»',
         cats: { fruit: 'Fruta', veg: 'Verdura', meat: 'Carne/Pescado', dairy: 'Lácteos', pantry: 'Despensa/Pan', cleaning: 'Higiene/Limpieza', home: 'Hogar', snacks: 'Snacks/Dulces', frozen: 'Congelados', processed: 'Procesados', drinks: 'Bebidas', spices: 'Especias', other: 'General/Otros' },
     },
@@ -103,6 +106,7 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         server: 'Servidor', localMode: 'Mode local', sync: 'Sincronització', syncCode: 'Codi de la llista', connected: 'Sincronitzat',
         sourceCode: 'Codi font', version: 'versió', aboutTagline: 'La compra, en moviment. Llista col·laborativa en temps real, de codi obert i autoallotjable.',
         updateAvailable: 'Actualització disponible', updateNow: 'Actualitzar', whatsNew: 'Novetats', upToDate: 'Estàs al dia',
+        deactivate: 'Desactivar', reactivate: 'Reactivar', tapToToggle: 'Toca un producte per desactivar-lo en aquesta llista',
         manageCatalog: 'Gestió del catàleg', manageCatalogSub: 'Afegeix o elimina productes i categories', addNamed: 'Afegeix «{x}»',
         cats: { fruit: 'Fruita', veg: 'Verdura', meat: 'Carn/Peix', dairy: 'Làctics', pantry: 'Rebost/Pa', cleaning: 'Higiene/Neteja', home: 'Llar', snacks: 'Snacks/Dolços', frozen: 'Congelats', processed: 'Processats', drinks: 'Begudes', spices: 'Espècies', other: 'General/Altres' },
     },

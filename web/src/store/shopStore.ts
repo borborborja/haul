@@ -5,6 +5,7 @@ import { defaultCategories } from '../data/constants';
 import { pb } from '../lib/pocketbase';
 import { isConfigEnabled } from '../utils/config';
 import { enqueueItemUpdate, enqueueItemDelete } from '../lib/itemWriteQueue';
+import { canonicalKey, localizedVariants } from '../utils/helpers';
 import { beginWrite, endWrite, pendingCreates, parsePbDate } from '../lib/syncMeta';
 
 interface SyncHistoryItem {
@@ -51,6 +52,8 @@ interface ShopState {
     // Data
     items: ShopItem[];
     categories: Categories;
+    // Canonical keys of products deactivated for the active list (synced per list).
+    disabledProducts: string[];
     listName: string | null;
 
     // Multi-list
@@ -138,6 +141,10 @@ interface ShopState {
     loadCatalog: () => Promise<void>;
     loadListCustomData: () => Promise<void>;
 
+    // Per-list product deactivation (translucent in settings, removed from the list, synced)
+    deactivateProduct: (item: LocalizedItem | string) => Promise<void>;
+    reactivateProduct: (item: LocalizedItem | string) => Promise<void>;
+
     // Auth Actions
     setAuth: (auth: Partial<AuthState>) => void;
     setUsername: (name: string) => void;
@@ -150,6 +157,7 @@ export const useShopStore = create<ShopState>()(
         (set, get) => ({
             items: [],
             categories: defaultCategories,
+            disabledProducts: [],
             listName: null,
             lists: [{ id: DEFAULT_LIST_ID, name: null, emoji: '🛒', code: null, recordId: null, isLocal: true }],
             activeListId: DEFAULT_LIST_ID,
@@ -510,6 +518,8 @@ export const useShopStore = create<ShopState>()(
                     listCaches: newCaches,
                     items: cached?.items ?? [],
                     listName: cached?.listName ?? target.name,
+                    // Reset per-list disabled set; loadListCustomData repopulates for synced lists
+                    disabledProducts: [],
                     // Re-point sync at the target list; hooks (useListSync) reconnect for synced lists
                     sync: {
                         ...sync,
@@ -809,10 +819,47 @@ export const useShopStore = create<ShopState>()(
                         }
                     });
 
-                    set({ categories: mergedCats });
-                    console.log("Loaded list custom data:", customCats.length, "categories,", customItems.length, "items");
+                    // Load deactivated products for this list
+                    const disabledRecs = await pb.collection('list_disabled_products').getFullList({
+                        filter: `list = "${sync.recordId}"`
+                    });
+
+                    set({ categories: mergedCats, disabledProducts: disabledRecs.map((r: any) => r.name) });
+                    console.log("Loaded list custom data:", customCats.length, "categories,", customItems.length, "items,", disabledRecs.length, "disabled");
                 } catch (e) {
                     console.error("Failed to load list custom data", e);
+                }
+            },
+
+            deactivateProduct: async (item) => {
+                const { sync, items, disabledProducts } = get();
+                const key = canonicalKey(item);
+                if (!key || disabledProducts.includes(key)) return;
+                const variants = new Set(localizedVariants(item));
+
+                // 1. Optimistic: mark disabled + drop matching items from the list
+                const matched = items.filter((i) => variants.has(i.name.trim().toLowerCase()));
+                set({
+                    disabledProducts: [...disabledProducts, key],
+                    items: items.filter((i) => !variants.has(i.name.trim().toLowerCase())),
+                });
+
+                // 2. Network
+                if (sync.connected && sync.recordId) {
+                    pb.collection('list_disabled_products').create({ list: sync.recordId, name: key }).catch(() => { });
+                    matched.forEach((i) => { if (!i.id.startsWith('local_')) enqueueItemDelete(i.id); });
+                }
+            },
+
+            reactivateProduct: async (item) => {
+                const { sync, disabledProducts } = get();
+                const key = canonicalKey(item);
+                set({ disabledProducts: disabledProducts.filter((k) => k !== key) });
+                if (sync.connected && sync.recordId) {
+                    try {
+                        const recs = await pb.collection('list_disabled_products').getFullList({ filter: `list = "${sync.recordId}" && name = "${key.replace(/"/g, '')}"` });
+                        await Promise.all(recs.map((r: any) => pb.collection('list_disabled_products').delete(r.id)));
+                    } catch { /* realtime/refresh will reconcile */ }
                 }
             }
         }),

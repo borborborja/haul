@@ -337,6 +337,20 @@ export function useListSync() {
             }, { filter: `list = "${currentRecordId}"` });
             if (cancelled) { unsubCatItems(); return; }
             unsubscribers.push(unsubCatItems);
+
+            // Deactivated products (translucent in settings; filtered from the add UI)
+            const unsubDisabled = await pb.collection('list_disabled_products').subscribe('*', (e) => {
+                if (e.record.list !== currentRecordId) return;
+                const { disabledProducts } = useShopStore.getState();
+                const name = e.record.name as string;
+                if (e.action === 'create') {
+                    if (!disabledProducts.includes(name)) useShopStore.setState({ disabledProducts: [...disabledProducts, name] });
+                } else if (e.action === 'delete') {
+                    useShopStore.setState({ disabledProducts: disabledProducts.filter((k) => k !== name) });
+                }
+            }, { filter: `list = "${currentRecordId}"` });
+            if (cancelled) { unsubDisabled(); return; }
+            unsubscribers.push(unsubDisabled);
         };
 
         const init = async () => {

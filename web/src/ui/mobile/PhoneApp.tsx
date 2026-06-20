@@ -55,6 +55,7 @@ export default function PhoneApp(_props: { openSettings: () => void }) {
     const suggestions = showSuggestions
         ? Object.keys(m.categories).flatMap((key) =>
             (m.categories[key].items || [])
+                .filter((it) => !m.isDisabled(it))
                 .map((it) => localized(it, m.lang))
                 .filter((name) => name.toLowerCase().includes(q))
                 .map((name) => ({ name, key, color: catColor(key, m.categories[key].color), cat: m.t.cats[key as keyof typeof m.t.cats] || key, inList: inListNames.has(name.toLowerCase()) })),

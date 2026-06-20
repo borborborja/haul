@@ -5,6 +5,7 @@ import { useShopStore } from '../../store/shopStore';
 import { tt } from '../../data/i18n';
 import type { ShopItem, Categories, Lang, LocalizedItem } from '../../types';
 import { catColor } from '../theme';
+import { canonicalKey } from '../../utils/helpers';
 
 // Catalog item names only carry es/ca/en; for other UI languages fall back to
 // English text (the catalog content itself isn't translated to all 15 langs).
@@ -46,6 +47,7 @@ export const buildGroups = (items: ShopItem[], categories: Categories, lang: Lan
 export function useHaulModel() {
     const items = useShopStore((s) => s.items);
     const categories = useShopStore((s) => s.categories);
+    const disabledProducts = useShopStore((s) => s.disabledProducts);
     const lang = useShopStore((s) => s.lang);
     const lists = useShopStore((s) => s.lists);
     const activeListId = useShopStore((s) => s.activeListId);
@@ -79,11 +81,14 @@ export function useHaulModel() {
         [inList],
     );
 
+    const disabledSet = useMemo(() => new Set(disabledProducts), [disabledProducts]);
     const bandItems = (key: string) =>
-        (categories[key]?.items || []).map((it) => {
-            const name = localized(it, lang);
-            return { name, inList: currentNames.has(name.toLowerCase()) };
-        });
+        (categories[key]?.items || [])
+            .filter((it) => !disabledSet.has(canonicalKey(it)))
+            .map((it) => {
+                const name = localized(it, lang);
+                return { name, inList: currentNames.has(name.toLowerCase()) };
+            });
 
     // Multi-list summary for switchers.
     const listSummaries = useMemo(
@@ -102,5 +107,7 @@ export function useHaulModel() {
         [lists, activeListId, listCaches, inList],
     );
 
-    return { t, lang, categories, groups, recent, pending, completed, total, done, frac, bands, bandItems, listSummaries };
+    const isDisabled = (it: LocalizedItem | string) => disabledSet.has(canonicalKey(it));
+
+    return { t, lang, categories, groups, recent, pending, completed, total, done, frac, bands, bandItems, listSummaries, isDisabled };
 }

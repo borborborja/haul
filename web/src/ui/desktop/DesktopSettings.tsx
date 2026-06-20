@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, X, Share2, RefreshCw, Download, Upload, RotateCcw, Trash2 } from 'lucide-react';
+import { ChevronLeft, Plus, Share2, RefreshCw, Download, Upload, RotateCcw, Trash2 } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized, catLabel } from '../shared/model';
 import { useAccountSync } from '../shared/useAccountSync';
@@ -8,6 +8,7 @@ import type { LocalizedItem } from '../../types';
 import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } from '../theme';
 import { APP_VERSION } from '../../data/version';
 import UpdateNotice from '../shared/UpdateNotice';
+import { canonicalKey } from '../../utils/helpers';
 
 type Tab = 'account' | 'catalog' | 'other' | 'about';
 const mono = { fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase' as const, color: 'var(--muted)' };
@@ -20,7 +21,8 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
     const {
         lang, auth, sync, showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
-        categories, addCategory, addCategoryItem, removeCategoryItem,
+        categories, addCategory, addCategoryItem,
+        disabledProducts, deactivateProduct, reactivateProduct,
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
@@ -119,7 +121,7 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                 {tab === 'catalog' && (
                     <div style={{ maxWidth: 820 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
-                            <div><div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, letterSpacing: '-.01em', color: 'var(--text)' }}>{t.manageCatalog}</div><div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{t.manageCatalogSub}</div></div>
+                            <div><div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, letterSpacing: '-.01em', color: 'var(--text)' }}>{t.manageCatalog}</div><div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{t.tapToToggle}</div></div>
                             <button onClick={() => { const name = window.prompt(t.category); if (!name) return; const key = name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `cat_${Date.now()}`; addCategory(key, '📦'); }} style={{ ...greenBtn, display: 'flex', alignItems: 'center', gap: 7 }}><Plus size={14} color={ACCENT_INK} strokeWidth={2.6} />{t.category}</button>
                         </div>
                         {Object.keys(categories).map((key) => {
@@ -131,12 +133,15 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                                         <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, letterSpacing: '-.01em', color: 'var(--text)' }}>{catLabel(key, lang, cat.names)}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                        {cat.items.map((it: LocalizedItem | string, idx: number) => (
-                                            <div key={idx} style={{ fontWeight: 600, fontSize: 13, padding: '8px 10px 8px 14px', borderRadius: 11, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 9 }}>
-                                                {localized(it, lang)}
-                                                <button onClick={() => removeCategoryItem(key, idx)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 1, display: 'flex', color: 'var(--muted)' }}><X size={13} strokeWidth={2.4} /></button>
-                                            </div>
-                                        ))}
+                                        {cat.items.map((it: LocalizedItem | string, idx: number) => {
+                                            const off = disabledProducts.includes(canonicalKey(it));
+                                            return (
+                                                <button key={idx} onClick={() => off ? reactivateProduct(it) : deactivateProduct(it)} title={off ? t.reactivate : t.deactivate}
+                                                    style={{ fontWeight: 600, fontSize: 13, padding: '8px 13px', borderRadius: 11, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', opacity: off ? 0.4 : 1, textDecoration: off ? 'line-through' : 'none' }}>
+                                                    {localized(it, lang)}
+                                                </button>
+                                            );
+                                        })}
                                         <button onClick={() => { setAddingCat(addingCat === key ? null : key); setNewProduct(''); }} style={{ cursor: 'pointer', fontWeight: 700, fontSize: 13, padding: '8px 13px', borderRadius: 11, border: `1px dashed ${color}`, background: 'transparent', color, display: 'flex', alignItems: 'center', gap: 5 }}><Plus size={13} strokeWidth={2.6} />{t.add}</button>
                                     </div>
                                     {addingCat === key && (

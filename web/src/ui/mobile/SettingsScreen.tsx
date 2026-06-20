@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, X, Download, Upload, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Plus, Download, Upload, RotateCcw } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized, catLabel } from '../shared/model';
 import { useAccountSync } from '../shared/useAccountSync';
@@ -8,6 +8,7 @@ import type { LocalizedItem } from '../../types';
 import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } from '../theme';
 import { APP_VERSION } from '../../data/version';
 import UpdateNotice from '../shared/UpdateNotice';
+import { canonicalKey } from '../../utils/helpers';
 
 type Tab = 'account' | 'catalog' | 'other' | 'about';
 const monoLabel = { fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase' as const, color: 'var(--muted)' };
@@ -19,7 +20,8 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
         theme, lang, setTheme, auth, sync, serverUrl,
         showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
-        categories, addCategory, addCategoryItem, removeCategoryItem,
+        categories, addCategory, addCategoryItem,
+        disabledProducts, deactivateProduct, reactivateProduct,
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
@@ -143,14 +145,14 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                                         <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, letterSpacing: '-.01em', color: 'var(--text)' }}>{catLabel(key, lang, cat.names)}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                                        {cat.items.map((it: LocalizedItem | string, idx: number) => (
-                                            <div key={idx} style={{ flex: 'none', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, padding: '7px 9px 7px 13px', borderRadius: 11, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                {localized(it, lang)}
-                                                <button onClick={() => removeCategoryItem(key, idx)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 1, display: 'flex', color: 'var(--muted)' }}>
-                                                    <X size={13} strokeWidth={2.4} />
+                                        {cat.items.map((it: LocalizedItem | string, idx: number) => {
+                                            const off = disabledProducts.includes(canonicalKey(it));
+                                            return (
+                                                <button key={idx} onClick={() => off ? reactivateProduct(it) : deactivateProduct(it)} style={{ flex: 'none', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, padding: '7px 12px', borderRadius: 11, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', opacity: off ? 0.4 : 1, textDecoration: off ? 'line-through' : 'none' }}>
+                                                    {localized(it, lang)}
                                                 </button>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                         <button onClick={() => { setAddingCat(addingCat === key ? null : key); setNewProduct(''); }} style={{ flex: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, padding: '7px 12px', borderRadius: 11, border: `1px dashed ${color}`, background: 'transparent', color, display: 'flex', alignItems: 'center', gap: 5 }}>
                                             <Plus size={13} strokeWidth={2.6} />{t.add}
                                         </button>
