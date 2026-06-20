@@ -6,7 +6,6 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.action.clickable
-import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.cornerRadius
@@ -47,7 +46,7 @@ class ShoppingProgressWidget : GlanceAppWidget() {
                         .background(GlanceTheme.colors.surface)
                         .padding(12.dp)
                         .cornerRadius(16.dp)
-                        .clickable(actionStartActivity(openListIntent(context, data.listId))),
+                        .clickable(openListAction(context, data.listId)),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

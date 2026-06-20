@@ -8,7 +8,6 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -77,7 +76,7 @@ private fun ShopModeContent(
     checkedCount: Int,
     context: Context,
 ) {
-    val open = actionStartActivity(openListIntent(context, listId))
+    val open = openListAction(context, listId)
     val percent = if (total > 0) (checkedCount * 100 / total) else 0
 
     Column(

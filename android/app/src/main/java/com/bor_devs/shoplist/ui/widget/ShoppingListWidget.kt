@@ -7,7 +7,6 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -73,7 +72,7 @@ private fun ShoppingListWidgetContent(
     checkedCount: Int,
     context: Context,
 ) {
-    val open = actionStartActivity(openListIntent(context, listId))
+    val open = openListAction(context, listId)
 
     Column(
         modifier = GlanceModifier
