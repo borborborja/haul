@@ -8,7 +8,7 @@ import { useHaulModel, localized } from '../shared/model';
 import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
 import {
-    ACCENT, ACCENT_INK, AMBER, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor,
+    ACCENT, ACCENT_INK, AMBER, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor, segActive, colorBar,
 } from '../theme';
 import { guessCategory } from '../shared/guess';
 import ListSheet from '../shared/ListSheet';
@@ -104,7 +104,7 @@ export default function PhoneApp(_props: { openSettings: () => void }) {
                             const on = appMode === mode;
                             return (
                                 <button key={mode} onClick={() => setAppMode(mode)}
-                                    style={{ flex: 1, border: 'none', cursor: 'pointer', borderRadius: 11, padding: 11, fontWeight: 700, fontSize: 13.5, fontFamily: 'inherit', background: on ? ACCENT : 'transparent', color: on ? (isDark ? ACCENT_INK : '#fff') : 'var(--muted)', boxShadow: on ? '0 5px 14px rgba(16,185,129,.3)' : 'none' }}>
+                                    style={{ flex: 1, border: 'none', cursor: 'pointer', borderRadius: 11, padding: 11, fontWeight: 700, fontSize: 13.5, fontFamily: 'inherit', ...(on ? segActive(isDark) : { background: 'transparent', color: 'var(--muted)' }) }}>
                                     {label}
                                 </button>
                             );
@@ -210,7 +210,7 @@ export default function PhoneApp(_props: { openSettings: () => void }) {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                                         {g.items.map((it) => (
                                             <div key={it.id} style={{ background: 'var(--surface)', borderRadius: compact ? 13 : 17, padding: compact ? '10px 13px' : '14px 16px', display: 'flex', alignItems: 'center', gap: 13, position: 'relative', overflow: 'hidden', border: '1px solid var(--line)', boxShadow: '0 3px 10px rgba(10,21,18,.04)' }}>
-                                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: g.color }} />
+                                                <div style={colorBar(g.color)} />
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ fontWeight: 600, fontSize: compact ? 14 : 15.5, color: 'var(--text)' }}>{it.name}</div>
                                                     {!compact && it.note && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>{it.note}</div>}
@@ -225,7 +225,7 @@ export default function PhoneApp(_props: { openSettings: () => void }) {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                                         {g.items.map((it) => (
                                             <div key={it.id} style={{ background: 'var(--surface)', borderRadius: 16, padding: 14, position: 'relative', overflow: 'hidden', border: '1px solid var(--line)', height: 108, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: g.color }} />
+                                                <div style={colorBar(g.color)} />
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                                     <button onClick={() => removeFromList(it.id)} aria-label="remove" style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'flex' }}>
                                                         <X size={15} color="var(--muted)" strokeWidth={2} />
@@ -304,7 +304,7 @@ function ShopMode({ m, grid, ViewSelector, onToggle, onClear }: any) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
                         {m.pending.map((it: any) => (
                             <button key={it.id} onClick={() => onToggle(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface)', borderRadius: 18, padding: 15, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', height: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: catColor(it.category, m.categories[it.category]?.color) }} />
+                                <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
                                 <div style={{ width: 26, height: 26, borderRadius: '50%', border: '2.4px solid var(--muted)' }} />
                                 <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{it.name}</div>
                             </button>
@@ -314,7 +314,7 @@ function ShopMode({ m, grid, ViewSelector, onToggle, onClear }: any) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
                         {m.pending.map((it: any) => (
                             <button key={it.id} onClick={() => onToggle(it.id)} style={{ textAlign: 'left', background: 'var(--surface)', borderRadius: 17, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden', border: '1px solid var(--line)', cursor: 'pointer' }}>
-                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: catColor(it.category, m.categories[it.category]?.color) }} />
+                                <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
                                 <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.4px solid var(--muted)', flex: 'none' }} />
                                 <div style={{ flex: 1, fontWeight: 600, fontSize: 15.5, color: 'var(--text)' }}>{it.name}</div>
                             </button>

@@ -68,6 +68,18 @@ export const CATEGORY_COLORS: Record<string, string> = {
 export const catColor = (key: string, fallback?: string): string =>
     CATEGORY_COLORS[key] || fallback || ACCENT;
 
+// Active Plan/Shop segment: green gradient + subtle ring (matches the look-and-feel refs).
+export const segActive = (isDark: boolean): React.CSSProperties => ({
+    background: 'linear-gradient(145deg, #13D08F 0%, #0B9A64 100%)',
+    color: isDark ? ACCENT_INK : '#FFFFFF',
+    boxShadow: '0 5px 14px rgba(16,185,129,.30), 0 0 0 1.5px rgba(5,32,23,.32)',
+});
+
+// Rounded, inset category color bar for item cards/rows.
+export const colorBar = (color: string): React.CSSProperties => ({
+    position: 'absolute', left: 5, top: 9, bottom: 9, width: 5, borderRadius: 3, background: color,
+});
+
 export const alpha = (hex: string, a: number): string => {
     const h = hex.replace('#', '');
     if (h.length !== 6) return hex;

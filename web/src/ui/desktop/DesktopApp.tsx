@@ -6,7 +6,7 @@ import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
 import { guessCategory } from '../shared/guess';
 import {
-    ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor,
+    ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor, segActive, colorBar,
 } from '../theme';
 
 export default function DesktopApp({ openSettings }: { openSettings: () => void }) {
@@ -124,7 +124,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                             const on = appMode === mode;
                             return (
                                 <button key={mode} onClick={() => setAppMode(mode)}
-                                    style={{ border: 'none', cursor: 'pointer', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', background: on ? ACCENT : 'transparent', color: on ? (isDark ? ACCENT_INK : '#fff') : 'var(--muted)', boxShadow: on ? '0 4px 12px rgba(16,185,129,.3)' : 'none' }}>
+                                    style={{ border: 'none', cursor: 'pointer', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', ...(on ? segActive(isDark) : { background: 'transparent', color: 'var(--muted)' }) }}>
                                     {label}
                                 </button>
                             );
@@ -304,7 +304,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
                                 {m.pending.map((it) => (
                                     <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface)', borderRadius: 18, padding: 18, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', height: 148, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: catColor(it.category, m.categories[it.category]?.color) }} />
+                                        <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
                                         <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.4px solid var(--muted)' }} />
                                         <div>
                                             <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{it.name}</div>
