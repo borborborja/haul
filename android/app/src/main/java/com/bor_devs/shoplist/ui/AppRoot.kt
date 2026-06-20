@@ -43,7 +43,7 @@ fun AppRoot(vm: MainViewModel) {
     }
 
     ShoppingListTheme(themeMode = settings.theme) {
-        CompositionLocalProvider(LocalStrings provides stringsFor(settings.lang)) {
+        CompositionLocalProvider(LocalStrings provides stringsFor(systemLang())) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 when {
                     !settings.wizardDone -> ServerWizardScreen(vm) {}

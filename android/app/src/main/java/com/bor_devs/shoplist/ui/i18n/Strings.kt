@@ -377,14 +377,11 @@ private val byLang: Map<Lang, Strings> = mapOf(
 
 fun stringsFor(lang: Lang): Strings = byLang[lang] ?: EN
 
-/** Detect the system language and map it to a supported [Lang]. */
+/** Detect the device language and map it to one of the supported [Lang]s
+ * (falling back to English for anything we don't ship). */
 fun systemLang(): Lang {
-    val loc = java.util.Locale.getDefault()
-    return when {
-        loc.language.equals("ca", ignoreCase = true) -> Lang.CA
-        loc.language.equals("es", ignoreCase = true) -> Lang.ES
-        else -> Lang.EN
-    }
+    val code = java.util.Locale.getDefault().language.lowercase()
+    return Lang.entries.firstOrNull { it.code == code } ?: Lang.EN
 }
 
 val LocalStrings = staticCompositionLocalOf { CA }

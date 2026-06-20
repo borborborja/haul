@@ -25,7 +25,7 @@ class MainViewModel @Inject constructor(
     val settings = prefs.data.stateIn(
         viewModelScope, SharingStarted.Eagerly,
         Settings(
-            serverUrl = "", wizardDone = false, theme = ThemeMode.LIGHT, lang = com.bor_devs.shoplist.domain.Lang.CA,
+            serverUrl = "", wizardDone = false, theme = ThemeMode.LIGHT,
             appMode = AppMode.PLANNING, viewMode = ViewMode.LIST, sortOrder = SortOrder.CATEGORY,
             showCompletedInline = false, notifyOnAdd = true, notifyOnCheck = true,
             autoClearEnabled = true, autoClearScheduled = 0L, autoClearMinutes = 60,
@@ -82,7 +82,6 @@ class MainViewModel @Inject constructor(
 
     // ---- Preferences ----
     fun setTheme(theme: ThemeMode) = launch { prefs.setTheme(theme) }
-    fun setLanguage(lang: com.bor_devs.shoplist.domain.Lang) = launch { prefs.setLanguage(lang) }
     fun setAppMode(mode: AppMode) = launch {
         // grid is shopping-only; fall back to compact in planning (mirrors web)
         if (mode == AppMode.PLANNING && settings.value.viewMode == ViewMode.GRID) prefs.setViewMode(ViewMode.COMPACT)
