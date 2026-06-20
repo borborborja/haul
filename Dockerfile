@@ -12,7 +12,7 @@ WORKDIR /src
 RUN apk add --no-cache build-base
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
-COPY backend/main.go ./
+COPY backend/*.go ./
 COPY backend/migrations ./migrations
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/shoplist .
 
