@@ -358,7 +358,7 @@ private fun ShoppingProgressHero(total: Int, checkedCount: Int, autoclean: Boole
     val percent = if (total == 0) 0 else (checkedCount * 100 / total)
     val remaining = total - checkedCount
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, shadowElevation = 3.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.fillMaxWidth()) {
+        Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
                     Canvas(Modifier.size(84.dp)) {

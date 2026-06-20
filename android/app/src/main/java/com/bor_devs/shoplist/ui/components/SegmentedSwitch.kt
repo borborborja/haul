@@ -40,7 +40,10 @@ fun <T> SegmentedIconSwitch(
     Row(
         modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            // Translucent overlay on the content color → a visibly contrasted track
+            // in both light and dark themes (plain surfaceVariant was nearly
+            // invisible against the top bar).
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             .padding(2.dp),
     ) {
         options.forEach { opt ->
