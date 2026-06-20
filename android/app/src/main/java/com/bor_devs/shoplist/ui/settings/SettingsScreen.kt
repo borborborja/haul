@@ -56,8 +56,6 @@ import androidx.compose.ui.unit.dp
 import com.bor_devs.shoplist.BuildConfig
 import com.bor_devs.shoplist.domain.ThemeMode
 import com.bor_devs.shoplist.domain.Lang
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import com.bor_devs.shoplist.ui.MainViewModel
 import com.bor_devs.shoplist.ui.components.AddCategoryDialog
 import com.bor_devs.shoplist.ui.components.CreateListDialog

@@ -30,7 +30,7 @@ Haul is one product across three clients sharing a single backend: a responsive 
 - **Multi-list** — keep separate lists, switch in a tap.
 - **Offline-first** — works without signal; changes sync when you reconnect.
 - **Views** — list, compact and grid; **auto-clean** of bought items.
-- **Light & Dark** themes, three languages (CA / ES / EN).
+- **Light & Dark** themes, **15 languages** (EN, ES, CA, ZH, HI, AR, PT, BN, RU, JA, DE, FR, KO, IT, TR).
 - **Android home-screen widgets**, including a Shop-mode widget.
 
 ### Get it
@@ -62,7 +62,7 @@ Haul és un sol producte amb tres clients que comparteixen un backend: una **app
 - **Múltiples llistes** — llistes separades, canvi amb un toc.
 - **Offline-first** — funciona sense cobertura; els canvis se sincronitzen en reconnectar.
 - **Vistes** — llista, compacta i graella; **autoneteja** dels productes comprats.
-- Temes **Clar i Fosc**, tres idiomes (CA / ES / EN).
+- Temes **Clar i Fosc**, **15 idiomes** (EN, ES, CA, ZH, HI, AR, PT, BN, RU, JA, DE, FR, KO, IT, TR).
 - **Widgets** per a la pantalla d'inici d'Android, inclòs un widget de mode compra.
 
 ### Com obtenir-lo
@@ -86,7 +86,7 @@ Haul es un único producto con tres clientes que comparten un backend: una **app
 - **Multilista** — listas separadas, cambio con un toque.
 - **Offline-first** — funciona sin cobertura; los cambios se sincronizan al reconectar.
 - **Vistas** — lista, compacta y cuadrícula; **autolimpieza** de lo comprado.
-- Temas **Claro y Oscuro**, tres idiomas (CA / ES / EN).
+- Temas **Claro y Oscuro**, **15 idiomas** (EN, ES, CA, ZH, HI, AR, PT, BN, RU, JA, DE, FR, KO, IT, TR).
 - **Widgets** para la pantalla de inicio de Android, incluido un widget de modo compra.
 
 ### Cómo obtenerlo
