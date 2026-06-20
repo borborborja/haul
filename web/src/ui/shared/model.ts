@@ -2,15 +2,17 @@
 // Pure-ish helpers so the mobile and desktop shells share identical logic.
 import { useMemo } from 'react';
 import { useShopStore } from '../../store/shopStore';
-import { translations } from '../../data/constants';
+import { tt } from '../../data/i18n';
 import type { ShopItem, Categories, Lang, LocalizedItem } from '../../types';
 import { catColor } from '../theme';
 
+// Catalog item names only carry es/ca/en; for other UI languages fall back to
+// English text (the catalog content itself isn't translated to all 15 langs).
 export const localized = (item: LocalizedItem | string, lang: Lang): string =>
-    typeof item === 'string' ? item : (item[lang] || item.es || item.ca || item.en || '');
+    typeof item === 'string' ? item : ((item as any)[lang] || item.en || item.es || item.ca || '');
 
 export const catLabel = (key: string, lang: Lang): string => {
-    const cats = (translations[lang] as any).cats as Record<string, string>;
+    const cats = tt(lang).cats as Record<string, string>;
     return cats[key] || key.charAt(0).toUpperCase() + key.slice(1);
 };
 
@@ -48,7 +50,7 @@ export function useHaulModel() {
     const activeListId = useShopStore((s) => s.activeListId);
     const listCaches = useShopStore((s) => s.listCaches);
 
-    const t = translations[lang];
+    const t = tt(lang);
 
     const inList = useMemo(() => items.filter((i) => i.inList !== false), [items]);
     const recent = useMemo(() => items.filter((i) => i.inList === false), [items]);

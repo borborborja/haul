@@ -29,7 +29,7 @@ export interface ShopItem {
 
 export type AppMode = 'planning' | 'shopping';
 export type ViewMode = 'list' | 'compact' | 'grid';
-export type Lang = 'ca' | 'es' | 'en';
+export type { Lang } from '../data/i18n';
 export type SettingsTab = 'account' | 'catalog' | 'other' | 'about';
 
 export interface AuthState {

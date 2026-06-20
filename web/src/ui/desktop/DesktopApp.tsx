@@ -93,8 +93,8 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
 
                 <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div style={{ display: 'flex', background: 'var(--seg)', borderRadius: 11, padding: 4, gap: 4 }}>
-                        {themeBtn('light', Sun, t.themeLight)}
-                        {themeBtn('dark', Moon, t.themeDark)}
+                        {themeBtn('light', Sun, t.light)}
+                        {themeBtn('dark', Moon, t.dark)}
                     </div>
                     <button onClick={openSettings} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 13, padding: '12px 13px', display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer', textAlign: 'left' }}>
                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', color: ACCENT_INK, fontWeight: 700, fontSize: 13 }}>
@@ -120,7 +120,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                         {sync.connected && <span style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT, animation: 'pulseDot 1.8s ease-in-out infinite' }} />}
                     </div>
                     <div style={{ display: 'flex', background: 'var(--seg)', borderRadius: 13, padding: 4, gap: 4 }}>
-                        {([['planning', t.modePlan], ['shopping', t.modeShop]] as const).map(([mode, label]) => {
+                        {([['planning', t.plan], ['shopping', t.shop]] as const).map(([mode, label]) => {
                             const on = appMode === mode;
                             return (
                                 <button key={mode} onClick={() => setAppMode(mode)}
@@ -184,7 +184,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                     {/* header + search */}
                                     <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--line)', flex: 'none' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                                            <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, letterSpacing: '-.01em', color: 'var(--text)' }}>Afegir productes</span>
+                                            <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, letterSpacing: '-.01em', color: 'var(--text)' }}>{t.addProducts}</span>
                                             <button onClick={() => { setCatalogOpen(false); setDraft(''); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)', display: 'flex', padding: 2 }}>
                                                 <X size={16} strokeWidth={2.2} />
                                             </button>
@@ -192,7 +192,7 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                         <div style={{ position: 'relative' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', border: `1.5px solid ${ACCENT}`, borderRadius: 11, height: 42, padding: '0 12px', gap: 8, boxShadow: '0 0 0 3px rgba(16,185,129,.10)' }}>
                                                 <Search size={15} color={ACCENT} strokeWidth={2} style={{ flex: 'none' }} />
-                                                <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} placeholder="Cerca…"
+                                                <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} placeholder={t.searchProduct}
                                                     style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 14, color: 'var(--text)', fontFamily: 'inherit', minWidth: 0 }} />
                                                 {showSuggestions && (
                                                     <button onClick={submit} style={{ flex: 'none', border: 'none', background: ACCENT, borderRadius: 7, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -266,13 +266,13 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                 </ProgressRing>
                             </div>
                             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '15px 18px', textAlign: 'center', marginBottom: 14 }}>
-                                <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>{m.total - m.done > 0 ? 'Queden' : 'Tot llest'}</div>
-                                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: ACCENT, marginTop: 2 }}>{m.total - m.done > 0 ? `${m.total - m.done} productes` : '🎉'}</div>
+                                <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>{m.total - m.done > 0 ? t.leftN.replace('{n}', String(m.total - m.done)) : t.allClear}</div>
+                                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: ACCENT, marginTop: 2 }}>{m.total - m.done > 0 ? `${Math.round(m.frac * 100)}%` : '🎉'}</div>
                             </div>
                             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '15px 16px', marginBottom: 14 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: ac.active ? 12 : 0 }}>
-                                    <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{t.autoCleanup}</span>
-                                    <button onClick={() => setAutoClearEnabled(!autoClearEnabled)} aria-label={t.autoCleanup} style={{ border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }}>
+                                    <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{t.autoclean}</span>
+                                    <button onClick={() => setAutoClearEnabled(!autoClearEnabled)} aria-label={t.autoclean} style={{ border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }}>
                                         <div style={{ width: 44, height: 26, borderRadius: 999, background: autoClearEnabled ? ACCENT : 'var(--seg)', position: 'relative', transition: 'background .2s' }}>
                                             <div style={{ position: 'absolute', top: 3, left: autoClearEnabled ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                                         </div>
@@ -281,14 +281,14 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                 {ac.active && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: alpha('#F5B700', 0.14), borderRadius: 11, padding: '10px 12px' }}>
                                         <Clock size={15} color="#C99700" strokeWidth={2.2} />
-                                        <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>Esborra els comprats en</span>
+                                        <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{t.autoclean}</span>
                                         <span style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: '#C99700', fontWeight: 500 }}>{ac.label}</span>
                                     </div>
                                 )}
                             </div>
                             {m.done > 0 && (
                                 <button onClick={clearCompleted} style={{ marginTop: 'auto', width: '100%', background: 'transparent', border: `1px solid ${alpha(DANGER, 0.3)}`, borderRadius: 13, padding: 12, fontWeight: 700, fontSize: 13, color: DANGER, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                                    <Trash2 size={14} strokeWidth={2.2} />{t.clearComp} {t.completed.toLowerCase()}
+                                    <Trash2 size={14} strokeWidth={2.2} />{t.clear} {t.completed.toLowerCase()}
                                 </button>
                             )}
                         </div>
@@ -297,8 +297,8 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                             {m.total > 0 && m.done === m.total && (
                                 <div style={{ textAlign: 'center', padding: '80px 20px' }}>
                                     <div style={{ fontSize: 64, marginBottom: 14 }}>🎉</div>
-                                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: 'var(--text)', letterSpacing: '-.02em' }}>Compra completada!</div>
-                                    <div style={{ fontSize: 15, color: 'var(--muted)', marginTop: 8 }}>Tot a la cistella. Bona feina.</div>
+                                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: 'var(--text)', letterSpacing: '-.02em' }}>{t.allDoneTitle}</div>
+                                    <div style={{ fontSize: 15, color: 'var(--muted)', marginTop: 8 }}>{t.allDoneSub}</div>
                                 </div>
                             )}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
