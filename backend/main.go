@@ -24,6 +24,10 @@ import (
 
 const inviteAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
+// defaultAdminEmail is the instance-admin identity used when the admin is
+// configured from the environment (ADMIN_PASSWORD) with password-only login.
+const defaultAdminEmail = "admin@haul.local"
+
 func main() {
 	app := pocketbase.New()
 
@@ -35,6 +39,7 @@ func main() {
 	configureSettings(app)
 	protectAccountTypes(app)
 	purgeOrphanGuests(app)
+	syncEnvAdmin(app)
 	registerRoutes(app, publicDir)
 
 	if err := app.Start(); err != nil {
@@ -134,7 +139,53 @@ func setupStatus(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
-	return e.JSON(http.StatusOK, map[string]bool{"needsSetup": total == 0})
+	// When ADMIN_PASSWORD is configured the instance admin comes from the
+	// environment (password-only login), so the web wizard is skipped and the
+	// admin email is published for the login form to authenticate against.
+	return e.JSON(http.StatusOK, map[string]any{
+		"needsSetup": total == 0,
+		"envAdmin":   os.Getenv("ADMIN_PASSWORD") != "",
+		"adminEmail": envOr("ADMIN_EMAIL", defaultAdminEmail),
+	})
+}
+
+// syncEnvAdmin upserts the instance-admin superuser from ADMIN_PASSWORD /
+// ADMIN_EMAIL on every boot, so the environment is the source of truth and
+// editing .env + restarting resets or rotates the admin password. It is a
+// no-op when ADMIN_PASSWORD is unset (the first-run web wizard is used instead).
+func syncEnvAdmin(app core.App) {
+	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
+		if err := e.Next(); err != nil {
+			return err
+		}
+
+		password := os.Getenv("ADMIN_PASSWORD")
+		if password == "" {
+			return nil
+		}
+		if len(password) < 8 {
+			log.Printf("env admin: ADMIN_PASSWORD must be at least 8 characters; skipping admin sync")
+			return nil
+		}
+		email := envOr("ADMIN_EMAIL", defaultAdminEmail)
+
+		record, _ := e.App.FindAuthRecordByEmail(core.CollectionNameSuperusers, email)
+		if record == nil {
+			superusers, err := e.App.FindCollectionByNameOrId(core.CollectionNameSuperusers)
+			if err != nil {
+				log.Printf("env admin: could not load superusers collection: %v", err)
+				return nil
+			}
+			record = core.NewRecord(superusers)
+			record.SetEmail(email)
+		}
+		record.SetPassword(password)
+		if err := e.App.Save(record); err != nil {
+			log.Printf("env admin: could not save admin %q: %v", email, err)
+			return nil
+		}
+		return nil
+	})
 }
 
 // runSetup performs the first-run wizard: it creates the initial superuser and

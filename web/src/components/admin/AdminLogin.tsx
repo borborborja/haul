@@ -6,9 +6,11 @@ import { palette, cssVars, FONT_SANS, FONT_DISPLAY, FONT_MONO, ACCENT, ACCENT_IN
 
 interface AdminLoginProps {
     onLogin: () => void;
+    envAdmin?: boolean;
+    adminEmail?: string;
 }
 
-const AdminLogin = ({ onLogin }: AdminLoginProps) => {
+const AdminLogin = ({ onLogin, envAdmin = false, adminEmail = '' }: AdminLoginProps) => {
     const isDark = useShopStore((s) => s.isDark);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -20,11 +22,13 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
         setLoading(true);
         setError('');
         try {
-            await pb.collection('_superusers').authWithPassword(email, password);
+            // In env-admin mode the identity is the configured admin email and the
+            // login is password-only; otherwise the admin types both fields.
+            await pb.collection('_superusers').authWithPassword(envAdmin ? adminEmail : email, password);
             onLogin();
         } catch (loginError) {
             console.error('Admin login error:', loginError);
-            setError('Correu o contrasenya incorrectes');
+            setError(envAdmin ? 'Contrasenya incorrecta' : 'Correu o contrasenya incorrectes');
         } finally {
             setLoading(false);
         }
@@ -45,9 +49,11 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={ACCENT_INK} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
                     </div>
                     <h1 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, letterSpacing: '-.02em', color: 'var(--text)', margin: '0 0 6px' }}>Administració</h1>
-                    <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: '0 0 24px', lineHeight: 1.5 }}>Accés restringit. Entra amb el teu compte d'administrador.</p>
-                    <div style={label}>Correu</div>
-                    <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@haul.app" style={{ ...input, marginBottom: 13 }} />
+                    <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: '0 0 24px', lineHeight: 1.5 }}>{envAdmin ? "Accés restringit. Introdueix la contrasenya d'administració." : "Accés restringit. Entra amb el teu compte d'administrador."}</p>
+                    {!envAdmin && <>
+                        <div style={label}>Correu</div>
+                        <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@haul.app" style={{ ...input, marginBottom: 13 }} />
+                    </>}
                     <div style={label}>Contrasenya</div>
                     <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ ...input, marginBottom: error ? 12 : 22 }} />
                     {error && <p role="alert" style={{ color: '#EF4444', fontSize: 13, margin: '0 0 16px' }}>{error}</p>}

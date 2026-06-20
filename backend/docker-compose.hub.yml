@@ -21,6 +21,9 @@ services:
     volumes:
       - pb_data:/pb_data
     environment:
+      # Instance admin (password-only login when ADMIN_PASSWORD is set)
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # SMTP Configuration (optional, for email verification)
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       - SMTP_HOST=${SMTP_HOST:-}
