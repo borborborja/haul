@@ -45,6 +45,9 @@ class MainViewModel @Inject constructor(
     val activeUsers = repo.activeUsers
     val serverName = repo.serverName
     val enableUsernames = repo.enableUsernames
+    val requireAccount = repo.requireAccount
+    val registrationOpen = repo.registrationOpen
+    val hasServer: Boolean get() = repo.hasServer
 
     /** A sync code received from a deep link, surfaced to open the join flow. */
     val pendingJoinCode = MutableStateFlow<String?>(null)
@@ -119,6 +122,7 @@ class MainViewModel @Inject constructor(
     // ---- Auth ----
     suspend fun claimAccount(email: String, password: String) = repo.claimAccount(email, password)
     suspend fun login(email: String, password: String) = repo.login(email, password)
+    suspend fun register(email: String, password: String) = repo.register(email, password)
     suspend fun recoverLists() = repo.recoverLists()
     fun logout(keepLocal: Boolean) = repo.logout(keepLocal)
     fun setUsername(name: String) = repo.setUsername(name)

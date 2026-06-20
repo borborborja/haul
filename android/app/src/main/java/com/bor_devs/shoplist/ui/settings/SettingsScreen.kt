@@ -117,7 +117,20 @@ private fun AccountTab(vm: MainViewModel) {
     var showCreate by remember { mutableStateOf(false) }
     var showJoin by remember { mutableStateOf(false) }
     var pendingJoin by remember { mutableStateOf<ShopRepository.JoinInfo?>(null) }
+    val registrationOpen by vm.registrationOpen.collectAsState()
+    val hasServer = settings.serverUrl.isNotBlank()
+    var serverUrlInput by remember(settings.serverUrl) { mutableStateOf(settings.serverUrl) }
 
+    Section(t.server) {
+        OutlinedTextField(value = serverUrlInput, onValueChange = { serverUrlInput = it }, label = { Text(t.serverUrl) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { scope.launch { toast(context, if (vm.testServer(serverUrlInput.trim())) "OK" else "Error") } }) { Text(t.testConnection) }
+            Button(onClick = { vm.applyServer(serverUrlInput.trim()); toast(context, "OK") }) { Text(t.save) }
+        }
+        Text(if (settings.serverUrl.isBlank()) t.localMode else settings.serverUrl, style = MaterialTheme.typography.bodySmall)
+    }
+
+    if (hasServer) {
     Section(t.sync) {
         if (sync.connected) {
             Text("${t.connected}: ${sync.code ?: "-"}", fontWeight = FontWeight.Bold)
@@ -143,6 +156,7 @@ private fun AccountTab(vm: MainViewModel) {
             }
         }
     }
+    } // end if (hasServer)
 
     Section(t.tabAccount) {
         if (settings.auth.isLoggedIn) {
@@ -153,6 +167,7 @@ private fun AccountTab(vm: MainViewModel) {
             }
         } else {
             AuthForm(
+                registrationOpen = registrationOpen,
                 onClaim = { e, p -> scope.launch { toast(context, if (vm.claimAccount(e, p)) "OK" else "Error") } },
                 onLogin = { e, p -> scope.launch { toast(context, if (vm.login(e, p)) "OK" else "Error") } },
             )
@@ -181,14 +196,14 @@ private fun AccountTab(vm: MainViewModel) {
 }
 
 @Composable
-private fun AuthForm(onClaim: (String, String) -> Unit, onLogin: (String, String) -> Unit) {
+private fun AuthForm(registrationOpen: Boolean, onClaim: (String, String) -> Unit, onLogin: (String, String) -> Unit) {
     val t = LocalStrings.current
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(t.email) }, singleLine = true, modifier = Modifier.fillMaxWidth())
     OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text(t.password) }, singleLine = true, modifier = Modifier.fillMaxWidth())
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { if (email.isNotBlank() && password.isNotBlank()) onClaim(email.trim(), password) }) { Text(t.claimAccount) }
+        if (registrationOpen) Button(onClick = { if (email.isNotBlank() && password.isNotBlank()) onClaim(email.trim(), password) }) { Text(t.claimAccount) }
         OutlinedButton(onClick = { if (email.isNotBlank() && password.isNotBlank()) onLogin(email.trim(), password) }) { Text(t.login) }
     }
 }
@@ -309,15 +324,6 @@ private fun OtherTab(vm: MainViewModel) {
     Section(t.alerts) {
         ToggleRow(t.notifyAdd, settings.notifyOnAdd) { v -> if (v) requestNotifPerm(); vm.setNotifyOnAdd(v) }
         ToggleRow(t.notifyCheck, settings.notifyOnCheck) { v -> if (v) requestNotifPerm(); vm.setNotifyOnCheck(v) }
-    }
-    Section(t.server) {
-        var url by remember(settings.serverUrl) { mutableStateOf(settings.serverUrl) }
-        OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text(t.serverUrl) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { scope.launch { toast(context, if (vm.testServer(url.trim())) "OK" else "Error") } }) { Text(t.testConnection) }
-            Button(onClick = { vm.applyServer(url.trim()); toast(context, "OK") }) { Text(t.save) }
-        }
-        Text(if (settings.serverUrl.isBlank()) t.localMode else settings.serverUrl, style = MaterialTheme.typography.bodySmall)
     }
     Section("Backup") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

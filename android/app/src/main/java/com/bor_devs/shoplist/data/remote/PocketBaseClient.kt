@@ -67,6 +67,15 @@ class PocketBaseClient @Inject constructor(
             put("identity", identity); put("password", password)
         }, auth = false))
 
+    // Create a real account directly (used by the require_account wall) then sign in.
+    suspend fun register(email: String, password: String): AuthResponse {
+        request("POST", "/api/collections/users/records", buildJsonObject {
+            put("email", email); put("password", password); put("passwordConfirm", password)
+            put("account_type", "account"); put("display_name", email.substringBefore("@"))
+        }, auth = false)
+        return authWithPassword(email, password)
+    }
+
     suspend fun claimAccount(email: String, password: String): AuthResponse =
         decode(request("POST", "/api/shoplist/account/claim", buildJsonObject {
             put("email", email); put("password", password)

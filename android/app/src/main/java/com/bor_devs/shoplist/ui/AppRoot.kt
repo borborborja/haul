@@ -27,6 +27,8 @@ import kotlinx.coroutines.launch
 fun AppRoot(vm: MainViewModel) {
     val settings by vm.settings.collectAsState()
     val pendingCode by vm.pendingJoinCode.collectAsState()
+    val requireAccount by vm.requireAccount.collectAsState()
+    val registrationOpen by vm.registrationOpen.collectAsState()
     val scope = rememberCoroutineScope()
 
     var showSettings by remember { mutableStateOf(false) }
@@ -45,8 +47,10 @@ fun AppRoot(vm: MainViewModel) {
     ShoppingListTheme(themeMode = settings.theme) {
         CompositionLocalProvider(LocalStrings provides stringsFor(systemLang())) {
             Surface(modifier = Modifier.fillMaxSize()) {
+                val needsAccount = requireAccount && settings.serverUrl.isNotBlank() && !settings.auth.isLoggedIn
                 when {
                     !settings.wizardDone -> ServerWizardScreen(vm) {}
+                    needsAccount -> AuthGateScreen(vm, registrationOpen)
                     showSettings -> SettingsScreen(vm) { showSettings = false }
                     else -> MainScreen(vm) { showSettings = true }
                 }

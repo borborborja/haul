@@ -109,6 +109,11 @@ class ShopRepository @Inject constructor(
 
     val serverName = MutableStateFlow("ShoppingList")
     val enableUsernames = MutableStateFlow(false)
+    val requireAccount = MutableStateFlow(false)
+    val registrationOpen = MutableStateFlow(true)
+
+    /** True when a server is configured (not local mode). */
+    val hasServer: Boolean get() = pb.hasServer
 
     // ---- Multi-list ("Les meves llistes") ----
     val lists: StateFlow<List<SavedList>> =
@@ -264,8 +269,16 @@ class ShopRepository @Inject constructor(
             val cfg = pb.getAppConfig()
             cfg.firstOrNull { it.key == "server_name" }?.value?.let { serverName.value = it.jsonPrimitive.content }
             cfg.firstOrNull { it.key == "enable_usernames" }?.value?.let { enableUsernames.value = parseBoolConfig(it) }
+            requireAccount.value = cfg.firstOrNull { it.key == "require_account" }?.value?.let { parseBoolConfig(it) } ?: false
+            registrationOpen.value = cfg.firstOrNull { it.key == "registration_open" }?.value?.let { parseBoolConfig(it) } ?: true
         }
     }
+
+    /** Register a new account directly (the require_account wall). */
+    suspend fun register(email: String, password: String): Boolean = runCatching {
+        val auth = pb.register(email, password)
+        pb.setToken(auth.token); sessionUserId = auth.record.id; persistAuth(auth); true
+    }.getOrDefault(false)
 
     // ---- Item actions (ported from shopStore.ts) ----
 

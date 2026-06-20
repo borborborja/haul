@@ -24,6 +24,12 @@ services:
       # Instance admin (password-only login when ADMIN_PASSWORD is set)
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Instance config (prevails over admin panel + locks the field when set)
+      - SERVER_NAME=${SERVER_NAME:-}
+      - ENABLE_WEB_APP=${ENABLE_WEB_APP:-}
+      - ENABLE_USERNAMES=${ENABLE_USERNAMES:-}
+      - REQUIRE_ACCOUNT=${REQUIRE_ACCOUNT:-}
+      - REGISTRATION_OPEN=${REGISTRATION_OPEN:-}
       # SMTP Configuration (optional, for email verification)
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       - SMTP_HOST=${SMTP_HOST:-}

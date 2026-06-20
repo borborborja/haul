@@ -125,6 +125,7 @@ data class Strings(
     val catalogServer: String = "Server catalog",
     val catalogLocal: String = "Local catalog",
     val tapHint: String = "Tap a product to deactivate it for this list",
+    val accountRequired: String = "Sign in to continue",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -143,6 +144,7 @@ private val ES = Strings(
     tabAccount = "Cuenta", tabCatalog = "Catálogo", tabOther = "Otros", tabAbout = "Sobre",
     updateAvailable = "Actualización disponible", updateNow = "Actualizar", whatsNew = "Novedades", downloading = "Descargando…",
     manageList = "Lista que gestionas", catalogServer = "Catálogo del servidor", catalogLocal = "Catálogo local", tapHint = "Toca un producto para desactivarlo en esta lista",
+    accountRequired = "Inicia sesión para continuar",
     email = "Email", password = "Contraseña", passwordConfirm = "Confirmar Contraseña", login = "Entrar",
     register = "Registrar", loggedAs = "Conectado como", newCategory = "Nueva Categoría", categoryName = "Nombre",
     categoryIcon = "Emoji", deleteCategory = "Eliminar Categoría", syncMergeTitle = "Lista encontrada",
@@ -183,6 +185,7 @@ private val CA = Strings(
     tabAccount = "Compte", tabCatalog = "Catàleg", tabOther = "Altres", tabAbout = "Sobre",
     updateAvailable = "Actualització disponible", updateNow = "Actualitzar", whatsNew = "Novetats", downloading = "Descarregant…",
     manageList = "Llista que gestiones", catalogServer = "Catàleg del servidor", catalogLocal = "Catàleg local", tapHint = "Toca un producte per desactivar-lo en aquesta llista",
+    accountRequired = "Inicia sessió per continuar",
     email = "Email", password = "Contrasenya", passwordConfirm = "Confirmar Contrasenya", login = "Entrar",
     register = "Registrar", loggedAs = "Connectat com", newCategory = "Nova Categoria", categoryName = "Nom",
     categoryIcon = "Emoji", deleteCategory = "Eliminar Categoria", syncMergeTitle = "Llista trobada",
