@@ -317,3 +317,10 @@ export const ui: Record<Lang, UIDict> = Object.fromEntries(
 ) as Record<Lang, UIDict>;
 
 export const tt = (lang: Lang): UIDict => ui[lang] || en;
+
+// Map a browser/OS locale (e.g. "es-ES", "zh-CN", "pt-BR") to a supported Lang,
+// else English. Used to auto-pick the language (no in-app selector).
+export function detectLang(locale: string | undefined | null): Lang {
+    const base = (locale || 'en').toLowerCase().split('-')[0];
+    return (LANG_CODES as string[]).includes(base) ? (base as Lang) : 'en';
+}

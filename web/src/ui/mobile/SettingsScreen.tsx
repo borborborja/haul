@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, X, Check } from 'lucide-react';
+import { ChevronLeft, Plus, X, Download, Upload, RotateCcw } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized, catLabel } from '../shared/model';
 import { useAccountSync } from '../shared/useAccountSync';
-import { LANGS } from '../../data/i18n';
-import type { Lang, LocalizedItem } from '../../types';
+import { useSettingsExtras } from '../shared/useSettingsExtras';
+import type { LocalizedItem } from '../../types';
 import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } from '../theme';
 
 type Tab = 'account' | 'catalog' | 'other' | 'about';
@@ -14,13 +14,15 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
     const m = useHaulModel();
     const t = m.t;
     const {
-        theme, lang, setTheme, setLang, auth, sync, serverUrl,
+        theme, lang, setTheme, auth, sync, serverUrl,
         showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategory, addCategoryItem, removeCategoryItem,
     } = useShopStore();
     const acc = useAccountSync();
+    const extras = useSettingsExtras();
 
+    const [serverInput, setServerInput] = useState(extras.serverUrl || '');
     const [tab, setTab] = useState<Tab>('account');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -176,20 +178,6 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                             </button>
                         </div>
 
-                        <div style={{ ...monoLabel, marginBottom: 11 }}>{t.language}</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 24 }}>
-                            {LANGS.map((l) => {
-                                const on = lang === l.code;
-                                return (
-                                    <button key={l.code} onClick={() => setLang(l.code as Lang)} style={{ cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 9, padding: '11px 12px', borderRadius: 12, border: `1px solid ${on ? ACCENT : 'var(--line)'}`, background: on ? alpha(ACCENT, 0.10) : 'var(--surface)', fontFamily: 'inherit' }}>
-                                        <span style={{ fontSize: 17 }}>{l.flag}</span>
-                                        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{l.label}</span>
-                                        {on && <Check size={14} color={ACCENT} strokeWidth={2.8} />}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.viewOptions}</div>
                         <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--line)', marginBottom: 24 }}>
                             <Row label={t.completedInline} on={showCompletedInline} onClick={() => setShowCompletedInline(!showCompletedInline)} />
@@ -203,9 +191,15 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                         </div>
 
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.server}</div>
-                        <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '14px 15px' }}>
-                            <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>{serverUrl || (typeof window !== 'undefined' ? window.location.origin : t.localMode)}</div>
+                        <input value={serverInput} onChange={(e) => setServerInput(e.target.value)} placeholder={serverUrl || t.localMode} style={{ ...inputStyle, marginBottom: 9 }} />
+                        <button onClick={() => extras.testAndSave(serverInput)} style={{ ...greenBtn, width: '100%', marginBottom: 24 }}>{t.save}{extras.status === 'ok' ? ' ✓' : extras.status === 'error' ? ' ✕' : ''}</button>
+
+                        <div style={{ ...monoLabel, marginBottom: 11 }}>{t.about}</div>
+                        <div style={{ display: 'flex', gap: 9, marginBottom: 9 }}>
+                            <button onClick={extras.exportJson} style={{ ...ghostBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><Download size={15} />JSON</button>
+                            <button onClick={extras.importJson} style={{ ...ghostBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><Upload size={15} />JSON</button>
                         </div>
+                        <button onClick={extras.reset} style={{ width: '100%', background: 'transparent', border: `1px solid ${alpha(DANGER, 0.3)}`, borderRadius: 13, padding: 12, fontWeight: 600, fontSize: 14, color: DANGER, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}><RotateCcw size={15} />Reset</button>
                     </>
                 )}
 

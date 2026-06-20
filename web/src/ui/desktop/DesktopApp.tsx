@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, Plus, Trash2, Check, Sun, Moon, Settings, RotateCcw, Clock, X } from 'lucide-react';
+import { Search, Plus, Trash2, Check, Sun, Moon, Settings, RotateCcw, Clock, X, List, AlignJustify, LayoutGrid } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
+import DesktopSettings from './DesktopSettings';
 import { useHaulModel, localized } from '../shared/model';
 import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
@@ -9,13 +10,14 @@ import {
     ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor, segActive, colorBar,
 } from '../theme';
 
-export default function DesktopApp({ openSettings }: { openSettings: () => void }) {
+export default function DesktopApp(_props: { openSettings: () => void }) {
     const m = useHaulModel();
     const {
-        appMode, listName, sync, isDark, auth, autoClearEnabled,
+        appMode, listName, sync, isDark, auth, autoClearEnabled, viewMode,
         setAppMode, addItem, removeFromList, toggleCheck, clearCompleted,
-        switchList, createList, setTheme, setAutoClearEnabled, addBackToList,
+        switchList, createList, setTheme, setAutoClearEnabled, addBackToList, setViewMode,
     } = useShopStore();
+    const [screen, setScreen] = useState<'app' | 'settings'>('app');
     const [draft, setDraft] = useState('');
     const [catalogOpen, setCatalogOpen] = useState(false);
     const [activeBand, setActiveBand] = useState<string>(m.bands[0]?.key || 'fruit');
@@ -96,23 +98,27 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                         {themeBtn('light', Sun, t.light)}
                         {themeBtn('dark', Moon, t.dark)}
                     </div>
-                    <button onClick={openSettings} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 13, padding: '12px 13px', display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer', textAlign: 'left' }}>
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 13, padding: '12px 13px', display: 'flex', alignItems: 'center', gap: 11 }}>
                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', color: ACCENT_INK, fontWeight: 700, fontSize: 13 }}>
                             {(auth.username || 'H').charAt(0).toUpperCase()}
                         </div>
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)' }}>{auth.username || 'Haul'}</div>
-                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{sync.connected && sync.code ? `${t.sync} · ${sync.code}` : t.settings}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--muted)' }}>
+                                {sync.connected && <span style={{ width: 7, height: 7, borderRadius: '50%', background: ACCENT, animation: 'pulseDot 1.8s ease-in-out infinite', flex: 'none' }} />}
+                                {sync.connected && sync.code ? `${t.connected} · ${sync.code}` : t.settings}
+                            </div>
                         </div>
-                        {sync.connected
-                            ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT, animation: 'pulseDot 1.8s ease-in-out infinite' }} />
-                            : <Settings size={15} color="var(--muted)" />}
-                    </button>
+                        <button onClick={() => setScreen('settings')} aria-label={t.settings} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                            <Settings size={17} color="var(--muted)" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* MAIN */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              {screen === 'settings' ? <DesktopSettings onClose={() => setScreen('app')} /> : (<>
                 {/* topbar: title + sync dot + Plan/Shop (search moved into catalog panel) */}
                 <div style={{ padding: '22px 32px 18px', display: 'flex', alignItems: 'center', gap: 20, borderBottom: '1px solid var(--line)', flex: 'none' }}>
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -292,8 +298,17 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                 </button>
                             )}
                         </div>
-                        {/* items grid */}
-                        <div style={{ flex: 1, padding: '30px 32px', overflow: 'auto' }}>
+                        {/* items area: header + view selector + grid/list/compact */}
+                        <div style={{ flex: 1, padding: '24px 32px 30px', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flex: 'none' }}>
+                                <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>{t.shop} · {m.pending.length}</span>
+                                <div style={{ display: 'flex', background: 'var(--seg)', borderRadius: 11, padding: 3, gap: 3 }}>
+                                    {([['list', List], ['compact', AlignJustify], ['grid', LayoutGrid]] as const).map(([v, Icon]) => {
+                                        const on = viewMode === v;
+                                        return <button key={v} onClick={() => setViewMode(v)} aria-label={v} style={{ border: 'none', cursor: 'pointer', borderRadius: 8, padding: '7px 10px', display: 'flex', background: on ? 'var(--surface)' : 'transparent', boxShadow: on ? '0 1px 3px rgba(0,0,0,.12)' : 'none' }}><Icon size={16} color={on ? ACCENT : 'var(--muted)'} strokeWidth={2.2} /></button>;
+                                    })}
+                                </div>
+                            </div>
                             {m.total > 0 && m.done === m.total && (
                                 <div style={{ textAlign: 'center', padding: '80px 20px' }}>
                                     <div style={{ fontSize: 64, marginBottom: 14 }}>🎉</div>
@@ -301,29 +316,47 @@ export default function DesktopApp({ openSettings }: { openSettings: () => void 
                                     <div style={{ fontSize: 15, color: 'var(--muted)', marginTop: 8 }}>{t.allDoneSub}</div>
                                 </div>
                             )}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-                                {m.pending.map((it) => (
-                                    <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface)', borderRadius: 18, padding: 18, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', height: 148, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                                        <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
-                                        <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.4px solid var(--muted)' }} />
-                                        <div>
-                                            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{it.name}</div>
-                                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{m.groups.find((g) => g.key === it.category)?.label || it.category}</div>
-                                        </div>
-                                    </button>
-                                ))}
-                                {m.completed.map((it) => (
-                                    <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface2)', borderRadius: 18, padding: 18, position: 'relative', overflow: 'hidden', height: 148, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', opacity: 0.58, border: 'none' }}>
-                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Check size={15} color="#fff" strokeWidth={3.4} />
-                                        </div>
-                                        <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
-                                    </button>
-                                ))}
-                            </div>
+                            {viewMode === 'grid' ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
+                                    {m.pending.map((it) => (
+                                        <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface)', borderRadius: 18, padding: 18, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', height: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                            <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}><div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.4px solid var(--muted)' }} /></div>
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{it.name}</div>
+                                                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{m.groups.find((g) => g.key === it.category)?.label || it.category}</div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {m.completed.map((it) => (
+                                        <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface2)', borderRadius: 18, padding: 18, position: 'relative', overflow: 'hidden', height: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', opacity: 0.58, border: 'none' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}><div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={15} color="#fff" strokeWidth={3.4} /></div></div>
+                                            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxWidth: 760 }}>
+                                    {m.pending.map((it) => (
+                                        <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface)', borderRadius: viewMode === 'compact' ? 13 : 17, padding: viewMode === 'compact' ? '11px 14px' : '15px 16px', border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 14 }}>
+                                            <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
+                                            <div style={{ width: 26, height: 26, borderRadius: '50%', border: '2.4px solid var(--muted)', flex: 'none' }} />
+                                            <div style={{ flex: 1, fontWeight: 600, fontSize: viewMode === 'compact' ? 14 : 15.5, color: 'var(--text)' }}>{it.name}</div>
+                                            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'var(--muted)' }}>{m.groups.find((g) => g.key === it.category)?.label || it.category}</span>
+                                        </button>
+                                    ))}
+                                    {m.completed.map((it) => (
+                                        <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface2)', borderRadius: viewMode === 'compact' ? 13 : 17, padding: viewMode === 'compact' ? '11px 14px' : '15px 16px', border: 'none', display: 'flex', alignItems: 'center', gap: 14, opacity: 0.6 }}>
+                                            <div style={{ width: 26, height: 26, borderRadius: '50%', background: ACCENT, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={14} color="#fff" strokeWidth={3.4} /></div>
+                                            <div style={{ flex: 1, fontWeight: 600, fontSize: 15.5, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
+              </>)}
             </div>
         </div>
     );

@@ -3,6 +3,7 @@ import { useShopStore } from './store/shopStore';
 import { Capacitor } from '@capacitor/core';
 import HaulApp from './ui/HaulApp';
 import SettingsModal from './components/modals/SettingsModal';
+import { detectLang } from './data/i18n';
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 
 import { useGuestAuth } from './hooks/useGuestAuth';
@@ -24,6 +25,11 @@ function App() {
   const { refreshList } = useListSync();
   usePresence(ensureGuestAuth);
   useStatusBarSync();
+
+  // Language follows the browser locale (no in-app selector); all 15 supported.
+  useEffect(() => {
+    useShopStore.getState().setLang(detectLang(navigator.language));
+  }, []);
 
   // --- Route Handlers ---
   useEffect(() => {
