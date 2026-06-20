@@ -19,12 +19,14 @@ type TabKey = 'lists' | 'users' | 'categories' | 'products' | 'suggestions' | 's
 
 const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const [activeTab, setActiveTab] = useState<TabKey>('lists');
-    const { isDark, lang, setLang, enableUsernames, serverName } = useShopStore();
+    const [focusListId, setFocusListId] = useState<string | null>(null);
+    const { isDark, lang, setLang, serverName } = useShopStore();
     const t = translations[lang] as any;
+    const openList = (id: string) => { setFocusListId(id); setActiveTab('lists'); };
 
     const tabs: { key: TabKey; label: string }[] = [
         { key: 'lists', label: t.tabLists },
-        ...(enableUsernames ? [{ key: 'users' as TabKey, label: t.tabUsers }] : []),
+        { key: 'users', label: t.tabUsers },
         { key: 'categories', label: t.tabCategories },
         { key: 'products', label: t.tabProducts },
         { key: 'suggestions', label: t.tabSuggestions || 'Suggeriments' },
@@ -64,8 +66,8 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
             <div style={{ flex: 1, overflowY: 'auto', padding: '30px 36px', background: 'var(--bg)' }}>
                 <div style={{ maxWidth: 1080, margin: '0 auto' }}>
                     <AdminUpdateBanner />
-                    {activeTab === 'lists' && <ListsManager />}
-                    {activeTab === 'users' && <UsersManager />}
+                    {activeTab === 'lists' && <ListsManager focusListId={focusListId} />}
+                    {activeTab === 'users' && <UsersManager onOpenList={openList} />}
                     {activeTab === 'categories' && <CategoryManager />}
                     {activeTab === 'products' && <ProductManager />}
                     {activeTab === 'suggestions' && <UserSuggestionsManager />}

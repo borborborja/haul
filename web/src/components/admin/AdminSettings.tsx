@@ -28,6 +28,10 @@ const AdminSettings = () => {
     const [serverName, setServerNameState] = useState('');
     const [enableUsernames, setEnableUsernamesState] = useState(false);
     const [enableWebApp, setEnableWebAppState] = useState(true);
+    const [requireAccount, setRequireAccountState] = useState(false);
+    const [registrationOpen, setRegistrationOpenState] = useState(true);
+    const [lockedKeys, setLockedKeys] = useState<string[]>([]);
+    const locked = (key: string) => lockedKeys.includes(key);
     const [srvLoading, setSrvLoading] = useState(false);
     const [srvStatus, setSrvStatus] = useState({ msg: '', type: '' });
 
@@ -106,6 +110,16 @@ const AdminSettings = () => {
 
                 const webAppRecord = config.find(c => c.key === 'enable_web_app');
                 if (webAppRecord) setEnableWebAppState(isConfigEnabled(webAppRecord.value, true));
+
+                const reqRecord = config.find(c => c.key === 'require_account');
+                setRequireAccountState(reqRecord ? isConfigEnabled(reqRecord.value, false) : false);
+                const regRecord = config.find(c => c.key === 'registration_open');
+                setRegistrationOpenState(regRecord ? isConfigEnabled(regRecord.value, true) : true);
+
+                try {
+                    const s = await pb.send('/api/shoplist/setup', { method: 'GET', cache: 'no-store' });
+                    setLockedKeys((s as any)?.lockedKeys || []);
+                } catch { /* ignore */ }
             } catch (e) {
                 console.error(e);
             }
@@ -119,25 +133,19 @@ const AdminSettings = () => {
         setSrvStatus({ msg: '', type: '' });
         try {
             const config = await pb.collection('app_config').getFullList();
+            // Upsert a key unless it's locked by an env var (.env prevails).
+            const upsert = async (key: string, value: string) => {
+                if (locked(key)) return;
+                const rec = config.find(c => c.key === key);
+                if (rec) await pb.collection('app_config').update(rec.id, { value });
+                else await pb.collection('app_config').create({ key, value });
+            };
 
-            const srvRecord = config.find(c => c.key === 'server_name');
-            if (srvRecord) await pb.collection('app_config').update(srvRecord.id, { value: serverName });
-
-            const userToggleRecord = config.find(c => c.key === 'enable_usernames');
-            const toggleVal = enableUsernames ? 'true' : 'false';
-            if (userToggleRecord) {
-                await pb.collection('app_config').update(userToggleRecord.id, { value: toggleVal });
-            } else {
-                await pb.collection('app_config').create({ key: 'enable_usernames', value: toggleVal });
-            }
-
-            const webAppRecord = config.find(c => c.key === 'enable_web_app');
-            const webAppVal = enableWebApp ? 'true' : 'false';
-            if (webAppRecord) {
-                await pb.collection('app_config').update(webAppRecord.id, { value: webAppVal });
-            } else {
-                await pb.collection('app_config').create({ key: 'enable_web_app', value: webAppVal });
-            }
+            await upsert('server_name', serverName);
+            await upsert('enable_usernames', enableUsernames ? 'true' : 'false');
+            await upsert('enable_web_app', enableWebApp ? 'true' : 'false');
+            await upsert('require_account', requireAccount ? 'true' : 'false');
+            await upsert('registration_open', registrationOpen ? 'true' : 'false');
 
             useShopStore.getState().setServerName(serverName);
             useShopStore.getState().setEnableUsernames(enableUsernames);
@@ -501,6 +509,38 @@ const AdminSettings = () => {
                             <p className="text-[10px] text-amber-700 dark:text-amber-300">
                                 ⚠️ Función experimental. Permite que los usuarios elijan un nombre para mostrar quién está conectado a la lista. Puede ser inestable.
                             </p>
+                        </div>
+
+                        {/* Require account */}
+                        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Shield size={16} className="text-blue-600 dark:text-blue-400" />
+                                    <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">Obligar cuenta</h4>
+                                    {locked('require_account') && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-400 text-white rounded">🔒 .env</span>}
+                                </div>
+                                <button type="button" disabled={locked('require_account')} onClick={() => setRequireAccountState(!requireAccount)}
+                                    className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${requireAccount ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'} ${locked('require_account') ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    <div className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${requireAccount ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-blue-700 dark:text-blue-300">🔐 Si se activa, la app exige iniciar sesión o registrarse (sin modo invitado).</p>
+                        </div>
+
+                        {/* Registration open */}
+                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Users size={16} className="text-slate-600 dark:text-slate-400" />
+                                    <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">Registro abierto</h4>
+                                    {locked('registration_open') && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-400 text-white rounded">🔒 .env</span>}
+                                </div>
+                                <button type="button" disabled={locked('registration_open')} onClick={() => setRegistrationOpenState(!registrationOpen)}
+                                    className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${registrationOpen ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-700'} ${locked('registration_open') ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    <div className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${registrationOpen ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-slate-600 dark:text-slate-400">👥 Si se cierra, no se crean cuentas nuevas (solo iniciar sesión). El admin siempre puede crear cuentas.</p>
                         </div>
 
                         <button

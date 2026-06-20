@@ -39,7 +39,7 @@ const DEFAULT_CATEGORY_KEYS = ['fruit', 'veg', 'meat', 'dairy', 'pantry', 'clean
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const createInviteCode = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), value => INVITE_ALPHABET[value % INVITE_ALPHABET.length]).join('');
 
-const ListsManager = () => {
+const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
     const [lists, setLists] = useState<ShoppingListRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -55,6 +55,11 @@ const ListsManager = () => {
     useEffect(() => {
         loadLists();
     }, []);
+
+    // Deep-link from the Users tab: expand the requested list.
+    useEffect(() => {
+        if (focusListId) setExpandedId(focusListId);
+    }, [focusListId]);
 
     const loadLists = async () => {
         setLoading(true);
