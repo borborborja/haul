@@ -1,6 +1,6 @@
 services:
   shoplist:
-    image: ${SHOPLIST_IMAGE:-borborbor/shoppinglist:v2.1.0}
+    image: ${SHOPLIST_IMAGE:-ghcr.io/borborborja/haul:latest}
     restart: unless-stopped
     volumes:
       - pb_data:/pb_data
