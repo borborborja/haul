@@ -407,7 +407,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(label)
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = onChange, colors = com.bor_devs.shoplist.ui.theme.haulSwitchColors())
     }
 }
 
