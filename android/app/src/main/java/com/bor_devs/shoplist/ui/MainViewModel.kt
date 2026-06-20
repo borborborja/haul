@@ -36,6 +36,7 @@ class MainViewModel @Inject constructor(
 
     val items = repo.items
     val categories = repo.categories
+    val disabledProducts = repo.disabledProducts
     val sync = repo.sync
     val listName = repo.listName
     val lists = repo.lists
@@ -79,6 +80,8 @@ class MainViewModel @Inject constructor(
     fun removeCategory(key: String) = repo.removeCategory(key)
     fun addCategoryItem(catKey: String, name: String) = repo.addCategoryItem(catKey, name)
     fun removeCategoryItem(catKey: String, name: String) = repo.removeCategoryItem(catKey, name)
+    fun deactivateProduct(item: com.bor_devs.shoplist.domain.LocalizedItem) = repo.deactivateProduct(item)
+    fun reactivateProduct(item: com.bor_devs.shoplist.domain.LocalizedItem) = repo.reactivateProduct(item)
 
     // ---- Preferences ----
     fun setTheme(theme: ThemeMode) = launch { prefs.setTheme(theme) }

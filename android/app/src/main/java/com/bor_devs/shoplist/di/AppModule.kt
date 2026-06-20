@@ -2,8 +2,11 @@ package com.bor_devs.shoplist.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.bor_devs.shoplist.data.local.AppDatabase
 import com.bor_devs.shoplist.data.local.CategoryDao
+import com.bor_devs.shoplist.data.local.DisabledDao
 import com.bor_devs.shoplist.data.local.ItemDao
 import dagger.Module
 import dagger.Provides
@@ -22,6 +25,13 @@ import javax.inject.Singleton
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class AppScope
+
+// v1 -> v2: add the per-list deactivated-products table (keeps existing data).
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `disabled_products` (`name` TEXT NOT NULL, PRIMARY KEY(`name`))")
+    }
+}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -53,6 +63,8 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "shoplist.db")
+            // Additive: keep local data on upgrade (adds the disabled_products table).
+            .addMigrations(MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -61,4 +73,7 @@ object AppModule {
 
     @Provides
     fun provideCategoryDao(db: AppDatabase): CategoryDao = db.categoryDao()
+
+    @Provides
+    fun provideDisabledDao(db: AppDatabase): DisabledDao = db.disabledDao()
 }

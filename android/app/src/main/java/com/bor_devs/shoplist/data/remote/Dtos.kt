@@ -84,6 +84,13 @@ data class ListItemRecord(
 )
 
 @Serializable
+data class DisabledProductRecord(
+    val id: String,
+    val name: String = "",
+    val list: String = "",
+)
+
+@Serializable
 data class CatalogCategoryRecord(
     val id: String,
     val key: String = "",

@@ -143,6 +143,18 @@ class PocketBaseClient @Inject constructor(
         request("DELETE", "/api/collections/list_items/records/$id")
     }
 
+    suspend fun getListDisabledProducts(listId: String): List<DisabledProductRecord> =
+        listRecords<DisabledProductRecord>("list_disabled_products", filter = "list = \"$listId\"").items
+
+    suspend fun createDisabledProduct(listId: String, name: String): DisabledProductRecord =
+        decode(request("POST", "/api/collections/list_disabled_products/records", buildJsonObject {
+            put("list", listId); put("name", name)
+        }))
+
+    suspend fun deleteDisabledProduct(id: String) {
+        request("DELETE", "/api/collections/list_disabled_products/records/$id")
+    }
+
     /** Batch PATCH multiple items with the same body. Returns false if batch unsupported. */
     suspend fun batchUpdateItems(ids: List<String>, body: JsonObject): Boolean =
         batch(ids.map { "PATCH" to "/api/collections/shopping_items/records/$it" }, body)

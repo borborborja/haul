@@ -76,3 +76,24 @@ interface CategoryDao {
     @Query("DELETE FROM custom_items WHERE categoryKey = :key AND name = :name")
     suspend fun deleteItemByName(key: String, name: String)
 }
+
+@Dao
+interface DisabledDao {
+    @Query("SELECT * FROM disabled_products")
+    fun observe(): Flow<List<DisabledProductEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(item: DisabledProductEntity)
+
+    @Query("DELETE FROM disabled_products WHERE name = :name")
+    suspend fun deleteByName(name: String)
+
+    @Query("DELETE FROM disabled_products")
+    suspend fun clear()
+
+    @Transaction
+    suspend fun replaceAll(items: List<DisabledProductEntity>) {
+        clear()
+        items.forEach { insert(it) }
+    }
+}

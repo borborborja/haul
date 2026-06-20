@@ -44,3 +44,9 @@ data class CustomItemEntity(
     val categoryKey: String,
     val name: String,
 )
+
+/** A catalog product deactivated for the active list (canonical lowercase key). */
+@Entity(tableName = "disabled_products")
+data class DisabledProductEntity(
+    @PrimaryKey val name: String,
+)

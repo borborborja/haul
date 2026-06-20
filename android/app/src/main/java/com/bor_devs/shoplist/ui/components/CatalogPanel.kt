@@ -42,6 +42,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.bor_devs.shoplist.domain.Category
 import com.bor_devs.shoplist.domain.DefaultCatalog
+import com.bor_devs.shoplist.domain.LocalizedItem
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
 import com.bor_devs.shoplist.ui.i18n.systemLang
 import com.bor_devs.shoplist.ui.theme.categoryColor
@@ -59,6 +60,7 @@ private val MintInk = Color(0xFF06231A)
 fun CatalogPanel(
     categories: Map<String, Category>,
     inListNames: Set<String>,
+    disabled: Set<String> = emptySet(),
     onToggleItem: (name: String, category: String) -> Unit,
     onAddCustom: (name: String) -> Unit,
     onManage: () -> Unit,
@@ -72,9 +74,9 @@ fun CatalogPanel(
     var activeBand by remember(orderedKeys) { mutableStateOf(orderedKeys.firstOrNull() ?: "other") }
 
     val q = draft.trim().lowercase()
-    val suggestions = remember(q, categories, lang) {
+    val suggestions = remember(q, categories, lang, disabled) {
         if (q.length < 2) emptyList()
-        else categories.values.flatMap { c -> c.items.map { Triple(it.forLang(lang), c.key, categoryColor(c.key)) } }
+        else categories.values.flatMap { c -> c.items.filter { !disabled.contains(canonKey(it)) }.map { Triple(it.forLang(lang), c.key, categoryColor(c.key)) } }
             .filter { it.first.lowercase().contains(q) }
             .distinctBy { it.first.lowercase() }
             .take(8)
@@ -151,7 +153,7 @@ fun CatalogPanel(
         // Products of active category
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
             val col = categoryColor(activeBand)
-            categories[activeBand]?.items?.forEach { item ->
+            categories[activeBand]?.items?.filter { !disabled.contains(canonKey(it)) }?.forEach { item ->
                 val name = item.forLang(lang)
                 val inList = inListNames.contains(name.lowercase())
                 Box(
@@ -171,6 +173,10 @@ fun CatalogPanel(
         }
     }
 }
+
+// Canonical lowercase product key — must match ShopRepository.canonicalKey + web.
+internal fun canonKey(item: LocalizedItem): String =
+    item.en.ifBlank { item.es.ifBlank { item.ca } }.trim().lowercase()
 
 @Composable
 private fun DashedChip(label: String, onClick: () -> Unit) {

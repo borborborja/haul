@@ -21,14 +21,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -65,8 +63,11 @@ import com.bor_devs.shoplist.ui.components.CreateListDialog
 import com.bor_devs.shoplist.ui.components.JoinDialog
 import com.bor_devs.shoplist.ui.components.MergeReplaceDialog
 import com.bor_devs.shoplist.data.repo.ShopRepository
+import com.bor_devs.shoplist.ui.components.canonKey
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
 import com.bor_devs.shoplist.ui.i18n.systemLang
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextDecoration
 import com.bor_devs.shoplist.util.joinLink
 import com.bor_devs.shoplist.util.shareText
 import kotlinx.coroutines.launch
@@ -192,48 +193,66 @@ private fun AuthForm(onClaim: (String, String) -> Unit, onLogin: (String, String
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CatalogTab(vm: MainViewModel) {
     val t = LocalStrings.current
+    val lang = systemLang()
     val categories by vm.categories.collectAsState()
-    val sync by vm.sync.collectAsState()
+    val disabled by vm.disabledProducts.collectAsState()
+    val lists by vm.lists.collectAsState()
+    val activeListId by vm.activeListId.collectAsState()
     var showAddCat by remember { mutableStateOf(false) }
     var addItemFor by remember { mutableStateOf<String?>(null) }
 
-    // Sync status
-    Section(t.sync) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = true,
-                onClick = {},
-                label = {
-                    Text(
-                        if (sync.connected) t.connected else t.localMode,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-            )
+    // Which list are you managing? (switches the active list)
+    Section(t.manageList) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            lists.forEach { l ->
+                FilterChip(
+                    selected = l.id == activeListId,
+                    onClick = { if (l.id != activeListId) vm.switchList(l.id) },
+                    label = { Text("${l.emoji} ${l.name ?: t.myList}", style = MaterialTheme.typography.labelMedium) },
+                )
+            }
         }
+        val fromServer = categories.values.any { it.color != null }
+        Text(
+            if (fromServer) t.catalogServer else t.catalogLocal,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
 
     Section(t.manageCatalog) {
+        Text(t.tapHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
         Button(onClick = { showAddCat = true }) { Text(t.newCategory) }
     }
     categories.values.forEach { cat ->
         Section("${cat.icon} ${t.cats[cat.key] ?: cat.key}") {
-            // Source indicator
-            val isFromServer = cat.color != null
-            Text(
-                if (isFromServer) "☁ Server" else "📱 Local",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-            CatalogChips(
-                names = cat.items.map { it.forLang(systemLang()) },
-                onRemove = { name -> vm.removeCategoryItem(cat.key, name) },
-                onAdd = { addItemFor = cat.key },
-            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                cat.items.forEach { item ->
+                    val off = disabled.contains(canonKey(item))
+                    FilterChip(
+                        selected = !off,
+                        onClick = { if (off) vm.reactivateProduct(item) else vm.deactivateProduct(item) },
+                        label = {
+                            Text(
+                                item.forLang(lang),
+                                style = MaterialTheme.typography.labelMedium,
+                                textDecoration = if (off) TextDecoration.LineThrough else null,
+                            )
+                        },
+                        modifier = Modifier.alpha(if (off) 0.45f else 1f),
+                    )
+                }
+                AssistChip(
+                    onClick = { addItemFor = cat.key },
+                    label = { Text(t.add, style = MaterialTheme.typography.labelMedium) },
+                    leadingIcon = { Icon(Icons.Filled.Add, contentDescription = t.add, modifier = Modifier.size(16.dp)) },
+                )
+            }
         }
     }
 
@@ -383,33 +402,6 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(label)
         Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CatalogChips(names: List<String>, onRemove: (String) -> Unit, onAdd: () -> Unit) {
-    val t = LocalStrings.current
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        names.forEach { name ->
-            InputChip(
-                selected = false,
-                onClick = { onRemove(name) },
-                label = { Text(name, style = MaterialTheme.typography.labelMedium) },
-                trailingIcon = {
-                    Icon(Icons.Filled.Close, contentDescription = t.delete, modifier = Modifier.size(14.dp))
-                },
-            )
-        }
-        AssistChip(
-            onClick = onAdd,
-            label = { Text(t.add, style = MaterialTheme.typography.labelMedium) },
-            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = t.add, modifier = Modifier.size(16.dp)) },
-        )
     }
 }
 

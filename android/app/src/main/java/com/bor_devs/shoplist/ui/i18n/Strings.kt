@@ -120,6 +120,11 @@ data class Strings(
     val updateNow: String = "Update",
     val whatsNew: String = "What's new",
     val downloading: String = "Downloading…",
+    // Per-list catalog management
+    val manageList: String = "List you're managing",
+    val catalogServer: String = "Server catalog",
+    val catalogLocal: String = "Local catalog",
+    val tapHint: String = "Tap a product to deactivate it for this list",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -137,6 +142,7 @@ private val ES = Strings(
     modePlan = "Planificador", modeShop = "Comprar", manageCatalog = "Gestión del Catálogo",
     tabAccount = "Cuenta", tabCatalog = "Catálogo", tabOther = "Otros", tabAbout = "Sobre",
     updateAvailable = "Actualización disponible", updateNow = "Actualizar", whatsNew = "Novedades", downloading = "Descargando…",
+    manageList = "Lista que gestionas", catalogServer = "Catálogo del servidor", catalogLocal = "Catálogo local", tapHint = "Toca un producto para desactivarlo en esta lista",
     email = "Email", password = "Contraseña", passwordConfirm = "Confirmar Contraseña", login = "Entrar",
     register = "Registrar", loggedAs = "Conectado como", newCategory = "Nueva Categoría", categoryName = "Nombre",
     categoryIcon = "Emoji", deleteCategory = "Eliminar Categoría", syncMergeTitle = "Lista encontrada",
@@ -176,6 +182,7 @@ private val CA = Strings(
     modePlan = "Planificador", modeShop = "Comprar", manageCatalog = "Gestió del Catàleg",
     tabAccount = "Compte", tabCatalog = "Catàleg", tabOther = "Altres", tabAbout = "Sobre",
     updateAvailable = "Actualització disponible", updateNow = "Actualitzar", whatsNew = "Novetats", downloading = "Descarregant…",
+    manageList = "Llista que gestiones", catalogServer = "Catàleg del servidor", catalogLocal = "Catàleg local", tapHint = "Toca un producte per desactivar-lo en aquesta llista",
     email = "Email", password = "Contrasenya", passwordConfirm = "Confirmar Contrasenya", login = "Entrar",
     register = "Registrar", loggedAs = "Connectat com", newCategory = "Nova Categoria", categoryName = "Nom",
     categoryIcon = "Emoji", deleteCategory = "Eliminar Categoria", syncMergeTitle = "Llista trobada",

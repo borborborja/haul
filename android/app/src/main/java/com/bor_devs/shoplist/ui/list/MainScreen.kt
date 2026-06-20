@@ -86,6 +86,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     val settings by vm.settings.collectAsState()
     val items by vm.items.collectAsState()
     val categories by vm.categories.collectAsState()
+    val disabledProducts by vm.disabledProducts.collectAsState()
     val sync by vm.sync.collectAsState()
     val listName by vm.listName.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -157,6 +158,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                 CatalogPanel(
                     categories = categories,
                     inListNames = inListNames,
+                    disabled = disabledProducts,
                     onToggleItem = { name, cat -> toggleCatalog(name, cat) },
                     onAddCustom = { addCustom(it) },
                     onManage = onOpenSettings,

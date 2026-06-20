@@ -7,6 +7,8 @@ import android.util.Log
 import com.bor_devs.shoplist.data.local.CategoryDao
 import com.bor_devs.shoplist.data.local.CustomCategoryEntity
 import com.bor_devs.shoplist.data.local.CustomItemEntity
+import com.bor_devs.shoplist.data.local.DisabledDao
+import com.bor_devs.shoplist.data.local.DisabledProductEntity
 import com.bor_devs.shoplist.data.local.ItemDao
 import com.bor_devs.shoplist.data.local.ItemEntity
 import com.bor_devs.shoplist.data.prefs.Settings
@@ -71,6 +73,7 @@ class ShopRepository @Inject constructor(
     private val prefs: SettingsDataStore,
     private val itemDao: ItemDao,
     private val categoryDao: CategoryDao,
+    private val disabledDao: DisabledDao,
     private val notifications: NotificationHelper,
     @AppScope private val scope: CoroutineScope,
 ) {
@@ -89,6 +92,11 @@ class ShopRepository @Inject constructor(
     ) { server, customCats, customItems ->
         buildCategories(server, customCats, customItems)
     }.stateIn(scope, SharingStarted.Eagerly, DefaultCatalog.byKey)
+
+    /** Canonical keys of products deactivated for the active list (synced). */
+    val disabledProducts: StateFlow<Set<String>> =
+        disabledDao.observe().map { list -> list.map { it.name }.toSet() }
+            .stateIn(scope, SharingStarted.Eagerly, emptySet())
 
     private val _sync = MutableStateFlow(SyncState())
     val sync: StateFlow<SyncState> = _sync
@@ -443,6 +451,40 @@ class ShopRepository @Inject constructor(
         }
     }
 
+    // ---- Per-list product deactivation (synced) ----
+
+    private fun canonicalKey(item: LocalizedItem): String =
+        item.en.ifBlank { item.es.ifBlank { item.ca } }.trim().lowercase()
+
+    private fun localizedVariants(item: LocalizedItem): Set<String> =
+        setOf(item.en, item.es, item.ca).filter { it.isNotBlank() }.map { it.trim().lowercase() }.toSet()
+
+    /** Deactivate a product for the active list: translucent in settings, removed from the list, synced. */
+    fun deactivateProduct(item: LocalizedItem) = scope.launch {
+        val key = canonicalKey(item)
+        if (key.isBlank()) return@launch
+        disabledDao.insert(DisabledProductEntity(key))
+        val variants = localizedVariants(item)
+        itemDao.getAll().filter { variants.contains(it.name.trim().lowercase()) }.forEach { deleteItem(it.id) }
+        val recordId = _sync.value.recordId
+        if (_sync.value.connected && recordId != null) runCatching { pb.createDisabledProduct(recordId, key) }
+    }
+
+    fun reactivateProduct(item: LocalizedItem) = scope.launch {
+        val key = canonicalKey(item)
+        disabledDao.deleteByName(key)
+        val recordId = _sync.value.recordId
+        if (_sync.value.connected && recordId != null) runCatching {
+            pb.getListDisabledProducts(recordId).firstOrNull { it.name == key }?.let { pb.deleteDisabledProduct(it.id) }
+        }
+    }
+
+    private suspend fun loadListDisabled(recordId: String) {
+        runCatching {
+            disabledDao.replaceAll(pb.getListDisabledProducts(recordId).map { DisabledProductEntity(it.name) })
+        }
+    }
+
     // ---- Multi-list switching ----
 
     /** Create a new local list and make it active (the "Nova llista" action). */
@@ -521,6 +563,7 @@ class ShopRepository @Inject constructor(
     private fun goLocal(code: String? = null, recordId: String? = null) {
         realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
         _activeUsers.value = emptyList()
+        scope.launch { disabledDao.clear() } // disabled set is per-list; local lists start empty
         _sync.update { it.copy(connected = false, code = code, recordId = recordId, msg = "", msgType = MsgType.INFO) }
     }
 
@@ -604,7 +647,7 @@ class ShopRepository @Inject constructor(
 
     private fun startRealtime(recordId: String) {
         realtimeJob?.cancel()
-        realtime.start(listOf("shopping_items/*", "list_categories/*", "list_items/*", "shopping_lists/$recordId"))
+        realtime.start(listOf("shopping_items/*", "list_categories/*", "list_items/*", "list_disabled_products/*", "shopping_lists/$recordId"))
         realtimeJob = scope.launch { realtime.events.collect { handleRealtime(recordId, it) } }
     }
 
@@ -663,6 +706,7 @@ class ShopRepository @Inject constructor(
             pb.getListCategories(recordId).forEach { categoryDao.upsertCategory(CustomCategoryEntity(it.key, it.icon)) }
             pb.getListItems(recordId).forEach { addCustomItemLocal(it.categoryKey, it.name) }
         }
+        loadListDisabled(recordId)
     }
 
     // ---- Realtime handling (ported from useListSync.ts) ----
@@ -684,6 +728,14 @@ class ShopRepository @Inject constructor(
                 when (e.action) {
                     "create" -> addCustomItemLocal(rec.categoryKey, rec.name)
                     "delete" -> categoryDao.deleteItemByName(rec.categoryKey, rec.name)
+                }
+            }
+            "list_disabled_products" -> {
+                val rec = pb.json.decodeFromJsonElement(com.bor_devs.shoplist.data.remote.DisabledProductRecord.serializer(), e.record)
+                if (rec.list != recordId) return
+                when (e.action) {
+                    "create" -> disabledDao.insert(DisabledProductEntity(rec.name))
+                    "delete" -> disabledDao.deleteByName(rec.name)
                 }
             }
             "shopping_lists" -> {
