@@ -83,7 +83,7 @@ class NotificationHelper @Inject constructor(
 
         ensureChannel()
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle("ShoppingList")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
