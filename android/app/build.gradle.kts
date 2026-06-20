@@ -115,6 +115,8 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
 
+    implementation(libs.play.services.wearable)
+
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.androidx.glance.appwidget)

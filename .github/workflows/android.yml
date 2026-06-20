@@ -66,39 +66,49 @@ jobs:
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon
 
-      - name: Build signed release APK
+      - name: Build signed release APKs (phone + watch)
         if: steps.signing.outputs.signed == 'true'
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease :wear:assembleRelease --no-daemon
 
       # Compile-only check when no signing secrets are available (e.g. fork PRs).
       # This APK is NEVER published — it would carry a non-deterministic debug key.
       - name: Compile check (no signing secrets — not published)
         if: steps.signing.outputs.signed == 'false'
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: ./gradlew :app:assembleDebug :wear:assembleDebug --no-daemon
 
       # Only the signed release APK is ever distributed, so every published Haul
       # APK is signed with the SAME key and installs as an in-place update.
-      - name: Collect signed release APK
+      - name: Collect signed release APKs
         id: apk
         if: steps.signing.outputs.signed == 'true'
         run: |
           APK=$(find app/build/outputs/apk/release -name "*.apk" ! -name "*unsigned*" | head -1)
-          if [ -z "$APK" ]; then echo "No signed release APK found" >&2; exit 1; fi
+          if [ -z "$APK" ]; then echo "No signed phone APK found" >&2; exit 1; fi
           OUT="Haul-${GITHUB_REF_NAME:-manual}.apk"
           cp "$APK" "$OUT"
           echo "path=android/$OUT" >> "$GITHUB_OUTPUT"
+          WEAR=$(find wear/build/outputs/apk/release -name "*.apk" ! -name "*unsigned*" | head -1)
+          if [ -n "$WEAR" ]; then
+            WOUT="Haul-wear-${GITHUB_REF_NAME:-manual}.apk"
+            cp "$WEAR" "$WOUT"
+            echo "wearpath=android/$WOUT" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/') && steps.signing.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.apk.outputs.path }}
+          files: |
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.apk.outputs.wearpath }}
           generate_release_notes: true
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false
 
-      - name: Upload APK artifact
+      - name: Upload APK artifacts
         if: ${{ !startsWith(github.ref, 'refs/tags/') && steps.signing.outputs.signed == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: Haul-apk
-          path: ${{ steps.apk.outputs.path }}
+          path: |
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.apk.outputs.wearpath }}

@@ -74,6 +74,7 @@ class ShopRepository @Inject constructor(
     private val itemDao: ItemDao,
     private val categoryDao: CategoryDao,
     private val disabledDao: DisabledDao,
+    private val wearBridge: com.bor_devs.shoplist.wear.WearBridge,
     private val notifications: NotificationHelper,
     @AppScope private val scope: CoroutineScope,
 ) {
@@ -214,6 +215,12 @@ class ShopRepository @Inject constructor(
         if (s.lists.isEmpty()) {
             prefs.setLists(listOf(SavedList("default", s.listName, "🛒", s.syncCode, s.syncRecordId, s.syncCode == null)))
             prefs.setActiveListId("default")
+        }
+
+        // Mirror the active list to the Wear OS companion on every change.
+        scope.launch {
+            combine(items, _listName) { its, name -> name to its }
+                .collect { (name, its) -> wearBridge.pushSnapshot(name, its) }
         }
 
         if (!pb.hasServer) return // local mode
