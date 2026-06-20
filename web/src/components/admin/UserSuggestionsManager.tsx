@@ -3,6 +3,8 @@ import { pb } from '../../lib/pocketbase';
 import { Check, X, Loader, Tag, Package, ChevronDown, ChevronUp, Plus, Search, AlertCircle } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { EMOJI_LIST } from '../../data/constants';
+import AllLanguagesEditor from './AllLanguagesEditor';
+import { translate } from '../../lib/translate';
 
 interface ListCategory {
     id: string;
@@ -55,13 +57,35 @@ const UserSuggestionsManager = () => {
 
     // Form data for promotion
     const [catFormData, setCatFormData] = useState({
-        key: '', icon: '', name_es: '', name_ca: '', name_en: '', customEmoji: ''
+        key: '', icon: '', name_es: '', name_ca: '', name_en: '', customEmoji: '', i18n: {} as Record<string, string>
     });
     const [itemFormData, setItemFormData] = useState({
-        category: '', name_es: '', name_ca: '', name_en: ''
+        category: '', name_es: '', name_ca: '', name_en: '', i18n: {} as Record<string, string>
     });
 
     const [saving, setSaving] = useState(false);
+    const [translating, setTranslating] = useState(false);
+
+    const translateCat = async () => {
+        const text = (catFormData.name_es || catFormData.name_ca || catFormData.name_en || '').trim();
+        if (!text) return;
+        const source = catFormData.name_es ? 'es' : catFormData.name_ca ? 'ca' : 'en';
+        setTranslating(true);
+        try {
+            const res = await translate(text, source, 'category');
+            setCatFormData((p) => ({ ...p, name_ca: p.name_ca || res.ca || '', name_en: p.name_en || res.en || '', i18n: { ...p.i18n, ...res } }));
+        } catch (e: any) { alert(e?.response?.message || e?.message || 'Error al traducir'); } finally { setTranslating(false); }
+    };
+    const translateItem = async () => {
+        const text = (itemFormData.name_es || itemFormData.name_ca || itemFormData.name_en || '').trim();
+        if (!text) return;
+        const source = itemFormData.name_es ? 'es' : itemFormData.name_ca ? 'ca' : 'en';
+        setTranslating(true);
+        try {
+            const res = await translate(text, source, 'product');
+            setItemFormData((p) => ({ ...p, name_ca: p.name_ca || res.ca || '', name_en: p.name_en || res.en || '', i18n: { ...p.i18n, ...res } }));
+        } catch (e: any) { alert(e?.response?.message || e?.message || 'Error al traducir'); } finally { setTranslating(false); }
+    };
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     useEffect(() => {
@@ -132,7 +156,8 @@ const UserSuggestionsManager = () => {
             name_es: cat.name,
             name_ca: cat.name,
             name_en: cat.name,
-            customEmoji: ''
+            customEmoji: '',
+            i18n: {}
         });
     };
 
@@ -145,7 +170,8 @@ const UserSuggestionsManager = () => {
             category: matchingCat?.id || '',
             name_es: item.name,
             name_ca: item.name,
-            name_en: item.name
+            name_en: item.name,
+            i18n: {}
         });
     };
 
@@ -160,6 +186,7 @@ const UserSuggestionsManager = () => {
                 name_es: catFormData.name_es,
                 name_ca: catFormData.name_ca,
                 name_en: catFormData.name_en,
+                i18n: { ...catFormData.i18n, es: catFormData.name_es, ca: catFormData.name_ca, en: catFormData.name_en },
                 order: 999,
                 hidden: false
             });
@@ -188,6 +215,7 @@ const UserSuggestionsManager = () => {
                 name_es: itemFormData.name_es,
                 name_ca: itemFormData.name_ca || itemFormData.name_es,
                 name_en: itemFormData.name_en || itemFormData.name_es,
+                i18n: { ...itemFormData.i18n, es: itemFormData.name_es, ca: itemFormData.name_ca || itemFormData.name_es, en: itemFormData.name_en || itemFormData.name_es },
                 hidden: false
             });
 
@@ -537,6 +565,13 @@ const UserSuggestionsManager = () => {
                                 </div>
                             </div>
 
+                            <AllLanguagesEditor
+                                value={catFormData.i18n}
+                                onChange={(next) => setCatFormData({ ...catFormData, i18n: next })}
+                                onTranslate={translateCat}
+                                translating={translating}
+                            />
+
                             <button
                                 onClick={saveCategory}
                                 disabled={saving || !catFormData.key || (!catFormData.icon && !catFormData.customEmoji)}
@@ -626,6 +661,13 @@ const UserSuggestionsManager = () => {
                                     />
                                 </div>
                             </div>
+
+                            <AllLanguagesEditor
+                                value={itemFormData.i18n}
+                                onChange={(next) => setItemFormData({ ...itemFormData, i18n: next })}
+                                onTranslate={translateItem}
+                                translating={translating}
+                            />
 
                             <button
                                 onClick={saveItem}

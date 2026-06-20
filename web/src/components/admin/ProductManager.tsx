@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { pb } from '../../lib/pocketbase';
-import { Trash2, Plus, Save, X, Edit, Loader, Search, EyeOff, Eye, Filter, CheckSquare, Square } from 'lucide-react';
+import { Trash2, Plus, Save, X, Edit, Loader, Search, EyeOff, Eye, Filter, CheckSquare, Square, Sparkles } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
+import AllLanguagesEditor from './AllLanguagesEditor';
+import { translate, bulkTranslate } from '../../lib/translate';
 
 interface CatalogItem {
     id: string;
@@ -10,8 +12,17 @@ interface CatalogItem {
     name_ca: string;
     name_en: string;
     hidden: boolean;
+    i18n?: Record<string, string>;
     expand?: { category: { key: string, icon: string, name_es: string, hidden: boolean } }
 }
+
+// Build the i18n payload from the three base inputs + extra-language edits.
+const buildI18nPayload = (d: Partial<CatalogItem>): Record<string, string> => ({
+    ...(d.i18n || {}),
+    es: d.name_es || (d.i18n?.es ?? ''),
+    ca: d.name_ca || (d.i18n?.ca ?? ''),
+    en: d.name_en || (d.i18n?.en ?? ''),
+});
 
 const ProductManager = () => {
     const [items, setItems] = useState<CatalogItem[]>([]);
@@ -94,12 +105,28 @@ const ProductManager = () => {
         }
     };
 
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const handleBulkTranslate = async () => {
+        setBulkBusy(true);
+        try {
+            const { updated } = await bulkTranslate('catalog_items');
+            alert(`Traducidos ${updated} producto(s).`);
+            loadData();
+        } catch (e: any) {
+            alert(e?.response?.message || e?.message || 'Error al traducir');
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
     const handleSave = async () => {
         try {
+            const { expand, ...rest } = formData as any;
+            const payload = { ...rest, i18n: buildI18nPayload(formData) };
             if (isCreating) {
-                await pb.collection('catalog_items').create(formData);
+                await pb.collection('catalog_items').create(payload);
             } else if (editingId) {
-                await pb.collection('catalog_items').update(editingId, formData);
+                await pb.collection('catalog_items').update(editingId, payload);
             }
             setIsCreating(false);
             setEditingId(null);
@@ -156,6 +183,10 @@ const ProductManager = () => {
                             </button>
                         </>
                     )}
+                    <button onClick={handleBulkTranslate} disabled={bulkBusy} title="Traducir a todos los idiomas los productos a los que les falten traducciones"
+                        className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        {bulkBusy ? <Loader size={16} className="animate-spin" /> : <Sparkles size={16} />} Traducir faltantes
+                    </button>
                     <button
                         onClick={() => { setIsCreating(true); setEditingId(null); setFormData({ hidden: false }); }}
                         className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm"
@@ -280,6 +311,27 @@ const ProductManager = () => {
 
 const ProductForm = ({ data, onChange, onSave, onCancel, categories }: any) => {
     const handleChange = (field: string, val: any) => onChange({ ...data, [field]: val });
+    const [translating, setTranslating] = useState(false);
+    const handleTranslate = async () => {
+        const text = (data.name_es || data.name_ca || data.name_en || '').trim();
+        if (!text) { alert('Escribe el nombre en al menos un idioma primero.'); return; }
+        const source = data.name_es ? 'es' : data.name_ca ? 'ca' : 'en';
+        setTranslating(true);
+        try {
+            const res = await translate(text, source, 'product');
+            onChange({
+                ...data,
+                name_ca: data.name_ca || res.ca || '',
+                name_en: data.name_en || res.en || '',
+                name_es: data.name_es || res.es || '',
+                i18n: { ...(data.i18n || {}), ...res },
+            });
+        } catch (e: any) {
+            alert(e?.response?.message || e?.message || 'Error al traducir');
+        } finally {
+            setTranslating(false);
+        }
+    };
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -322,6 +374,13 @@ const ProductForm = ({ data, onChange, onSave, onCancel, categories }: any) => {
                     />
                 </div>
             </div>
+
+            <AllLanguagesEditor
+                value={data.i18n || {}}
+                onChange={(next) => handleChange('i18n', next)}
+                onTranslate={handleTranslate}
+                translating={translating}
+            />
 
             <div className="flex items-center gap-2">
                 <input

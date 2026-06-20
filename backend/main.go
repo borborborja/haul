@@ -88,6 +88,9 @@ func registerRoutes(app core.App, publicDir string) {
 			e.Router.POST("/api/shoplist/lists/{id}/rotate-code", rotateCode).Bind(apis.RequireAuth("users"))
 			e.Router.GET("/api/shoplist/lists/{id}/presence", listPresence).Bind(apis.RequireAuth("users"))
 
+				// Admin-only AI catalog translation (superuser session required).
+				e.Router.POST("/api/shoplist/admin/translate", translateHandler).Bind(apis.RequireSuperuserAuth())
+
 			if !e.Router.HasRoute(http.MethodGet, "/{path...}") {
 				e.Router.GET("/{path...}", apis.Static(os.DirFS(publicDir), true))
 			}

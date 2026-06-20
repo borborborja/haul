@@ -725,7 +725,9 @@ export const useShopStore = create<ShopState>()(
                         newCats[c.key] = {
                             icon: c.icon,
                             items: [],
-                            color: c.color
+                            color: c.color,
+                            // server label in all languages (i18n overrides es/ca/en)
+                            names: { es: c.name_es || '', ca: c.name_ca || c.name_es || '', en: c.name_en || c.name_es || '', ...(c.i18n || {}) },
                         };
                     });
 
@@ -738,7 +740,9 @@ export const useShopStore = create<ShopState>()(
                             newCats[catKey].items.push({
                                 es: i.name_es || '',
                                 ca: i.name_ca || i.name_es || '',
-                                en: i.name_en || i.name_es || ''
+                                en: i.name_en || i.name_es || '',
+                                // 15-language translations (additive; falls back to es/ca/en/en)
+                                ...(i.i18n || {}),
                             });
                         }
                     });

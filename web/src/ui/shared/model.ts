@@ -11,9 +11,10 @@ import { catColor } from '../theme';
 export const localized = (item: LocalizedItem | string, lang: Lang): string =>
     typeof item === 'string' ? item : ((item as any)[lang] || item.en || item.es || item.ca || '');
 
-export const catLabel = (key: string, lang: Lang): string => {
+export const catLabel = (key: string, lang: Lang, names?: LocalizedItem): string => {
+    if (names && (names as any)[lang]) return (names as any)[lang];
     const cats = tt(lang).cats as Record<string, string>;
-    return cats[key] || key.charAt(0).toUpperCase() + key.slice(1);
+    return cats[key] || (names && (names.en || names.es || names.ca)) || key.charAt(0).toUpperCase() + key.slice(1);
 };
 
 export interface Group {
@@ -34,7 +35,7 @@ export const buildGroups = (items: ShopItem[], categories: Categories, lang: Lan
     });
     return order.map((key) => ({
         key,
-        label: catLabel(key, lang),
+        label: catLabel(key, lang, categories[key]?.names),
         emoji: categories[key]?.icon || '🛒',
         color: catColor(key, categories[key]?.color),
         count: map[key].length,
@@ -66,7 +67,7 @@ export function useHaulModel() {
     const bands = useMemo(
         () => Object.keys(categories).map((key) => ({
             key,
-            label: catLabel(key, lang),
+            label: catLabel(key, lang, categories[key].names),
             emoji: categories[key].icon,
             color: catColor(key, categories[key].color),
         })),

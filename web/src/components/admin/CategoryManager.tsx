@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { pb } from '../../lib/pocketbase';
-import { Trash2, Plus, Save, X, Edit, Loader, EyeOff, Eye } from 'lucide-react';
+import { Trash2, Plus, Save, X, Edit, Loader, EyeOff, Eye, Sparkles } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { EMOJI_LIST } from '../../data/constants';
+import AllLanguagesEditor from './AllLanguagesEditor';
+import { translate, bulkTranslate } from '../../lib/translate';
 
 interface CatalogCategory {
     id: string;
@@ -14,7 +16,15 @@ interface CatalogCategory {
     color: string;
     order: number;
     hidden: boolean;
+    i18n?: Record<string, string>;
 }
+
+const buildI18nPayload = (d: Partial<CatalogCategory>): Record<string, string> => ({
+    ...(d.i18n || {}),
+    es: d.name_es || (d.i18n?.es ?? ''),
+    ca: d.name_ca || (d.i18n?.ca ?? ''),
+    en: d.name_en || (d.i18n?.en ?? ''),
+});
 
 const CategoryManager = () => {
     const [categories, setCategories] = useState<CatalogCategory[]>([]);
@@ -93,12 +103,28 @@ const CategoryManager = () => {
         setIsCreating(true);
     };
 
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const handleBulkTranslate = async () => {
+        setBulkBusy(true);
+        try {
+            const { updated } = await bulkTranslate('catalog_categories');
+            alert(`Traducidas ${updated} categoría(s).`);
+            loadCategories();
+        } catch (e: any) {
+            alert(e?.response?.message || e?.message || 'Error al traducir');
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
     const handleSave = async () => {
         try {
+            const { i18n: _ignore, ...rest } = formData as any;
+            const payload = { ...rest, i18n: buildI18nPayload(formData) };
             if (isCreating) {
-                await pb.collection('catalog_categories').create(formData);
+                await pb.collection('catalog_categories').create(payload);
             } else if (editingId) {
-                await pb.collection('catalog_categories').update(editingId, formData);
+                await pb.collection('catalog_categories').update(editingId, payload);
             }
             setIsCreating(false);
             setEditingId(null);
@@ -168,6 +194,10 @@ const CategoryManager = () => {
                         className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-4 py-2 rounded-lg hover:bg-slate-200 transition font-bold text-sm"
                     >
                         {selectedIds.size === categories.length ? 'Desmarcar todo' : 'Marcar todo'}
+                    </button>
+                    <button onClick={handleBulkTranslate} disabled={bulkBusy} title="Traducir a todos los idiomas las categorías que les falten traducciones"
+                        className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                        {bulkBusy ? <Loader size={15} className="animate-spin" /> : <Sparkles size={15} />} Traducir faltantes
                     </button>
                     <button
                         onClick={handleCreate}
@@ -248,6 +278,27 @@ const CategoryManager = () => {
 
 const CategoryForm = ({ data, onChange, onSave, onCancel }: { data: any, onChange: (d: any) => void, onSave: () => void, onCancel: () => void }) => {
     const handleChange = (field: string, val: any) => onChange({ ...data, [field]: val });
+    const [translating, setTranslating] = useState(false);
+    const handleTranslate = async () => {
+        const text = (data.name_es || data.name_ca || data.name_en || '').trim();
+        if (!text) { alert('Escribe el nombre en al menos un idioma primero.'); return; }
+        const source = data.name_es ? 'es' : data.name_ca ? 'ca' : 'en';
+        setTranslating(true);
+        try {
+            const res = await translate(text, source, 'category');
+            onChange({
+                ...data,
+                name_ca: data.name_ca || res.ca || '',
+                name_en: data.name_en || res.en || '',
+                name_es: data.name_es || res.es || '',
+                i18n: { ...(data.i18n || {}), ...res },
+            });
+        } catch (e: any) {
+            alert(e?.response?.message || e?.message || 'Error al traducir');
+        } finally {
+            setTranslating(false);
+        }
+    };
 
     return (
         <div className="space-y-4">
@@ -320,6 +371,13 @@ const CategoryForm = ({ data, onChange, onSave, onCancel }: { data: any, onChang
                     />
                 </div>
             </div>
+
+            <AllLanguagesEditor
+                value={data.i18n || {}}
+                onChange={(next) => handleChange('i18n', next)}
+                onTranslate={handleTranslate}
+                translating={translating}
+            />
 
             <div className="flex items-center gap-2 py-2">
                 <input

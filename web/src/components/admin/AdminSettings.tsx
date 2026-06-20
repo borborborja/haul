@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Database, Check, AlertTriangle, Loader, Shield, Save, Settings as SettingsIcon, Download, Upload, Loader2, Users } from 'lucide-react';
+import { Database, Check, AlertTriangle, Loader, Shield, Save, Settings as SettingsIcon, Download, Upload, Loader2, Users, Languages, Sparkles } from 'lucide-react';
 import { defaultCategories, translations } from '../../data/constants';
 import { pb } from '../../lib/pocketbase';
 import { useShopStore } from '../../store/shopStore';
 import ImportModal from './ImportModal';
 import type { ImportOptions } from './ImportModal';
 import { isConfigEnabled } from '../../utils/config';
+import { translate } from '../../lib/translate';
+
+// Sensible defaults per AI provider (endpoints are OpenAI-compatible).
+const AI_PROVIDERS: Record<string, { base_url: string; model: string }> = {
+    openrouter: { base_url: 'https://openrouter.ai/api/v1', model: 'google/gemini-2.0-flash-001' },
+    'ollama-cloud': { base_url: 'https://ollama.com/v1', model: 'gpt-oss:120b' },
+    ollama: { base_url: 'http://localhost:11434/v1', model: 'llama3.1' },
+};
 
 const AdminSettings = () => {
     const [seeding, setSeeding] = useState(false);
@@ -25,6 +33,64 @@ const AdminSettings = () => {
 
     // Backup/Import state
     const [importingFile, setImportingFile] = useState<{ name: string, data: any } | null>(null);
+
+    // AI translation engine state
+    const [ai, setAi] = useState({ provider: 'openrouter', base_url: '', api_key: '', model: '', enabled: false });
+    const [aiRecordId, setAiRecordId] = useState<string | null>(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiStatus, setAiStatus] = useState({ msg: '', type: '' });
+
+    useEffect(() => {
+        pb.collection('ai_config').getFullList({ requestKey: null })
+            .then((recs) => {
+                if (recs[0]) {
+                    const r = recs[0] as any;
+                    setAiRecordId(r.id);
+                    setAi({ provider: r.provider || 'openrouter', base_url: r.base_url || '', api_key: r.api_key || '', model: r.model || '', enabled: !!r.enabled });
+                }
+            })
+            .catch(() => { });
+    }, []);
+
+    const setProvider = (provider: string) => {
+        const d = AI_PROVIDERS[provider];
+        setAi((prev) => ({
+            ...prev,
+            provider,
+            base_url: prev.base_url && !Object.values(AI_PROVIDERS).some((p) => p.base_url === prev.base_url) ? prev.base_url : (d?.base_url || prev.base_url),
+            model: prev.model && !Object.values(AI_PROVIDERS).some((p) => p.model === prev.model) ? prev.model : (d?.model || prev.model),
+        }));
+    };
+
+    const handleSaveAI = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAiLoading(true);
+        setAiStatus({ msg: '', type: '' });
+        try {
+            const payload = { provider: ai.provider, base_url: ai.base_url.trim(), api_key: ai.api_key.trim(), model: ai.model.trim(), enabled: ai.enabled };
+            if (aiRecordId) await pb.collection('ai_config').update(aiRecordId, payload);
+            else { const r = await pb.collection('ai_config').create(payload); setAiRecordId(r.id); }
+            setAiStatus({ msg: 'Motor de IA guardado.', type: 'ok' });
+        } catch (err: any) {
+            setAiStatus({ msg: err?.response?.message || 'Error al guardar', type: 'error' });
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const handleTestAI = async () => {
+        setAiLoading(true);
+        setAiStatus({ msg: 'Probando…', type: 'ok' });
+        try {
+            const res = await translate('Leche', 'es', 'product');
+            const sample = ['en', 'fr', 'de', 'it'].map((l) => res[l]).filter(Boolean).slice(0, 3).join(' · ');
+            setAiStatus({ msg: sample ? `OK: ${sample}` : 'Respuesta vacía del motor', type: sample ? 'ok' : 'error' });
+        } catch (err: any) {
+            setAiStatus({ msg: err?.response?.message || err?.message || 'Error de conexión', type: 'error' });
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
 
     useEffect(() => {
@@ -449,6 +515,63 @@ const AdminSettings = () => {
                     {srvStatus.msg && (
                         <p className={`mt-3 text-sm font-bold p-2 rounded-lg text-center ${srvStatus.type === 'error' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'}`}>
                             {srvStatus.msg}
+                        </p>
+                    )}
+                </div>
+
+                {/* AI Translation Engine Card */}
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-3 mb-4 text-emerald-600 dark:text-emerald-400">
+                        <Languages size={24} />
+                        <h3 className="font-bold text-lg">Motor de traducción (IA)</h3>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Traduce automáticamente productos y categorías a los 15 idiomas. La clave se guarda solo en el servidor.</p>
+                    <form onSubmit={handleSaveAI} className="space-y-3">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900">
+                            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">Activar traducción IA</h4>
+                            <button type="button" onClick={() => setAi({ ...ai, enabled: !ai.enabled })}
+                                className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${ai.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                                <div className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${ai.enabled ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                            </button>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Proveedor</label>
+                            <select value={ai.provider} onChange={(e) => setProvider(e.target.value)}
+                                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm">
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="ollama-cloud">Ollama Cloud</option>
+                                <option value="ollama">Ollama (local)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">URL base</label>
+                            <input type="text" value={ai.base_url} onChange={(e) => setAi({ ...ai, base_url: e.target.value })} placeholder="https://openrouter.ai/api/v1"
+                                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">API Key {ai.provider === 'ollama' && <span className="text-slate-400 normal-case font-normal">(opcional)</span>}</label>
+                            <input type="password" value={ai.api_key} onChange={(e) => setAi({ ...ai, api_key: e.target.value })} placeholder="sk-…" autoComplete="off"
+                                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Modelo</label>
+                            <input type="text" value={ai.model} onChange={(e) => setAi({ ...ai, model: e.target.value })} placeholder="google/gemini-2.0-flash-001"
+                                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm" />
+                        </div>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={handleTestAI} disabled={aiLoading}
+                                className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                                <Sparkles size={16} /> Probar
+                            </button>
+                            <button type="submit" disabled={aiLoading}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                                {aiLoading ? <Loader className="animate-spin" size={18} /> : <Save size={18} />} Guardar
+                            </button>
+                        </div>
+                    </form>
+                    {aiStatus.msg && (
+                        <p className={`mt-3 text-sm font-bold p-2 rounded-lg text-center break-words ${aiStatus.type === 'error' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'}`}>
+                            {aiStatus.msg}
                         </p>
                     )}
                 </div>

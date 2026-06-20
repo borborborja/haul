@@ -138,7 +138,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                                 <div key={key} style={{ marginBottom: 20 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                         <div style={{ width: 26, height: 26, borderRadius: 8, background: alpha(color, 0.16), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{cat.icon}</div>
-                                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, letterSpacing: '-.01em', color: 'var(--text)' }}>{catLabel(key, lang)}</span>
+                                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, letterSpacing: '-.01em', color: 'var(--text)' }}>{catLabel(key, lang, cat.names)}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                                         {cat.items.map((it: LocalizedItem | string, idx: number) => (

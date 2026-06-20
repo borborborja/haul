@@ -126,7 +126,7 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                                 <div key={key} style={{ marginBottom: 22 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
                                         <div style={{ width: 28, height: 28, borderRadius: 9, background: alpha(color, 0.16), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{cat.icon}</div>
-                                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, letterSpacing: '-.01em', color: 'var(--text)' }}>{catLabel(key, lang)}</span>
+                                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, letterSpacing: '-.01em', color: 'var(--text)' }}>{catLabel(key, lang, cat.names)}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                                         {cat.items.map((it: LocalizedItem | string, idx: number) => (

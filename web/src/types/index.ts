@@ -9,6 +9,7 @@ export interface CategoryItem {
     icon: string;
     items: LocalizedItem[];
     color?: string;
+    names?: LocalizedItem; // server-provided category label in all languages
 }
 
 export interface Categories {
