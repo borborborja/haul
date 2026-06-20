@@ -115,6 +115,11 @@ data class Strings(
     val listCodeBtn: String,
     val listNameHint: String,
     val listCreate: String,
+    // In-app updater (defaults in English; overridden per language below)
+    val updateAvailable: String = "Update available",
+    val updateNow: String = "Update",
+    val whatsNew: String = "What's new",
+    val downloading: String = "Downloading…",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -131,6 +136,7 @@ private val ES = Strings(
     sync = "Sincronización", createList = "Crear Lista", join = "Unirse", disconnect = "Desconectar",
     modePlan = "Planificador", modeShop = "Comprar", manageCatalog = "Gestión del Catálogo",
     tabAccount = "Cuenta", tabCatalog = "Catálogo", tabOther = "Otros", tabAbout = "Sobre",
+    updateAvailable = "Actualización disponible", updateNow = "Actualizar", whatsNew = "Novedades", downloading = "Descargando…",
     email = "Email", password = "Contraseña", passwordConfirm = "Confirmar Contraseña", login = "Entrar",
     register = "Registrar", loggedAs = "Conectado como", newCategory = "Nueva Categoría", categoryName = "Nombre",
     categoryIcon = "Emoji", deleteCategory = "Eliminar Categoría", syncMergeTitle = "Lista encontrada",
@@ -169,6 +175,7 @@ private val CA = Strings(
     sync = "Sincronització", createList = "Crear Llista", join = "Unir-se", disconnect = "Desconnectar",
     modePlan = "Planificador", modeShop = "Comprar", manageCatalog = "Gestió del Catàleg",
     tabAccount = "Compte", tabCatalog = "Catàleg", tabOther = "Altres", tabAbout = "Sobre",
+    updateAvailable = "Actualització disponible", updateNow = "Actualitzar", whatsNew = "Novetats", downloading = "Descarregant…",
     email = "Email", password = "Contrasenya", passwordConfirm = "Confirmar Contrasenya", login = "Entrar",
     register = "Registrar", loggedAs = "Connectat com", newCategory = "Nova Categoria", categoryName = "Nom",
     categoryIcon = "Emoji", deleteCategory = "Eliminar Categoria", syncMergeTitle = "Llista trobada",

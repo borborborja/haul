@@ -54,8 +54,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bor_devs.shoplist.BuildConfig
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
 import com.bor_devs.shoplist.domain.ThemeMode
 import com.bor_devs.shoplist.ui.MainViewModel
+import com.bor_devs.shoplist.util.AppUpdater
+import com.bor_devs.shoplist.util.ReleaseInfo
 import com.bor_devs.shoplist.ui.components.AddCategoryDialog
 import com.bor_devs.shoplist.ui.components.CreateListDialog
 import com.bor_devs.shoplist.ui.components.JoinDialog
@@ -309,12 +313,59 @@ private fun OtherTab(vm: MainViewModel) {
 private fun AboutTab(vm: MainViewModel) {
     val t = LocalStrings.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val serverName by vm.serverName.collectAsState()
+
+    var release by remember { mutableStateOf<ReleaseInfo?>(null) }
+    var showChangelog by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        release = AppUpdater.fetchLatestIfNewer(BuildConfig.VERSION_NAME)
+    }
+
+    release?.let { r ->
+        Section(t.updateAvailable) {
+            Text(r.version, fontWeight = FontWeight.Bold)
+            TextButton(onClick = { showChangelog = !showChangelog }) { Text(t.whatsNew) }
+            if (showChangelog && r.body.isNotBlank()) {
+                Text(r.body, style = MaterialTheme.typography.bodySmall)
+            }
+            if (downloading) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text("${t.downloading} $progress%")
+                }
+            } else {
+                Button(onClick = {
+                    val url = r.apkUrl
+                    if (url == null) {
+                        shareText(context, "GitHub", "https://github.com/borborborja/haul/releases/latest")
+                    } else {
+                        scope.launch {
+                            downloading = true
+                            progress = 0
+                            try {
+                                val file = AppUpdater.downloadApk(context, url) { progress = it }
+                                AppUpdater.installApk(context, file)
+                            } catch (e: Exception) {
+                                toast(context, "Error")
+                            } finally {
+                                downloading = false
+                            }
+                        }
+                    }
+                }) { Text(t.updateNow) }
+            }
+        }
+    }
+
     Section(t.tabAbout) {
         Text(serverName, fontWeight = FontWeight.Bold)
         Text("v${BuildConfig.VERSION_NAME}")
         Text(t.aboutDev)
-        TextButton(onClick = { shareText(context, "GitHub", "https://github.com/bor_devs/shoppinglist") }) { Text(t.aboutProject) }
+        TextButton(onClick = { shareText(context, "GitHub", "https://github.com/borborborja/haul") }) { Text(t.aboutProject) }
     }
 }
 
