@@ -55,6 +55,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bor_devs.shoplist.BuildConfig
 import com.bor_devs.shoplist.domain.ThemeMode
+import com.bor_devs.shoplist.domain.Lang
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import com.bor_devs.shoplist.ui.MainViewModel
 import com.bor_devs.shoplist.ui.components.AddCategoryDialog
 import com.bor_devs.shoplist.ui.components.CreateListDialog
@@ -279,6 +282,9 @@ private fun OtherTab(vm: MainViewModel) {
             onSelect = { vm.setTheme(it) },
         )
     }
+    Section(t.language) {
+        LangChips(selected = settings.lang, onSelect = { vm.setLanguage(it) })
+    }
     Section(t.viewOptions) {
         ToggleRow(t.inlineComp, settings.showCompletedInline) { vm.setShowCompletedInline(it) }
         ToggleRow(t.autoCleanup, settings.autoClearEnabled) { vm.setAutoClearEnabled(it) }
@@ -367,6 +373,20 @@ private fun <T> ChipRow(options: List<Pair<T, String>>, selected: T, onSelect: (
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (value, label) ->
             FilterChip(selected = selected == value, onClick = { onSelect(value) }, label = { Text(label) })
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LangChips(selected: Lang, onSelect: (Lang) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Lang.entries.forEach { lang ->
+            FilterChip(
+                selected = selected == lang,
+                onClick = { onSelect(lang) },
+                label = { Text("${lang.flag} ${lang.label}") },
+            )
         }
     }
 }

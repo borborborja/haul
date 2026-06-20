@@ -6,10 +6,11 @@ data class LocalizedItem(
     val ca: String,
     val en: String,
 ) {
-    fun forLang(lang: Lang): String = when (lang) {
-        Lang.ES -> es.ifBlank { ca.ifBlank { en } }
-        Lang.CA -> ca.ifBlank { es.ifBlank { en } }
-        Lang.EN -> en.ifBlank { es.ifBlank { ca } }
+    // Catalog item names only carry es/ca/en; other UI languages fall back to en.
+    fun forLang(lang: Lang): String = when (lang.code) {
+        "es" -> es.ifBlank { ca.ifBlank { en } }
+        "ca" -> ca.ifBlank { es.ifBlank { en } }
+        else -> en.ifBlank { es.ifBlank { ca } }
     }
 }
 
@@ -50,8 +51,22 @@ enum class ViewMode { LIST, COMPACT, GRID }
 
 enum class SortOrder { CATEGORY, ALPHA }
 
-enum class Lang(val code: String) {
-    CA("ca"), ES("es"), EN("en");
+enum class Lang(val code: String, val label: String, val flag: String) {
+    EN("en", "English", "🇬🇧"),
+    ES("es", "Español", "🇪🇸"),
+    CA("ca", "Català", "🏴"),
+    ZH("zh", "中文", "🇨🇳"),
+    HI("hi", "हिन्दी", "🇮🇳"),
+    AR("ar", "العربية", "🇸🇦"),
+    PT("pt", "Português", "🇵🇹"),
+    BN("bn", "বাংলা", "🇧🇩"),
+    RU("ru", "Русский", "🇷🇺"),
+    JA("ja", "日本語", "🇯🇵"),
+    DE("de", "Deutsch", "🇩🇪"),
+    FR("fr", "Français", "🇫🇷"),
+    KO("ko", "한국어", "🇰🇷"),
+    IT("it", "Italiano", "🇮🇹"),
+    TR("tr", "Türkçe", "🇹🇷");
 
     companion object {
         fun from(code: String?): Lang = entries.firstOrNull { it.code == code } ?: CA

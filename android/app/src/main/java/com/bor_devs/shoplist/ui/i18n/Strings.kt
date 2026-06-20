@@ -233,11 +233,149 @@ private val EN = Strings(
     listCodeBtn = "Code", listNameHint = "List name", listCreate = "Create",
 )
 
-fun stringsFor(lang: Lang): Strings = when (lang) {
-    Lang.ES -> ES
-    Lang.CA -> CA
-    Lang.EN -> EN
-}
+// ===== Additional languages (English-based; UI + categories translated) =====
+private fun cats(vararg p: Pair<String, String>) = mapOf(*p)
+
+private val ZH = EN.copy(
+    modePlan = "计划", modeShop = "购物", myList = "我的清单", settings = "设置", placeholder = "搜索商品…", add = "添加",
+    completed = "已完成", clearComp = "清除", previouslyUsed = "最近使用", autoCleanup = "自动清理", autoClear = "自动清理",
+    createList = "创建清单", join = "加入", disconnect = "断开连接", tabAccount = "账户", tabCatalog = "目录", tabOther = "其他", tabAbout = "关于",
+    email = "电子邮件", password = "密码", login = "登录", register = "创建账户", username = "用户名", save = "保存",
+    theme = "主题", themeLight = "浅色", themeDark = "深色", viewOptions = "视图选项", alerts = "提醒",
+    notifyAdd = "新商品提醒", notifyCheck = "已购商品提醒", inlineComp = "行内显示已完成", manageCatalog = "管理目录",
+    enterListName = "清单名称：", language = "语言", sync = "同步", connected = "已同步", localMode = "本地模式",
+    myLists = "我的清单", newList = "新建清单", listCreate = "创建", selectCategory = "选择分类", empty = "清单为空",
+    cats = cats("fruit" to "水果", "veg" to "蔬菜", "meat" to "肉/鱼", "dairy" to "乳制品", "pantry" to "杂货/面包", "cleaning" to "清洁/卫生", "home" to "家居", "snacks" to "零食/甜点", "frozen" to "冷冻", "processed" to "加工食品", "drinks" to "饮料", "spices" to "调味料", "other" to "其他"),
+)
+private val HI = EN.copy(
+    modePlan = "योजना", modeShop = "खरीदें", myList = "मेरी सूची", settings = "सेटिंग्स", placeholder = "उत्पाद खोजें…", add = "जोड़ें",
+    completed = "पूर्ण", clearComp = "साफ़ करें", previouslyUsed = "पहले इस्तेमाल किए", autoCleanup = "स्वतः सफाई", autoClear = "स्वतः सफाई",
+    createList = "सूची बनाएं", join = "शामिल हों", disconnect = "डिस्कनेक्ट", tabAccount = "खाता", tabCatalog = "कैटलॉग", tabOther = "अन्य", tabAbout = "परिचय",
+    email = "ईमेल", password = "पासवर्ड", login = "लॉग इन", register = "खाता बनाएं", username = "उपयोगकर्ता नाम", save = "सहेजें",
+    theme = "थीम", themeLight = "हल्का", themeDark = "गहरा", viewOptions = "दृश्य विकल्प", alerts = "सूचनाएँ",
+    notifyAdd = "नए उत्पादों की सूचना", notifyCheck = "खरीदे उत्पादों की सूचना", inlineComp = "पूर्ण इनलाइन", manageCatalog = "कैटलॉग प्रबंधन",
+    enterListName = "सूची का नाम:", language = "भाषा", sync = "सिंक", connected = "सिंक किया", localMode = "स्थानीय मोड",
+    myLists = "मेरी सूचियाँ", newList = "नई सूची", listCreate = "बनाएं", selectCategory = "श्रेणी चुनें", empty = "आपकी सूची खाली है",
+    cats = cats("fruit" to "फल", "veg" to "सब्ज़ी", "meat" to "मांस/मछली", "dairy" to "डेयरी", "pantry" to "पैंट्री/ब्रेड", "cleaning" to "सफाई/स्वच्छता", "home" to "घर", "snacks" to "स्नैक्स/मिठाई", "frozen" to "जमे हुए", "processed" to "प्रसंस्कृत", "drinks" to "पेय", "spices" to "मसाले", "other" to "अन्य"),
+)
+private val AR = EN.copy(
+    modePlan = "تخطيط", modeShop = "تسوّق", myList = "قائمتي", settings = "الإعدادات", placeholder = "ابحث عن منتج…", add = "أضف",
+    completed = "المكتملة", clearComp = "مسح", previouslyUsed = "استُخدمت سابقاً", autoCleanup = "تنظيف تلقائي", autoClear = "تنظيف تلقائي",
+    createList = "أنشئ قائمة", join = "انضم", disconnect = "قطع الاتصال", tabAccount = "الحساب", tabCatalog = "الكتالوج", tabOther = "أخرى", tabAbout = "حول",
+    email = "البريد الإلكتروني", password = "كلمة المرور", login = "تسجيل الدخول", register = "إنشاء حساب", username = "اسم المستخدم", save = "حفظ",
+    theme = "المظهر", themeLight = "فاتح", themeDark = "داكن", viewOptions = "خيارات العرض", alerts = "التنبيهات",
+    notifyAdd = "تنبيهات المنتجات الجديدة", notifyCheck = "تنبيهات المنتجات المشتراة", inlineComp = "المكتملة ضمن القائمة", manageCatalog = "إدارة الكتالوج",
+    enterListName = "اسم القائمة:", language = "اللغة", sync = "المزامنة", connected = "متزامن", localMode = "الوضع المحلي",
+    myLists = "قوائمي", newList = "قائمة جديدة", listCreate = "إنشاء", selectCategory = "اختر فئة", empty = "قائمتك فارغة",
+    cats = cats("fruit" to "فواكه", "veg" to "خضار", "meat" to "لحوم/أسماك", "dairy" to "ألبان", "pantry" to "مؤن/خبز", "cleaning" to "تنظيف/نظافة", "home" to "المنزل", "snacks" to "وجبات خفيفة/حلويات", "frozen" to "مجمدات", "processed" to "مصنّعة", "drinks" to "مشروبات", "spices" to "بهارات", "other" to "أخرى"),
+)
+private val PT = EN.copy(
+    modePlan = "Planear", modeShop = "Comprar", myList = "A minha lista", settings = "Definições", placeholder = "Procurar um produto…", add = "Adicionar",
+    completed = "Concluídos", clearComp = "Limpar", previouslyUsed = "Usados anteriormente", autoCleanup = "Limpeza automática", autoClear = "Limpeza automática",
+    createList = "Criar uma lista", join = "Juntar-se", disconnect = "Desligar", tabAccount = "Conta", tabCatalog = "Catálogo", tabOther = "Outros", tabAbout = "Sobre",
+    email = "E-mail", password = "Palavra-passe", login = "Entrar", register = "Criar conta", username = "Nome de utilizador", save = "Guardar",
+    theme = "Tema", themeLight = "Claro", themeDark = "Escuro", viewOptions = "Opções de vista", alerts = "Alertas",
+    notifyAdd = "Alertas de novos produtos", notifyCheck = "Alertas de produtos comprados", inlineComp = "Concluídos em linha", manageCatalog = "Gestão do catálogo",
+    enterListName = "Nome da lista:", language = "Idioma", sync = "Sincronização", connected = "Sincronizado", localMode = "Modo local",
+    myLists = "As minhas listas", newList = "Nova lista", listCreate = "Criar", selectCategory = "Escolhe uma categoria", empty = "A tua lista está vazia",
+    cats = cats("fruit" to "Fruta", "veg" to "Legumes", "meat" to "Carne/Peixe", "dairy" to "Laticínios", "pantry" to "Despensa/Pão", "cleaning" to "Limpeza/Higiene", "home" to "Casa", "snacks" to "Snacks/Doces", "frozen" to "Congelados", "processed" to "Processados", "drinks" to "Bebidas", "spices" to "Especiarias", "other" to "Geral/Outros"),
+)
+private val BN = EN.copy(
+    modePlan = "পরিকল্পনা", modeShop = "কেনাকাটা", myList = "আমার তালিকা", settings = "সেটিংস", placeholder = "পণ্য খুঁজুন…", add = "যোগ করুন",
+    completed = "সম্পন্ন", clearComp = "মুছুন", previouslyUsed = "আগে ব্যবহৃত", autoCleanup = "স্বয়ংক্রিয় পরিষ্কার", autoClear = "স্বয়ংক্রিয় পরিষ্কার",
+    createList = "তালিকা তৈরি করুন", join = "যোগ দিন", disconnect = "সংযোগ বিচ্ছিন্ন", tabAccount = "অ্যাকাউন্ট", tabCatalog = "ক্যাটালগ", tabOther = "অন্যান্য", tabAbout = "সম্পর্কে",
+    email = "ইমেল", password = "পাসওয়ার্ড", login = "লগ ইন", register = "অ্যাকাউন্ট তৈরি", username = "ইউজারনেম", save = "সংরক্ষণ",
+    theme = "থিম", themeLight = "হালকা", themeDark = "গাঢ়", viewOptions = "ভিউ অপশন", alerts = "সতর্কতা",
+    notifyAdd = "নতুন পণ্যের সতর্কতা", notifyCheck = "কেনা পণ্যের সতর্কতা", inlineComp = "ইনলাইনে সম্পন্ন", manageCatalog = "ক্যাটালগ পরিচালনা",
+    enterListName = "তালিকার নাম:", language = "ভাষা", sync = "সিঙ্ক", connected = "সিঙ্ক হয়েছে", localMode = "লোকাল মোড",
+    myLists = "আমার তালিকা", newList = "নতুন তালিকা", listCreate = "তৈরি করুন", selectCategory = "বিভাগ বাছুন", empty = "আপনার তালিকা খালি",
+    cats = cats("fruit" to "ফল", "veg" to "সবজি", "meat" to "মাংস/মাছ", "dairy" to "দুগ্ধজাত", "pantry" to "প্যান্ট্রি/রুটি", "cleaning" to "পরিষ্কার/স্বাস্থ্যবিধি", "home" to "বাড়ি", "snacks" to "স্ন্যাকস/মিষ্টি", "frozen" to "হিমায়িত", "processed" to "প্রক্রিয়াজাত", "drinks" to "পানীয়", "spices" to "মসলা", "other" to "অন্যান্য"),
+)
+private val RU = EN.copy(
+    modePlan = "План", modeShop = "Покупки", myList = "Мой список", settings = "Настройки", placeholder = "Найти продукт…", add = "Добавить",
+    completed = "Выполнено", clearComp = "Очистить", previouslyUsed = "Ранее использованные", autoCleanup = "Автоочистка", autoClear = "Автоочистка",
+    createList = "Создать список", join = "Присоединиться", disconnect = "Отключить", tabAccount = "Аккаунт", tabCatalog = "Каталог", tabOther = "Другое", tabAbout = "О приложении",
+    email = "Эл. почта", password = "Пароль", login = "Войти", register = "Создать аккаунт", username = "Имя пользователя", save = "Сохранить",
+    theme = "Тема", themeLight = "Светлая", themeDark = "Тёмная", viewOptions = "Параметры вида", alerts = "Оповещения",
+    notifyAdd = "Оповещения о новых продуктах", notifyCheck = "Оповещения о купленных", inlineComp = "Выполненные в списке", manageCatalog = "Управление каталогом",
+    enterListName = "Название списка:", language = "Язык", sync = "Синхронизация", connected = "Синхронизировано", localMode = "Локальный режим",
+    myLists = "Мои списки", newList = "Новый список", listCreate = "Создать", selectCategory = "Выберите категорию", empty = "Ваш список пуст",
+    cats = cats("fruit" to "Фрукты", "veg" to "Овощи", "meat" to "Мясо/Рыба", "dairy" to "Молочное", "pantry" to "Бакалея/Хлеб", "cleaning" to "Уборка/Гигиена", "home" to "Дом", "snacks" to "Снеки/Сладости", "frozen" to "Заморозка", "processed" to "Полуфабрикаты", "drinks" to "Напитки", "spices" to "Специи", "other" to "Прочее"),
+)
+private val JA = EN.copy(
+    modePlan = "計画", modeShop = "買い物", myList = "マイリスト", settings = "設定", placeholder = "商品を検索…", add = "追加",
+    completed = "完了", clearComp = "クリア", previouslyUsed = "以前使ったもの", autoCleanup = "自動整理", autoClear = "自動整理",
+    createList = "リストを作成", join = "参加", disconnect = "切断", tabAccount = "アカウント", tabCatalog = "カタログ", tabOther = "その他", tabAbout = "概要",
+    email = "メール", password = "パスワード", login = "ログイン", register = "アカウント作成", username = "ユーザー名", save = "保存",
+    theme = "テーマ", themeLight = "ライト", themeDark = "ダーク", viewOptions = "表示オプション", alerts = "通知",
+    notifyAdd = "新商品の通知", notifyCheck = "購入済みの通知", inlineComp = "完了をインライン表示", manageCatalog = "カタログ管理",
+    enterListName = "リスト名：", language = "言語", sync = "同期", connected = "同期済み", localMode = "ローカルモード",
+    myLists = "マイリスト", newList = "新しいリスト", listCreate = "作成", selectCategory = "カテゴリを選ぶ", empty = "リストは空です",
+    cats = cats("fruit" to "果物", "veg" to "野菜", "meat" to "肉/魚", "dairy" to "乳製品", "pantry" to "食料品/パン", "cleaning" to "掃除/衛生", "home" to "家庭", "snacks" to "スナック/お菓子", "frozen" to "冷凍", "processed" to "加工食品", "drinks" to "飲み物", "spices" to "調味料", "other" to "その他"),
+)
+private val DE = EN.copy(
+    modePlan = "Planen", modeShop = "Einkaufen", myList = "Meine Liste", settings = "Einstellungen", placeholder = "Produkt suchen…", add = "Hinzufügen",
+    completed = "Erledigt", clearComp = "Leeren", previouslyUsed = "Zuvor verwendet", autoCleanup = "Auto-Aufräumen", autoClear = "Auto-Aufräumen",
+    createList = "Liste erstellen", join = "Beitreten", disconnect = "Trennen", tabAccount = "Konto", tabCatalog = "Katalog", tabOther = "Sonstiges", tabAbout = "Über",
+    email = "E-Mail", password = "Passwort", login = "Anmelden", register = "Konto erstellen", username = "Benutzername", save = "Speichern",
+    theme = "Design", themeLight = "Hell", themeDark = "Dunkel", viewOptions = "Ansichtsoptionen", alerts = "Hinweise",
+    notifyAdd = "Hinweise zu neuen Produkten", notifyCheck = "Hinweise zu gekauften Produkten", inlineComp = "Erledigte inline", manageCatalog = "Katalog verwalten",
+    enterListName = "Listenname:", language = "Sprache", sync = "Synchronisierung", connected = "Synchronisiert", localMode = "Lokaler Modus",
+    myLists = "Meine Listen", newList = "Neue Liste", listCreate = "Erstellen", selectCategory = "Kategorie wählen", empty = "Deine Liste ist leer",
+    cats = cats("fruit" to "Obst", "veg" to "Gemüse", "meat" to "Fleisch/Fisch", "dairy" to "Milchprodukte", "pantry" to "Vorrat/Brot", "cleaning" to "Reinigung/Hygiene", "home" to "Haushalt", "snacks" to "Snacks/Süßes", "frozen" to "Tiefkühl", "processed" to "Verarbeitet", "drinks" to "Getränke", "spices" to "Gewürze", "other" to "Allgemein/Sonstiges"),
+)
+private val FR = EN.copy(
+    modePlan = "Planifier", modeShop = "Acheter", myList = "Ma liste", settings = "Réglages", placeholder = "Rechercher un produit…", add = "Ajouter",
+    completed = "Terminés", clearComp = "Effacer", previouslyUsed = "Déjà utilisés", autoCleanup = "Nettoyage auto", autoClear = "Nettoyage auto",
+    createList = "Créer une liste", join = "Rejoindre", disconnect = "Déconnecter", tabAccount = "Compte", tabCatalog = "Catalogue", tabOther = "Autres", tabAbout = "À propos",
+    email = "E-mail", password = "Mot de passe", login = "Se connecter", register = "Créer un compte", username = "Nom d'utilisateur", save = "Enregistrer",
+    theme = "Thème", themeLight = "Clair", themeDark = "Sombre", viewOptions = "Options d'affichage", alerts = "Alertes",
+    notifyAdd = "Alertes nouveaux produits", notifyCheck = "Alertes produits achetés", inlineComp = "Terminés en ligne", manageCatalog = "Gestion du catalogue",
+    enterListName = "Nom de la liste :", language = "Langue", sync = "Synchronisation", connected = "Synchronisé", localMode = "Mode local",
+    myLists = "Mes listes", newList = "Nouvelle liste", listCreate = "Créer", selectCategory = "Choisir une catégorie", empty = "Votre liste est vide",
+    cats = cats("fruit" to "Fruits", "veg" to "Légumes", "meat" to "Viande/Poisson", "dairy" to "Produits laitiers", "pantry" to "Épicerie/Pain", "cleaning" to "Nettoyage/Hygiène", "home" to "Maison", "snacks" to "Snacks/Sucreries", "frozen" to "Surgelés", "processed" to "Transformés", "drinks" to "Boissons", "spices" to "Épices", "other" to "Général/Autres"),
+)
+private val KO = EN.copy(
+    modePlan = "계획", modeShop = "쇼핑", myList = "내 목록", settings = "설정", placeholder = "상품 검색…", add = "추가",
+    completed = "완료", clearComp = "지우기", previouslyUsed = "이전에 사용함", autoCleanup = "자동 정리", autoClear = "자동 정리",
+    createList = "목록 만들기", join = "참여", disconnect = "연결 해제", tabAccount = "계정", tabCatalog = "카탈로그", tabOther = "기타", tabAbout = "정보",
+    email = "이메일", password = "비밀번호", login = "로그인", register = "계정 만들기", username = "사용자 이름", save = "저장",
+    theme = "테마", themeLight = "라이트", themeDark = "다크", viewOptions = "보기 옵션", alerts = "알림",
+    notifyAdd = "새 상품 알림", notifyCheck = "구매 상품 알림", inlineComp = "완료 항목 인라인", manageCatalog = "카탈로그 관리",
+    enterListName = "목록 이름:", language = "언어", sync = "동기화", connected = "동기화됨", localMode = "로컬 모드",
+    myLists = "내 목록", newList = "새 목록", listCreate = "만들기", selectCategory = "카테고리 선택", empty = "목록이 비어 있습니다",
+    cats = cats("fruit" to "과일", "veg" to "채소", "meat" to "고기/생선", "dairy" to "유제품", "pantry" to "식료품/빵", "cleaning" to "청소/위생", "home" to "집", "snacks" to "간식/디저트", "frozen" to "냉동", "processed" to "가공식품", "drinks" to "음료", "spices" to "향신료", "other" to "기타"),
+)
+private val IT = EN.copy(
+    modePlan = "Pianifica", modeShop = "Acquista", myList = "La mia lista", settings = "Impostazioni", placeholder = "Cerca un prodotto…", add = "Aggiungi",
+    completed = "Completati", clearComp = "Svuota", previouslyUsed = "Usati in precedenza", autoCleanup = "Pulizia automatica", autoClear = "Pulizia automatica",
+    createList = "Crea una lista", join = "Unisciti", disconnect = "Disconnetti", tabAccount = "Account", tabCatalog = "Catalogo", tabOther = "Altro", tabAbout = "Info",
+    email = "Email", password = "Password", login = "Accedi", register = "Crea account", username = "Nome utente", save = "Salva",
+    theme = "Tema", themeLight = "Chiaro", themeDark = "Scuro", viewOptions = "Opzioni di vista", alerts = "Avvisi",
+    notifyAdd = "Avvisi nuovi prodotti", notifyCheck = "Avvisi prodotti acquistati", inlineComp = "Completati in linea", manageCatalog = "Gestione catalogo",
+    enterListName = "Nome della lista:", language = "Lingua", sync = "Sincronizzazione", connected = "Sincronizzato", localMode = "Modalità locale",
+    myLists = "Le mie liste", newList = "Nuova lista", listCreate = "Crea", selectCategory = "Scegli una categoria", empty = "La tua lista è vuota",
+    cats = cats("fruit" to "Frutta", "veg" to "Verdura", "meat" to "Carne/Pesce", "dairy" to "Latticini", "pantry" to "Dispensa/Pane", "cleaning" to "Pulizia/Igiene", "home" to "Casa", "snacks" to "Snack/Dolci", "frozen" to "Surgelati", "processed" to "Trasformati", "drinks" to "Bevande", "spices" to "Spezie", "other" to "Generale/Altro"),
+)
+private val TR = EN.copy(
+    modePlan = "Planla", modeShop = "Alışveriş", myList = "Listem", settings = "Ayarlar", placeholder = "Ürün ara…", add = "Ekle",
+    completed = "Tamamlanan", clearComp = "Temizle", previouslyUsed = "Önceden kullanılan", autoCleanup = "Otomatik temizleme", autoClear = "Otomatik temizleme",
+    createList = "Liste oluştur", join = "Katıl", disconnect = "Bağlantıyı kes", tabAccount = "Hesap", tabCatalog = "Katalog", tabOther = "Diğer", tabAbout = "Hakkında",
+    email = "E-posta", password = "Parola", login = "Giriş yap", register = "Hesap oluştur", username = "Kullanıcı adı", save = "Kaydet",
+    theme = "Tema", themeLight = "Açık", themeDark = "Koyu", viewOptions = "Görünüm seçenekleri", alerts = "Uyarılar",
+    notifyAdd = "Yeni ürün uyarıları", notifyCheck = "Alınan ürün uyarıları", inlineComp = "Tamamlananlar satır içi", manageCatalog = "Katalog yönetimi",
+    enterListName = "Liste adı:", language = "Dil", sync = "Eşitleme", connected = "Eşitlendi", localMode = "Yerel mod",
+    myLists = "Listelerim", newList = "Yeni liste", listCreate = "Oluştur", selectCategory = "Kategori seç", empty = "Listen boş",
+    cats = cats("fruit" to "Meyve", "veg" to "Sebze", "meat" to "Et/Balık", "dairy" to "Süt ürünleri", "pantry" to "Kiler/Ekmek", "cleaning" to "Temizlik/Hijyen", "home" to "Ev", "snacks" to "Atıştırmalık/Tatlı", "frozen" to "Donmuş", "processed" to "İşlenmiş", "drinks" to "İçecekler", "spices" to "Baharatlar", "other" to "Genel/Diğer"),
+)
+
+private val byLang: Map<Lang, Strings> = mapOf(
+    Lang.EN to EN, Lang.ES to ES, Lang.CA to CA, Lang.ZH to ZH, Lang.HI to HI, Lang.AR to AR,
+    Lang.PT to PT, Lang.BN to BN, Lang.RU to RU, Lang.JA to JA, Lang.DE to DE, Lang.FR to FR,
+    Lang.KO to KO, Lang.IT to IT, Lang.TR to TR,
+)
+
+fun stringsFor(lang: Lang): Strings = byLang[lang] ?: EN
 
 /** Detect the system language and map it to a supported [Lang]. */
 fun systemLang(): Lang {

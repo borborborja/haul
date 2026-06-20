@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.bor_devs.shoplist.domain.AppMode
 import com.bor_devs.shoplist.domain.AuthState
 import com.bor_devs.shoplist.domain.CachedItem
+import com.bor_devs.shoplist.domain.Lang
 import com.bor_devs.shoplist.domain.SavedList
 import com.bor_devs.shoplist.domain.SortOrder
 import com.bor_devs.shoplist.domain.SyncHistoryItem
@@ -31,6 +32,7 @@ class SettingsDataStore @Inject constructor(
         val SERVER_URL = stringPreferencesKey("server_url")
         val WIZARD_DONE = booleanPreferencesKey("wizard_done")
         val THEME = stringPreferencesKey("theme")
+        val LANGUAGE = stringPreferencesKey("language")
         val APP_MODE = stringPreferencesKey("app_mode")
         val VIEW_MODE = stringPreferencesKey("view_mode")
         val SORT_ORDER = stringPreferencesKey("sort_order")
@@ -69,6 +71,7 @@ class SettingsDataStore @Inject constructor(
             serverUrl = p[Keys.SERVER_URL] ?: "",
             wizardDone = p[Keys.WIZARD_DONE] ?: false,
             theme = runCatching { ThemeMode.valueOf(p[Keys.THEME] ?: "LIGHT") }.getOrDefault(ThemeMode.LIGHT),
+            lang = Lang.from(p[Keys.LANGUAGE]),
             appMode = runCatching { AppMode.valueOf(p[Keys.APP_MODE] ?: "PLANNING") }.getOrDefault(AppMode.PLANNING),
             viewMode = runCatching { ViewMode.valueOf(p[Keys.VIEW_MODE] ?: "LIST") }.getOrDefault(ViewMode.LIST),
             sortOrder = runCatching { SortOrder.valueOf(p[Keys.SORT_ORDER] ?: "CATEGORY") }.getOrDefault(SortOrder.CATEGORY),
@@ -103,6 +106,7 @@ class SettingsDataStore @Inject constructor(
     suspend fun setServerUrl(url: String) = edit { it[Keys.SERVER_URL] = url }
     suspend fun setWizardDone(done: Boolean) = edit { it[Keys.WIZARD_DONE] = done }
     suspend fun setTheme(theme: ThemeMode) = edit { it[Keys.THEME] = theme.name }
+    suspend fun setLanguage(lang: Lang) = edit { it[Keys.LANGUAGE] = lang.code }
     suspend fun setAppMode(mode: AppMode) = edit { it[Keys.APP_MODE] = mode.name }
     suspend fun setViewMode(mode: ViewMode) = edit { it[Keys.VIEW_MODE] = mode.name }
     suspend fun setSortOrder(order: SortOrder) = edit { it[Keys.SORT_ORDER] = order.name }
@@ -161,6 +165,7 @@ data class Settings(
     val serverUrl: String,
     val wizardDone: Boolean,
     val theme: ThemeMode,
+    val lang: Lang,
     val appMode: AppMode,
     val viewMode: ViewMode,
     val sortOrder: SortOrder,
