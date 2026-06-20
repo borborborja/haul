@@ -34,7 +34,8 @@ android {
     signingConfigs {
         if (keystorePropsFile.exists()) {
             create("release") {
-                storeFile = file(keystoreProps.getProperty("storeFile"))
+                // The keystore lives in the app module (CI writes app/release.jks).
+                storeFile = rootProject.file("app/${keystoreProps.getProperty("storeFile")}")
                 storePassword = keystoreProps.getProperty("storePassword")
                 keyAlias = keystoreProps.getProperty("keyAlias")
                 keyPassword = keystoreProps.getProperty("keyPassword")
