@@ -40,6 +40,7 @@ func main() {
 	protectAccountTypes(app)
 	purgeOrphanGuests(app)
 	syncEnvAdmin(app)
+	syncEnvConfig(app)
 	registerRoutes(app, publicDir)
 
 	if err := app.Start(); err != nil {
@@ -112,6 +113,15 @@ func protectAccountTypes(app core.App) {
 		}
 		return e.Next()
 	})
+	// Block new account sign-ups when registration is closed. Superusers (the
+	// admin Users tab) are exempt so they can always create accounts.
+	app.OnRecordCreateRequest("users").BindFunc(func(e *core.RecordRequestEvent) error {
+		isSuperuser := e.Auth != nil && e.Auth.Collection().Name == core.CollectionNameSuperusers
+		if !isSuperuser && e.Record.GetString("account_type") == "account" && !configBool(e.App, "registration_open", true) {
+			return apis.NewForbiddenError("New account registration is closed on this instance.", nil)
+		}
+		return e.Next()
+	})
 	app.OnRecordUpdateRequest("shopping_lists").BindFunc(func(e *core.RecordRequestEvent) error {
 		original := e.Record.Original()
 		if e.Record.GetString("owner") != original.GetString("owner") ||
@@ -146,7 +156,68 @@ func setupStatus(e *core.RequestEvent) error {
 		"needsSetup": total == 0,
 		"envAdmin":   os.Getenv("ADMIN_PASSWORD") != "",
 		"adminEmail": envOr("ADMIN_EMAIL", defaultAdminEmail),
+		"lockedKeys": lockedConfigKeys(),
 	})
+}
+
+// envConfigKeys maps env vars to app_config keys. When an env var is set it is
+// seeded into app_config on every boot (env wins) and the cfg key is reported
+// as locked so the admin panel renders it read-only.
+var envConfigKeys = []struct {
+	Env  string
+	Cfg  string
+	Bool bool
+}{
+	{"SERVER_NAME", "server_name", false},
+	{"ENABLE_WEB_APP", "enable_web_app", true},
+	{"ENABLE_USERNAMES", "enable_usernames", true},
+	{"REQUIRE_ACCOUNT", "require_account", true},
+	{"REGISTRATION_OPEN", "registration_open", true},
+}
+
+func lockedConfigKeys() []string {
+	out := []string{}
+	for _, k := range envConfigKeys {
+		if os.Getenv(k.Env) != "" {
+			out = append(out, k.Cfg)
+		}
+	}
+	return out
+}
+
+// syncEnvConfig seeds app_config from env on every boot, so .env prevails over
+// admin edits. Unset env vars are left to admin control. Runs on OnServe (after
+// migrations have applied and collections are cached).
+func syncEnvConfig(app core.App) {
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		for _, k := range envConfigKeys {
+			v := os.Getenv(k.Env)
+			if v == "" {
+				continue
+			}
+			if k.Bool {
+				v = boolStr(strings.EqualFold(v, "true") || v == "1")
+			}
+			if err := setConfig(e.App, k.Cfg, v); err != nil {
+				log.Printf("env config: could not set %s: %v", k.Cfg, err)
+			}
+		}
+		return e.Next()
+	})
+}
+
+// configBool reads a boolean app_config value (stored as a JSON string),
+// defaulting when absent.
+func configBool(app core.App, key string, def bool) bool {
+	rec, _ := app.FindFirstRecordByFilter("app_config", "key = {:key}", dbx.Params{"key": key})
+	if rec == nil {
+		return def
+	}
+	v := strings.Trim(strings.TrimSpace(rec.GetString("value")), "\"")
+	if v == "" {
+		return def
+	}
+	return strings.EqualFold(v, "true") || v == "1"
 }
 
 // syncEnvAdmin upserts the instance-admin superuser from ADMIN_PASSWORD /
@@ -278,6 +349,9 @@ func claimAccount(e *core.RequestEvent) error {
 	if e.Auth.GetString("account_type") == "account" {
 		return apis.NewBadRequestError("This session is already an account.", nil)
 	}
+	if !configBool(e.App, "registration_open", true) {
+		return apis.NewForbiddenError("New account registration is closed on this instance.", nil)
+	}
 
 	var body struct {
 		Email    string `json:"email"`
@@ -355,6 +429,9 @@ func purgeOrphanGuests(app core.App) {
 }
 
 func createGuest(e *core.RequestEvent) error {
+	if configBool(e.App, "require_account", false) {
+		return apis.NewForbiddenError("An account is required on this instance.", nil)
+	}
 	collection, err := e.App.FindCollectionByNameOrId("users")
 	if err != nil {
 		return err
