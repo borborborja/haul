@@ -27,7 +27,10 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
-    const hasServer = Capacitor.getPlatform() === 'web' || !!extras.serverUrl;
+    // The web app is served by the backend, so it always talks to its own
+    // origin — the server field only makes sense in the native (Capacitor) build.
+    const isNative = Capacitor.getPlatform() !== 'web';
+    const hasServer = !isNative || !!extras.serverUrl;
 
     const [tab, setTab] = useState<Tab>('account');
     const [email, setEmail] = useState('');
@@ -70,13 +73,15 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
             <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px' }}>
                 {tab === 'account' && (
                     <div style={{ maxWidth: 680, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                        {/* server URL */}
+                        {/* server URL — native app only (web uses its own origin) */}
+                        {isNative && (
                         <div style={{ ...card, gridColumn: 'span 2' }}>
                             <div style={{ ...mono, marginBottom: 14 }}>{t.server}</div>
                             <input value={serverInput} onChange={(e) => setServerInput(e.target.value)} placeholder="https://…" style={{ ...inputStyle, marginBottom: 10 }} />
                             <button onClick={() => extras.testAndSave(serverInput)} style={{ ...greenBtn, width: '100%' }}>{t.save}{extras.status === 'ok' ? ' ✓' : extras.status === 'error' ? ' ✕' : ''}</button>
                             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{extras.serverUrl || t.localMode}</div>
                         </div>
+                        )}
                         {/* sync hero (only when a server is configured) */}
                         {hasServer && (
                         <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg,#13352A,#0E1D17)', borderRadius: 18, padding: 24, color: '#EAF2EC', position: 'relative', overflow: 'hidden' }}>

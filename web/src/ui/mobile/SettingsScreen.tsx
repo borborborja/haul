@@ -26,7 +26,9 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
-    const hasServer = Capacitor.getPlatform() === 'web' || !!extras.serverUrl;
+    // Web is served by the backend (own origin) — the server field is native-only.
+    const isNative = Capacitor.getPlatform() !== 'web';
+    const hasServer = !isNative || !!extras.serverUrl;
 
     const [serverInput, setServerInput] = useState(extras.serverUrl || '');
     const [tab, setTab] = useState<Tab>('account');
@@ -75,9 +77,11 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                 {/* ===== ACCOUNT ===== */}
                 {tab === 'account' && (
                     <>
+                        {isNative && <>
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.server}</div>
                         <input value={serverInput} onChange={(e) => setServerInput(e.target.value)} placeholder={extras.serverUrl || 'https://…'} style={{ ...inputStyle, marginBottom: 9 }} />
                         <button onClick={() => extras.testAndSave(serverInput)} style={{ ...greenBtn, width: '100%', marginBottom: 24 }}>{t.save}{extras.status === 'ok' ? ' ✓' : extras.status === 'error' ? ' ✕' : ''}</button>
+                        </>}
 
                         {hasServer && <>
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.sync}</div>
