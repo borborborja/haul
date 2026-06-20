@@ -158,7 +158,7 @@ const ProductManager = () => {
                     )}
                     <button
                         onClick={() => { setIsCreating(true); setEditingId(null); setFormData({ hidden: false }); }}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-sm"
+                        className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm"
                     >
                         <Plus size={20} /> Nuevo Producto
                     </button>
@@ -172,7 +172,7 @@ const ProductManager = () => {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Buscar por nombre..."
-                        className="pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border-none w-full focus:ring-2 focus:ring-blue-500 dark:text-white text-sm"
+                        className="pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border-none w-full focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm"
                     />
                 </div>
                 <div className="relative w-full md:w-64">
@@ -180,7 +180,7 @@ const ProductManager = () => {
                     <select
                         value={categoryFilter}
                         onChange={e => setCategoryFilter(e.target.value)}
-                        className="pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border-none w-full focus:ring-2 focus:ring-blue-500 dark:text-white text-sm appearance-none cursor-pointer"
+                        className="pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border-none w-full focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm appearance-none cursor-pointer"
                     >
                         <option value="all">Todas las categorías</option>
                         {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.key}</option>)}
@@ -189,7 +189,7 @@ const ProductManager = () => {
             </div>
 
             {isCreating && (
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-blue-500/30 mb-6">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-emerald-500/30 mb-6">
                     <h3 className="font-bold text-lg mb-6 dark:text-white">Nuevo Producto</h3>
                     <ProductForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={() => setIsCreating(false)} categories={categories} />
                 </div>
@@ -329,7 +329,7 @@ const ProductForm = ({ data, onChange, onSave, onCancel, categories }: any) => {
                     id="prod-hidden"
                     checked={data.hidden || false}
                     onChange={e => handleChange('hidden', e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
                 />
                 <label htmlFor="prod-hidden" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
                     Esconder producto del catálogo
@@ -338,7 +338,7 @@ const ProductForm = ({ data, onChange, onSave, onCancel, categories }: any) => {
 
             <div className="flex gap-2 justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
                 <button onClick={onCancel} className="flex items-center gap-2 px-4 py-2 border rounded-xl hover:bg-slate-50 transition-colors text-sm font-bold"><X size={18} /> Cancelar</button>
-                <button onClick={onSave} className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow shadow-blue-500/20 text-sm font-bold"><Save size={18} /> Guardar</button>
+                <button onClick={onSave} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow shadow-emerald-500/20 text-sm font-bold"><Save size={18} /> Guardar</button>
             </div>
         </div>
     )

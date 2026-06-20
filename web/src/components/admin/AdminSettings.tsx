@@ -380,7 +380,7 @@ const AdminSettings = () => {
             <div className="grid gap-6 md:grid-cols-2">
                 {/* Server Config Card */}
                 <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-3 mb-4 text-blue-600 dark:text-blue-400">
+                    <div className="flex items-center gap-3 mb-4 text-emerald-600 dark:text-blue-400">
                         <SettingsIcon size={24} />
                         <h3 className="font-bold text-lg">Configuración del Servidor</h3>
                     </div>
@@ -391,7 +391,7 @@ const AdminSettings = () => {
                                 type="text"
                                 value={serverName}
                                 onChange={e => setServerNameState(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-blue-500 dark:text-white text-sm"
+                                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm"
                                 placeholder="P. ej. La Lista de Compra"
                                 required
                             />
@@ -440,7 +440,7 @@ const AdminSettings = () => {
                         <button
                             type="submit"
                             disabled={srvLoading}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                         >
                             {srvLoading ? <Loader className="animate-spin" size={18} /> : <Save size={18} />}
                             Guardar Configuración
@@ -549,7 +549,7 @@ const AdminSettings = () => {
                             <button
                                 onClick={handleExport}
                                 disabled={seeding}
-                                className="bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 border border-blue-100 dark:border-blue-800 transition-colors text-sm"
+                                className="bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-emerald-600 dark:text-blue-400 font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 border border-blue-100 dark:border-blue-800 transition-colors text-sm"
                             >
                                 <Download size={16} />
                                 Exportar

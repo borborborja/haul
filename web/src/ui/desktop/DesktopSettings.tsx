@@ -200,9 +200,12 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, letterSpacing: '-.02em', color: 'var(--text)' }}>Haul</div>
                         <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{t.version} 1.3.0</div>
                         <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)', margin: '16px auto 18px' }}>{t.aboutTagline}</p>
-                        <a href="https://github.com/borborborja/haul" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                            <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: ACCENT }}>{t.sourceCode} ↗</span>
-                        </a>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+                            <a href="https://github.com/borborborja/haul" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                                <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: ACCENT }}>{t.sourceCode} ↗</span>
+                            </a>
+                            <button onClick={() => { window.location.hash = '#/admin'; }} style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: 12, padding: '10px 18px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13.5, color: 'var(--text)' }}>Administració ↗</button>
+                        </div>
                     </div>
                 )}
             </div>

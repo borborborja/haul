@@ -423,7 +423,7 @@ const ListsManager = () => {
                 <div className="flex gap-3">
                     <button
                         onClick={handleImportClick}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all font-bold shadow-lg shadow-blue-500/20 active:scale-95"
+                        className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-500/20 active:scale-95"
                     >
                         <Upload size={18} /> Importar Lista
                     </button>
@@ -501,7 +501,7 @@ const ListsManager = () => {
                                                     <span className="font-mono font-bold text-slate-900 dark:text-slate-100 uppercase leading-none">
                                                         {list.invite_code}
                                                     </span>
-                                                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                                    <span className="text-sm font-medium text-emerald-600 dark:text-blue-400">
                                                         {list.data.listName || 'Mi Lista'}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400 font-medium mt-1">#{list.id}</span>
@@ -510,7 +510,7 @@ const ListsManager = () => {
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-2">
-                                                <div className={`px-2 py-1 rounded-lg text-xs font-bold ${phantom && items.length === 0 ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}>
+                                                <div className={`px-2 py-1 rounded-lg text-xs font-bold ${phantom && items.length === 0 ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 dark:bg-blue-900/30 text-emerald-600 dark:text-blue-400'}`}>
                                                     {items.length}
                                                 </div>
                                                 {itemsWithNotes.length > 0 && (
@@ -697,7 +697,7 @@ const ListsManager = () => {
 
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 px-6 py-4 rounded-2xl flex items-start gap-3">
                 <AlertTriangle className="text-blue-500 mt-1" size={18} />
-                <div className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                <div className="text-sm text-emerald-700 dark:text-blue-300 leading-relaxed">
                     <p className="font-black mb-1 leading-none uppercase tracking-tighter">¿Qué es una lista fantasma?</p>
                     Se consideran listas fantasma aquellas que están <strong>vacías</strong> o que no han tenido <strong>actividad en los últimos 7 días</strong>. Es seguro borrarlas para mantener la base de datos limpia.
                 </div>
@@ -724,7 +724,7 @@ const ListsManager = () => {
                                 </div>
                                 <h4 className="text-xs font-bold uppercase text-slate-500">Elige una acción:</h4>
 
-                                <button onClick={() => executeImport('new_code')} disabled={isImporting} className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
+                                <button onClick={() => executeImport('new_code')} disabled={isImporting} className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
                                     <div className="text-left">
                                         <div className="text-sm font-bold text-slate-700 dark:text-slate-200">Generar Nuevo Código</div>
                                         <div className="text-[10px] text-slate-400">Crea una copia nueva (Safe)</div>
@@ -739,14 +739,14 @@ const ListsManager = () => {
                                     <button onClick={() => executeImport('overwrite')} disabled={isImporting} className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold text-xs hover:bg-red-100 border border-red-100 dark:border-red-800 transition-colors">
                                         Sobreescribir
                                     </button>
-                                    <button onClick={() => executeImport('merge')} disabled={isImporting} className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-100 border border-blue-100 dark:border-blue-800 transition-colors">
+                                    <button onClick={() => executeImport('merge')} disabled={isImporting} className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-emerald-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-100 border border-blue-100 dark:border-blue-800 transition-colors">
                                         Combinar (Merge)
                                     </button>
                                 </div>
                             </div>
                         ) : (
                             <div>
-                                <button onClick={() => executeImport('new_code')} disabled={isImporting} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold mb-3 hover:bg-blue-700 transition">
+                                <button onClick={() => executeImport('new_code')} disabled={isImporting} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold mb-3 hover:bg-emerald-700 transition">
                                     {isImporting ? <Loader className="animate-spin mx-auto" size={16} /> : 'Importar'}
                                 </button>
                             </div>

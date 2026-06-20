@@ -171,7 +171,7 @@ const CategoryManager = () => {
                     </button>
                     <button
                         onClick={handleCreate}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-bold shadow-lg shadow-blue-500/20"
+                        className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition font-bold shadow-lg shadow-emerald-500/20"
                     >
                         <Plus size={18} /> Nueva Categoría
                     </button>
@@ -179,7 +179,7 @@ const CategoryManager = () => {
             </div>
 
             {isCreating && (
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-blue-500/30 mb-6">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-emerald-500/30 mb-6">
                     <h3 className="font-bold text-lg mb-6 dark:text-white flex items-center gap-2">
                         <Plus className="text-blue-500" size={20} />
                         Nueva Categoría
@@ -193,7 +193,7 @@ const CategoryManager = () => {
                     <div
                         key={cat.id}
                         onClick={() => toggleSelect(cat.id)}
-                        className={`group relative bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border transition-all cursor-pointer ${selectedIds.has(cat.id) ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-200 dark:border-slate-700'} ${cat.hidden && !selectedIds.has(cat.id) ? 'opacity-60 grayscale' : ''}`}
+                        className={`group relative bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border transition-all cursor-pointer ${selectedIds.has(cat.id) ? 'border-emerald-500 ring-2 ring-blue-500/10' : 'border-slate-200 dark:border-slate-700'} ${cat.hidden && !selectedIds.has(cat.id) ? 'opacity-60 grayscale' : ''}`}
                     >
                         {editingId === cat.id ? (
                             <div className="w-full" onClick={e => e.stopPropagation()}>
@@ -203,7 +203,7 @@ const CategoryManager = () => {
                         ) : (
                             <div className="flex items-center gap-4">
                                 <div className="flex-shrink-0">
-                                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(cat.id) ? 'bg-blue-500 border-blue-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-blue-400'}`}>
+                                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(cat.id) ? 'bg-blue-500 border-emerald-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-blue-400'}`}>
                                         {selectedIds.has(cat.id) && <Plus size={14} className="text-white rotate-45" />}
                                     </div>
                                 </div>
@@ -327,7 +327,7 @@ const CategoryForm = ({ data, onChange, onSave, onCancel }: { data: any, onChang
                     id="cat-hidden"
                     checked={data.hidden || false}
                     onChange={e => handleChange('hidden', e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
                 />
                 <label htmlFor="cat-hidden" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
                     Esconder categoría del catálogo público
@@ -338,7 +338,7 @@ const CategoryForm = ({ data, onChange, onSave, onCancel }: { data: any, onChang
                 <button onClick={onCancel} className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold border border-slate-200 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white transition-colors">
                     <X size={18} /> Cancelar
                 </button>
-                <button onClick={onSave} className="flex items-center gap-2 px-8 py-2.5 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-95">
+                <button onClick={onSave} className="flex items-center gap-2 px-8 py-2.5 text-sm font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-all active:scale-95">
                     <Save size={18} /> Guardar
                 </button>
             </div>

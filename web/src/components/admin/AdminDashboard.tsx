@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Tag, Settings as SettingsIcon, LogOut, List, Sun, Moon, Users, Lightbulb } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { translations } from '../../data/constants';
 import CategoryManager from './CategoryManager';
@@ -8,134 +8,68 @@ import AdminSettings from './AdminSettings';
 import ListsManager from './ListsManager';
 import UsersManager from './UsersManager';
 import UserSuggestionsManager from './UserSuggestionsManager';
+import { palette, cssVars, FONT_SANS, FONT_DISPLAY, FONT_MONO, ACCENT, ACCENT_INK } from '../../ui/theme';
 
 interface AdminDashboardProps {
     onLogout: () => void;
 }
 
+type TabKey = 'lists' | 'users' | 'categories' | 'products' | 'suggestions' | 'settings';
+
 const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
-    const [activeTab, setActiveTab] = useState<'lists' | 'users' | 'categories' | 'products' | 'suggestions' | 'settings'>('lists');
-    const { isDark, toggleTheme, lang, setLang } = useShopStore();
+    const [activeTab, setActiveTab] = useState<TabKey>('lists');
+    const { isDark, lang, setLang, enableUsernames, serverName } = useShopStore();
     const t = translations[lang] as any;
 
-    const renderHeader = () => (
-        <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-            <h1 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-1.5 rounded-lg">
-                    <SettingsIcon size={20} />
-                </span>
-                {useShopStore.getState().serverName}
-            </h1>
-
-            <div className="flex items-center gap-4">
-                {/* Theme Toggle */}
-                <button
-                    onClick={toggleTheme}
-                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                    title="Cambiar tema"
-                >
-                    {isDark ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-
-                {/* Lang Switch */}
-                <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-                    {(['ca', 'es', 'en'] as const).map((l) => (
-                        <button
-                            key={l}
-                            onClick={() => setLang(l)}
-                            className={`px-2 py-1 text-[10px] font-black uppercase rounded ${lang === l ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
-                        >
-                            {l}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden md:block"></div>
-
-                <button
-                    onClick={onLogout}
-                    className="text-slate-500 hover:text-red-500 transition-colors flex items-center gap-2 text-sm font-bold"
-                >
-                    <LogOut size={16} /> <span className="hidden sm:inline">{t.logout}</span>
-                </button>
-            </div>
-        </header>
-    );
-
-    const renderTabs = () => (
-        <div className="flex gap-1 px-6 pt-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 sticky top-16 z-40 overflow-x-auto scrollbar-hide">
-            <button
-                onClick={() => setActiveTab('lists')}
-                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'lists'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-            >
-                <List size={16} /> {t.tabLists}
-            </button>
-            {useShopStore.getState().enableUsernames && (
-                <button
-                    onClick={() => setActiveTab('users')}
-                    className={`px-4 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'users'
-                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                        }`}
-                >
-                    <Users size={16} /> {t.tabUsers}
-                </button>
-            )}
-            <button
-                onClick={() => setActiveTab('categories')}
-                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'categories'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-            >
-                <Tag size={16} /> {t.tabCategories}
-            </button>
-            <button
-                onClick={() => setActiveTab('products')}
-                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'products'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-            >
-                <Package size={16} /> {t.tabProducts}
-            </button>
-            <button
-                onClick={() => setActiveTab('suggestions')}
-                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'suggestions'
-                    ? 'border-green-500 text-green-600 dark:text-green-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-            >
-                <Lightbulb size={16} /> {t.tabSuggestions || 'Sugerencias'}
-            </button>
-            <button
-                onClick={() => setActiveTab('settings')}
-                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'settings'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-            >
-                <SettingsIcon size={16} /> {t.settings}
-            </button>
-        </div>
-    );
+    const tabs: { key: TabKey; label: string }[] = [
+        { key: 'lists', label: t.tabLists },
+        ...(enableUsernames ? [{ key: 'users' as TabKey, label: t.tabUsers }] : []),
+        { key: 'categories', label: t.tabCategories },
+        { key: 'products', label: t.tabProducts },
+        { key: 'suggestions', label: t.tabSuggestions || 'Suggeriments' },
+        { key: 'settings', label: t.settings },
+    ];
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-            {renderHeader()}
-            {renderTabs()}
+        <div style={{ ...cssVars(palette(isDark)), fontFamily: FONT_SANS, position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)', color: 'var(--text)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* top bar */}
+            <div style={{ flex: 'none', height: 64, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', padding: '0 28px', gap: 14, background: 'var(--surface)' }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={ACCENT_INK} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21c0-5 0-9 4-12" /><path d="M12 13c-4 0-7-2.5-7-6 3.2-.4 6 .8 7 4" /></svg>
+                </div>
+                <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, letterSpacing: '-.02em', color: 'var(--text)' }}>{serverName || 'Haul'}</span>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: ACCENT, border: `1px solid ${ACCENT}66`, padding: '3px 8px', borderRadius: 999 }}>Admin</span>
+                <div style={{ flex: 1 }} />
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--seg)', borderRadius: 999, padding: 3, fontFamily: FONT_MONO, fontSize: 11, fontWeight: 500 }}>
+                    {(['ca', 'es', 'en'] as const).map((l) => {
+                        const on = lang === l;
+                        return <button key={l} onClick={() => setLang(l)} style={{ border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 999, background: on ? ACCENT : 'transparent', color: on ? ACCENT_INK : 'var(--muted)', textTransform: 'uppercase', fontFamily: 'inherit', fontWeight: 600 }}>{l}</button>;
+                    })}
+                </div>
+                <button onClick={onLogout} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit' }}>
+                    <LogOut size={17} /> {t.logout}
+                </button>
+            </div>
 
-            <main className="p-6 max-w-5xl mx-auto">
-                {activeTab === 'lists' && <ListsManager />}
-                {activeTab === 'users' && <UsersManager />}
-                {activeTab === 'categories' && <CategoryManager />}
-                {activeTab === 'products' && <ProductManager />}
-                {activeTab === 'suggestions' && <UserSuggestionsManager />}
-                {activeTab === 'settings' && <AdminSettings />}
-            </main>
+            {/* tab bar */}
+            <div style={{ flex: 'none', display: 'flex', padding: '0 28px', borderBottom: '1px solid var(--line)', background: 'var(--surface)', overflowX: 'auto' }}>
+                {tabs.map((tab) => {
+                    const on = activeTab === tab.key;
+                    return <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13.5, padding: '15px 4px', margin: '0 10px', borderBottom: `2px solid ${on ? ACCENT : 'transparent'}`, color: on ? 'var(--text)' : 'var(--muted)', whiteSpace: 'nowrap' }}>{tab.label}</button>;
+                })}
+            </div>
+
+            {/* content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '30px 36px', background: 'var(--bg)' }}>
+                <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+                    {activeTab === 'lists' && <ListsManager />}
+                    {activeTab === 'users' && <UsersManager />}
+                    {activeTab === 'categories' && <CategoryManager />}
+                    {activeTab === 'products' && <ProductManager />}
+                    {activeTab === 'suggestions' && <UserSuggestionsManager />}
+                    {activeTab === 'settings' && <AdminSettings />}
+                </div>
+            </div>
         </div>
     );
 };

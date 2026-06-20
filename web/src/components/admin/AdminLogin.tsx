@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Lock, Loader, Mail } from 'lucide-react';
+import { ChevronLeft, Loader, ArrowRight } from 'lucide-react';
 import { pb } from '../../lib/pocketbase';
+import { useShopStore } from '../../store/shopStore';
+import { palette, cssVars, FONT_SANS, FONT_DISPLAY, FONT_MONO, ACCENT, ACCENT_INK, alpha } from '../../ui/theme';
 
 interface AdminLoginProps {
     onLogin: () => void;
 }
 
 const AdminLogin = ({ onLogin }: AdminLoginProps) => {
+    const isDark = useShopStore((s) => s.isDark);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -27,39 +30,33 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
         }
     };
 
-    return (
-        <main className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900 p-4">
-            <div className="w-full max-w-md p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700">
-                <div className="flex flex-col items-center mb-6">
-                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 text-blue-600 dark:text-blue-400">
-                        <Lock size={32} />
-                    </div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Administració</h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Accés de superusuari</p>
-                </div>
+    const label: React.CSSProperties = { fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 };
+    const input: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)', background: 'var(--bg)', borderRadius: 12, padding: '13px 14px', fontSize: 14.5, color: 'var(--text)', fontFamily: 'inherit', outline: 'none' };
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <label className="block text-sm font-bold text-slate-600 dark:text-slate-300">
-                        Correu
-                        <span className="relative block mt-1">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} className="w-full min-h-11 pl-10 pr-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                        </span>
-                    </label>
-                    <label className="block text-sm font-bold text-slate-600 dark:text-slate-300">
-                        Contrasenya
-                        <span className="relative block mt-1">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="w-full min-h-11 pl-10 pr-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                        </span>
-                    </label>
-                    {error && <p role="alert" className="text-red-500 text-sm">{error}</p>}
-                    <button type="submit" disabled={loading} className="w-full min-h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-50 flex items-center justify-center gap-2">
-                        {loading ? <Loader className="animate-spin" size={20} /> : 'Entrar'}
+    return (
+        <div style={{ ...cssVars(palette(isDark)), fontFamily: FONT_SANS, position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)', color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'absolute', right: -120, top: -120, width: 420, height: 420, borderRadius: '50%', background: `radial-gradient(circle, ${alpha(ACCENT, 0.18)}, transparent 70%)` }} />
+            <div style={{ position: 'relative', width: 400, maxWidth: '90%' }}>
+                <button onClick={() => { window.location.hash = ''; }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, marginBottom: 24 }}>
+                    <ChevronLeft size={16} strokeWidth={2.2} />Torna a l'app
+                </button>
+                <form onSubmit={handleSubmit} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 22, padding: '34px 32px', boxShadow: '0 24px 60px rgba(0,0,0,.18)' }}>
+                    <div style={{ width: 54, height: 54, borderRadius: 16, background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 26px rgba(16,185,129,.4)', marginBottom: 20 }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={ACCENT_INK} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                    </div>
+                    <h1 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, letterSpacing: '-.02em', color: 'var(--text)', margin: '0 0 6px' }}>Administració</h1>
+                    <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: '0 0 24px', lineHeight: 1.5 }}>Accés restringit. Entra amb el teu compte d'administrador.</p>
+                    <div style={label}>Correu</div>
+                    <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@haul.app" style={{ ...input, marginBottom: 13 }} />
+                    <div style={label}>Contrasenya</div>
+                    <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ ...input, marginBottom: error ? 12 : 22 }} />
+                    {error && <p role="alert" style={{ color: '#EF4444', fontSize: 13, margin: '0 0 16px' }}>{error}</p>}
+                    <button type="submit" disabled={loading} style={{ width: '100%', cursor: 'pointer', border: 'none', background: ACCENT, color: ACCENT_INK, borderRadius: 13, padding: 15, fontFamily: 'inherit', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 12px 26px rgba(16,185,129,.3)', opacity: loading ? 0.6 : 1 }}>
+                        {loading ? <Loader className="animate-spin" size={20} /> : <>Entra <ArrowRight size={18} strokeWidth={2.4} /></>}
                     </button>
                 </form>
             </div>
-        </main>
+        </div>
     );
 };
 

@@ -214,12 +214,16 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                             <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{t.version} 1.3.0</div>
                             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)', maxWidth: 240, margin: '16px 0 0' }}>{t.aboutTagline}</p>
                         </div>
-                        <a href="https://github.com/borborborja/haul" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
+                        <a href="https://github.com/borborborja/haul" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'block', marginBottom: 9 }}>
                             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '15px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>{t.sourceCode}</span>
                                 <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: ACCENT }}>GitHub ↗</span>
                             </div>
                         </a>
+                        <button onClick={() => { window.location.hash = '#/admin'; }} style={{ width: '100%', textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '15px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>Administració</span>
+                            <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: 'var(--muted)' }}>↗</span>
+                        </button>
                     </div>
                 )}
             </div>

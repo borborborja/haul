@@ -74,9 +74,9 @@ const ImportModal = ({ filename, onClose, onConfirm }: ImportModalProps) => {
                         <div className="grid grid-cols-1 gap-2">
                             <button
                                 onClick={() => setOptions({ ...options, mode: 'combine' })}
-                                className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all text-left ${options.mode === 'combine' ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                                className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all text-left ${options.mode === 'combine' ? 'border-emerald-500 bg-blue-50/50 dark:bg-blue-900/10' : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
                             >
-                                <div className={`mt-1 w-4 h-4 rounded-full border-2 flex items-center justify-center ${options.mode === 'combine' ? 'border-blue-500' : 'border-slate-300'}`}>
+                                <div className={`mt-1 w-4 h-4 rounded-full border-2 flex items-center justify-center ${options.mode === 'combine' ? 'border-emerald-500' : 'border-slate-300'}`}>
                                     {options.mode === 'combine' && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
                                 </div>
                                 <div>
@@ -109,7 +109,7 @@ const ImportModal = ({ filename, onClose, onConfirm }: ImportModalProps) => {
                                 type="checkbox"
                                 checked={options.applyHidden}
                                 onChange={e => setOptions({ ...options, applyHidden: e.target.checked })}
-                                className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                             />
                             <div className="text-sm font-bold text-slate-700 dark:text-slate-200">Respetar estado de "Oculto"</div>
                         </label>
@@ -136,7 +136,7 @@ const ImportModal = ({ filename, onClose, onConfirm }: ImportModalProps) => {
                     <button
                         onClick={handleProceed}
                         disabled={loading}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 ${options.mode === 'combine' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/20'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-white transition-all shadow-lg active:scale-95 disabled:opacity-50 ${options.mode === 'combine' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/20'}`}
                     >
                         {loading ? <Loader2 className="animate-spin" size={20} /> : 'Empezar Importación'}
                     </button>

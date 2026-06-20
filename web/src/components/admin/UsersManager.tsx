@@ -205,7 +205,7 @@ const UsersManager = () => {
                                         <td className="p-4">
                                             {user.current_list ? (
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md font-mono text-xs font-bold uppercase tracking-wider">
+                                                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-emerald-600 dark:text-blue-400 rounded-md font-mono text-xs font-bold uppercase tracking-wider">
                                                         {user.current_list}
                                                     </span>
                                                 </div>
@@ -245,7 +245,7 @@ const UsersManager = () => {
 
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 px-6 py-4 rounded-2xl flex items-start gap-3">
                 <AlertTriangle className="text-blue-500 mt-1" size={18} />
-                <div className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                <div className="text-sm text-emerald-700 dark:text-blue-300 leading-relaxed">
                     <p className="font-black mb-1 leading-none uppercase tracking-tighter">Gestión de Usuarios</p>
                     Aquí puedes ver quién está usando la aplicación y en qué lista están suscritos actualmente. Los usuarios <strong>obsoletos</strong> (inactivos hace más de 30 días) pueden ser borrados de forma segura.
                 </div>
