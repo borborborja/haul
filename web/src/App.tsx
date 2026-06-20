@@ -1,6 +1,8 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useShopStore } from './store/shopStore';
+import { pb } from './lib/pocketbase';
 import { Capacitor } from '@capacitor/core';
+import AuthGate from './ui/shared/AuthGate';
 import HaulApp from './ui/HaulApp';
 import SettingsModal from './components/modals/SettingsModal';
 import { detectLang } from './data/i18n';
@@ -201,6 +203,12 @@ function App() {
   // --- Web App Status Check ---
   const [isWebAppEnabled, setIsWebAppEnabled] = useState(true);
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
+  const requireAccount = useShopStore((s) => s.requireAccount);
+  const registrationOpen = useShopStore((s) => s.registrationOpen);
+  // Whether the current session is a real account (not guest) — drives the auth wall.
+  const isAccountNow = () => pb.authStore.isValid && pb.authStore.record?.collectionName === 'users' && (pb.authStore.record as any)?.account_type === 'account';
+  const [isAccount, setIsAccount] = useState(isAccountNow);
+  useEffect(() => pb.authStore.onChange(() => setIsAccount(isAccountNow())), []);
 
 
 
@@ -229,6 +237,12 @@ function App() {
           const enabledRecord = records.find((c: any) => c.key === 'enable_web_app');
           const isEnabled = enabledRecord ? isConfigEnabled(enabledRecord.value, true) : true;
           setIsWebAppEnabled(isEnabled);
+          const reqRecord = records.find((c: any) => c.key === 'require_account');
+          const regRecord = records.find((c: any) => c.key === 'registration_open');
+          useShopStore.setState({
+            requireAccount: reqRecord ? isConfigEnabled(reqRecord.value, false) : false,
+            registrationOpen: regRecord ? isConfigEnabled(regRecord.value, true) : true,
+          });
         };
         updateState(config);
 
@@ -270,6 +284,15 @@ function App() {
     return (
       <div style={{ fontFamily: 'sans-serif', textAlign: 'center', padding: '2rem' }}>
         <h1>404 Not Found</h1>
+      </div>
+    );
+  }
+
+  // Account wall: the instance requires a logged-in account (no guest use).
+  if (requireAccount && !isAccount && !isAdmin) {
+    return (
+      <div className={`${isDark ? 'dark' : ''} ${isAmoled ? 'amoled' : ''}`}>
+        <AuthGate registrationOpen={registrationOpen} />
       </div>
     );
   }

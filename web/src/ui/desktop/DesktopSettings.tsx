@@ -9,6 +9,7 @@ import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } 
 import { APP_VERSION } from '../../data/version';
 import UpdateNotice from '../shared/UpdateNotice';
 import { canonicalKey } from '../../utils/helpers';
+import { Capacitor } from '@capacitor/core';
 
 type Tab = 'account' | 'catalog' | 'other' | 'about';
 const mono = { fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase' as const, color: 'var(--muted)' };
@@ -22,10 +23,11 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
         lang, auth, sync, showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategory, addCategoryItem,
-        disabledProducts, deactivateProduct, reactivateProduct,
+        disabledProducts, deactivateProduct, reactivateProduct, registrationOpen,
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
+    const hasServer = Capacitor.getPlatform() === 'web' || !!extras.serverUrl;
 
     const [tab, setTab] = useState<Tab>('account');
     const [email, setEmail] = useState('');
@@ -68,7 +70,15 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
             <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px' }}>
                 {tab === 'account' && (
                     <div style={{ maxWidth: 680, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                        {/* sync hero */}
+                        {/* server URL */}
+                        <div style={{ ...card, gridColumn: 'span 2' }}>
+                            <div style={{ ...mono, marginBottom: 14 }}>{t.server}</div>
+                            <input value={serverInput} onChange={(e) => setServerInput(e.target.value)} placeholder="https://…" style={{ ...inputStyle, marginBottom: 10 }} />
+                            <button onClick={() => extras.testAndSave(serverInput)} style={{ ...greenBtn, width: '100%' }}>{t.save}{extras.status === 'ok' ? ' ✓' : extras.status === 'error' ? ' ✕' : ''}</button>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{extras.serverUrl || t.localMode}</div>
+                        </div>
+                        {/* sync hero (only when a server is configured) */}
+                        {hasServer && (
                         <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg,#13352A,#0E1D17)', borderRadius: 18, padding: 24, color: '#EAF2EC', position: 'relative', overflow: 'hidden' }}>
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
                                 <div>
@@ -90,6 +100,7 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                                 </div>
                             </div>
                         </div>
+                        )}
                         {/* account */}
                         <div style={card}>
                             {auth.isLoggedIn ? <>
@@ -103,7 +114,7 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                                 <input placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 9 }} />
                                 <input type="password" placeholder={t.password} value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} />
                                 <div style={{ display: 'flex', gap: 9 }}>
-                                    <button disabled={acc.busy} onClick={() => acc.claim(email, password)} style={{ ...greenBtn, flex: 1 }}>{t.createAccount}</button>
+                                    {registrationOpen && <button disabled={acc.busy} onClick={() => acc.claim(email, password)} style={{ ...greenBtn, flex: 1 }}>{t.createAccount}</button>}
                                     <button disabled={acc.busy} onClick={() => acc.login(email, password)} style={{ ...ghostBtn, flex: 1 }}>{t.login}</button>
                                 </div>
                                 {acc.error && <div style={{ color: DANGER, fontSize: 12.5, marginTop: 10 }}>{acc.error}</div>}
@@ -167,12 +178,6 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                             <div style={{ ...mono, marginBottom: 14 }}>{t.alerts}</div>
                             <ToggleRow label={t.notifyNew} on={notifyOnAdd} onClick={() => setNotifyOnAdd(!notifyOnAdd)} first />
                             <ToggleRow label={t.notifyBought} on={notifyOnCheck} onClick={() => setNotifyOnCheck(!notifyOnCheck)} />
-                        </div>
-                        <div style={card}>
-                            <div style={{ ...mono, marginBottom: 14 }}>{t.server}</div>
-                            <input value={serverInput} onChange={(e) => setServerInput(e.target.value)} placeholder="https://…" style={{ ...inputStyle, marginBottom: 10 }} />
-                            <button onClick={() => extras.testAndSave(serverInput)} style={{ ...greenBtn, width: '100%' }}>{t.save}{extras.status === 'ok' ? ' ✓' : extras.status === 'error' ? ' ✕' : ''}</button>
-                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{extras.serverUrl || t.localMode}</div>
                         </div>
                         <div style={card}>
                             <div style={{ ...mono, marginBottom: 14 }}>{t.about /* Backup */}</div>

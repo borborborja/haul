@@ -9,6 +9,7 @@ import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } 
 import { APP_VERSION } from '../../data/version';
 import UpdateNotice from '../shared/UpdateNotice';
 import { canonicalKey } from '../../utils/helpers';
+import { Capacitor } from '@capacitor/core';
 
 type Tab = 'account' | 'catalog' | 'other' | 'about';
 const monoLabel = { fontFamily: FONT_MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase' as const, color: 'var(--muted)' };
@@ -17,14 +18,15 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
     const m = useHaulModel();
     const t = m.t;
     const {
-        theme, lang, setTheme, auth, sync, serverUrl,
+        theme, lang, setTheme, auth, sync,
         showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategory, addCategoryItem,
-        disabledProducts, deactivateProduct, reactivateProduct,
+        disabledProducts, deactivateProduct, reactivateProduct, registrationOpen,
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
+    const hasServer = Capacitor.getPlatform() === 'web' || !!extras.serverUrl;
 
     const [serverInput, setServerInput] = useState(extras.serverUrl || '');
     const [tab, setTab] = useState<Tab>('account');
@@ -73,6 +75,11 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                 {/* ===== ACCOUNT ===== */}
                 {tab === 'account' && (
                     <>
+                        <div style={{ ...monoLabel, marginBottom: 11 }}>{t.server}</div>
+                        <input value={serverInput} onChange={(e) => setServerInput(e.target.value)} placeholder={extras.serverUrl || 'https://…'} style={{ ...inputStyle, marginBottom: 9 }} />
+                        <button onClick={() => extras.testAndSave(serverInput)} style={{ ...greenBtn, width: '100%', marginBottom: 24 }}>{t.save}{extras.status === 'ok' ? ' ✓' : extras.status === 'error' ? ' ✕' : ''}</button>
+
+                        {hasServer && <>
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.sync}</div>
                         {sync.connected ? (
                             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: 16, marginBottom: 24 }}>
@@ -92,6 +99,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                                 <button disabled={acc.busy} onClick={() => { const c = window.prompt(t.syncCode); if (c) acc.join(c); }} style={{ ...ghostBtn, flex: 1 }}>{t.join}</button>
                             </div>
                         )}
+                        </>}
 
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.account}</div>
                         {auth.isLoggedIn ? (
@@ -104,7 +112,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                                 <input placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 9 }} />
                                 <input type="password" placeholder={t.password} value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} />
                                 <div style={{ display: 'flex', gap: 9, marginBottom: 12 }}>
-                                    <button disabled={acc.busy} onClick={() => acc.claim(email, password)} style={{ ...greenBtn, flex: 1, opacity: acc.busy ? 0.6 : 1 }}>{t.createAccount}</button>
+                                    {registrationOpen && <button disabled={acc.busy} onClick={() => acc.claim(email, password)} style={{ ...greenBtn, flex: 1, opacity: acc.busy ? 0.6 : 1 }}>{t.createAccount}</button>}
                                     <button disabled={acc.busy} onClick={() => acc.login(email, password)} style={{ ...ghostBtn, flex: 1 }}>{t.login}</button>
                                 </div>
                             </>
@@ -193,10 +201,6 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                             <Row label={t.notifyNew} on={notifyOnAdd} onClick={() => setNotifyOnAdd(!notifyOnAdd)} />
                             <Row label={t.notifyBought} on={notifyOnCheck} onClick={() => setNotifyOnCheck(!notifyOnCheck)} last />
                         </div>
-
-                        <div style={{ ...monoLabel, marginBottom: 11 }}>{t.server}</div>
-                        <input value={serverInput} onChange={(e) => setServerInput(e.target.value)} placeholder={serverUrl || t.localMode} style={{ ...inputStyle, marginBottom: 9 }} />
-                        <button onClick={() => extras.testAndSave(serverInput)} style={{ ...greenBtn, width: '100%', marginBottom: 24 }}>{t.save}{extras.status === 'ok' ? ' ✓' : extras.status === 'error' ? ' ✕' : ''}</button>
 
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.about}</div>
                         <div style={{ display: 'flex', gap: 9, marginBottom: 9 }}>

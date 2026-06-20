@@ -84,6 +84,8 @@ interface ShopState {
     sync: SyncState;
     auth: AuthState;
     enableUsernames: boolean;
+    requireAccount: boolean;
+    registrationOpen: boolean;
     serverUrl: string; // For native apps to configure remote server
 
     // Actions
@@ -171,6 +173,8 @@ export const useShopStore = create<ShopState>()(
             notifyOnAdd: true,
             notifyOnCheck: true,
             serverName: 'ShoppingList',
+            requireAccount: false,
+            registrationOpen: true,
             activeUsers: [],
             sync: { connected: false, code: null, recordId: null, msg: '', msgType: 'info', syncHistory: [], lastSync: null, syncVersion: 0, lastLocalInteraction: 0 },
             auth: { isLoggedIn: false, email: null, userId: null, username: null },
@@ -768,6 +772,11 @@ export const useShopStore = create<ShopState>()(
 
                         const enableUsernamesRecord = config.find(c => c.key === 'enable_usernames');
                         if (enableUsernamesRecord) set({ enableUsernames: isConfigEnabled(enableUsernamesRecord.value) });
+
+                        const requireAccountRecord = config.find(c => c.key === 'require_account');
+                        set({ requireAccount: requireAccountRecord ? isConfigEnabled(requireAccountRecord.value, false) : false });
+                        const registrationOpenRecord = config.find(c => c.key === 'registration_open');
+                        set({ registrationOpen: registrationOpenRecord ? isConfigEnabled(registrationOpenRecord.value, true) : true });
 
                     } catch (e) {
                         console.error("Failed to load server config", e);
