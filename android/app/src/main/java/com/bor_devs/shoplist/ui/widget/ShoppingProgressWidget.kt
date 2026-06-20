@@ -1,8 +1,8 @@
 package com.bor_devs.shoplist.ui.widget
 
-import android.content.ComponentName
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.action.clickable
@@ -25,44 +25,35 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.bor_devs.shoplist.MainActivity
-import com.bor_devs.shoplist.data.local.ItemEntity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
- * Compact 1x1 progress widget. Shows checked/total count with a visual
- * progress indicator and the list name. Tapping anywhere opens the app.
+ * Compact 1x1 progress widget. Shows checked/total for the configured list with
+ * a progress bar + the list name. Tapping opens the app on that list.
  */
 class ShoppingProgressWidget : GlanceAppWidget() {
 
-    override suspend fun provideGlance(context: Context, id: androidx.glance.GlanceId) {
-        val db = WidgetDatabase.get(context)
-        val entities: List<ItemEntity> = withContext(Dispatchers.IO) {
-            db.itemDao().getAll()
-        }
-        val inList = entities.filter { it.inList }
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val appWidgetId = WidgetData.appWidgetId(context, id)
+        val data = WidgetData.forWidget(context, appWidgetId)
+        val inList = data.items.filter { it.inList }
         val total = inList.size
         val checkedCount = inList.count { it.checked }
-        val listName = getListName(context)
 
         provideContent {
             GlanceTheme {
-                val component = ComponentName(context, MainActivity::class.java)
-
                 Column(
                     modifier = GlanceModifier
                         .fillMaxWidth()
                         .background(GlanceTheme.colors.surface)
                         .padding(12.dp)
                         .cornerRadius(16.dp)
-                        .clickable(actionStartActivity(component)),
+                        .clickable(actionStartActivity(openListIntent(context, data.listId))),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // List name
                     Text(
-                        text = listName?.ifBlank { "ShoppingList" } ?: "ShoppingList",
+                        text = "${data.emoji} ${data.name.ifBlank { "Haul" }}",
                         style = TextStyle(
                             fontWeight = FontWeight.Bold,
                             color = GlanceTheme.colors.onSurface,

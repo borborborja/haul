@@ -39,7 +39,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleDeepLink(intent: Intent?) {
+        // A widget can ask the app to open a specific list.
+        intent?.getStringExtra(EXTRA_OPEN_LIST)?.takeIf { it.isNotBlank() }?.let { vm.switchList(it) }
         val data = intent?.data?.toString() ?: return
         vm.onDeepLink(data)
+    }
+
+    companion object {
+        const val EXTRA_OPEN_LIST = "open_list"
     }
 }

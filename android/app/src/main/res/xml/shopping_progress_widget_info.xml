@@ -5,4 +5,5 @@
     android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:initialLayout="@layout/glance_default_loading_layout"
-    android:description="@string/widget_progress_description" />
+    android:description="@string/widget_progress_description"
+    android:configure="com.bor_devs.shoplist.ui.widget.WidgetConfigActivity" />

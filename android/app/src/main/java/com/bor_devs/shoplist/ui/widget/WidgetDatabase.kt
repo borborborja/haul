@@ -29,6 +29,7 @@ private fun entryPoint(context: Context): WidgetEntryPoint =
 
 object WidgetDatabase {
     fun get(context: Context): AppDatabase = entryPoint(context).appDatabase()
+    fun settings(context: Context): SettingsDataStore = entryPoint(context).settingsDataStore()
 }
 
 /** Read the list name from the app's shared DataStore. */

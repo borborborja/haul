@@ -1,6 +1,5 @@
 package com.bor_devs.shoplist.ui.widget
 
-import android.content.ComponentName
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -9,12 +8,10 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
-import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -31,12 +28,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.bor_devs.shoplist.MainActivity
-import com.bor_devs.shoplist.data.local.ItemEntity
 import com.bor_devs.shoplist.domain.ShopItem
 import com.bor_devs.shoplist.ui.theme.categoryColor
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 private val Mint = Color(0xFF10B981)
 private val MintInk = Color(0xFF06231A)
@@ -50,11 +43,10 @@ private val MintInk = Color(0xFF06231A)
 class ShopModeWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val db = WidgetDatabase.get(context)
-        val entities: List<ItemEntity> = withContext(Dispatchers.IO) { db.itemDao().getAll() }
-        val inList = entities.map { it.toDomain() }.filter { it.inList }
+        val appWidgetId = WidgetData.appWidgetId(context, id)
+        val data = WidgetData.forWidget(context, appWidgetId)
+        val inList = data.items.filter { it.inList }
         val pending = inList.filter { !it.checked }
-        val listName = getListName(context)
 
         provideContent {
             GlanceTheme {
@@ -62,7 +54,9 @@ class ShopModeWidget : GlanceAppWidget() {
                 // header ~34dp + progress ~30dp + paddings ~24dp; each row ~40dp
                 val maxRows = ((size.height.value - 92) / 40).toInt().coerceAtLeast(1)
                 ShopModeContent(
-                    listName = listName,
+                    listName = data.name,
+                    emoji = data.emoji,
+                    listId = data.listId,
                     pending = pending.take(maxRows),
                     total = inList.size,
                     checkedCount = inList.count { it.checked },
@@ -75,13 +69,15 @@ class ShopModeWidget : GlanceAppWidget() {
 
 @Composable
 private fun ShopModeContent(
-    listName: String?,
+    listName: String,
+    emoji: String,
+    listId: String,
     pending: List<ShopItem>,
     total: Int,
     checkedCount: Int,
     context: Context,
 ) {
-    val component = ComponentName(context, MainActivity::class.java)
+    val open = actionStartActivity(openListIntent(context, listId))
     val percent = if (total > 0) (checkedCount * 100 / total) else 0
 
     Column(
@@ -91,13 +87,13 @@ private fun ShopModeContent(
             .padding(14.dp)
             .cornerRadius(20.dp),
     ) {
-        // Header: list name + "Comprar" pill, tap opens the app
+        // Header: emoji + list name + "Comprar" pill, tap opens the app on this list
         Row(
-            modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity(component)),
+            modifier = GlanceModifier.fillMaxWidth().clickable(open),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = listName?.ifBlank { "Haul" } ?: "Haul",
+                text = "$emoji ${listName.ifBlank { "Haul" }}",
                 style = TextStyle(fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onSurface),
                 maxLines = 1,
                 modifier = GlanceModifier.defaultWeight(),
@@ -157,7 +153,7 @@ private fun ShopModeContent(
                 style = TextStyle(fontWeight = FontWeight.Bold, color = ColorProvider(Mint)),
             )
             else -> pending.forEach { item ->
-                ShopModeRow(item)
+                ShopModeRow(item, open)
                 Spacer(modifier = GlanceModifier.height(6.dp))
             }
         }
@@ -165,17 +161,14 @@ private fun ShopModeContent(
 }
 
 @Composable
-private fun ShopModeRow(item: ShopItem) {
-    val toggle = actionRunCallback<ToggleCheckAction>(
-        actionParametersOf(ToggleCheckAction.Key to item.id)
-    )
+private fun ShopModeRow(item: ShopItem, open: androidx.glance.action.Action) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
             .background(GlanceTheme.colors.surfaceVariant)
             .cornerRadius(12.dp)
             .padding(horizontal = 10.dp, vertical = 8.dp)
-            .clickable(toggle),
+            .clickable(open),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // category color bar

@@ -49,6 +49,16 @@
             </intent-filter>
         </activity>
 
+        <!-- Per-widget list picker (launched when a widget is added) -->
+        <activity
+            android:name=".ui.widget.WidgetConfigActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ShoppingList.Starting">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- FileProvider for the in-app updater (downloaded APK) -->
         <provider
             android:name="androidx.core.content.FileProvider"
