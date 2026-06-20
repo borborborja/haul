@@ -8,6 +8,7 @@ import AdminSettings from './AdminSettings';
 import ListsManager from './ListsManager';
 import UsersManager from './UsersManager';
 import UserSuggestionsManager from './UserSuggestionsManager';
+import AdminUpdateBanner from './AdminUpdateBanner';
 import { palette, cssVars, FONT_SANS, FONT_DISPLAY, FONT_MONO, ACCENT, ACCENT_INK } from '../../ui/theme';
 
 interface AdminDashboardProps {
@@ -62,6 +63,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
             {/* content */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '30px 36px', background: 'var(--bg)' }}>
                 <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+                    <AdminUpdateBanner />
                     {activeTab === 'lists' && <ListsManager />}
                     {activeTab === 'users' && <UsersManager />}
                     {activeTab === 'categories' && <CategoryManager />}

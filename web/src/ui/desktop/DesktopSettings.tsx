@@ -6,6 +6,8 @@ import { useAccountSync } from '../shared/useAccountSync';
 import { useSettingsExtras } from '../shared/useSettingsExtras';
 import type { LocalizedItem } from '../../types';
 import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } from '../theme';
+import { APP_VERSION } from '../../data/version';
+import UpdateNotice from '../shared/UpdateNotice';
 
 type Tab = 'account' | 'catalog' | 'other' | 'about';
 const mono = { fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase' as const, color: 'var(--muted)' };
@@ -198,8 +200,9 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                             <svg width="34" height="34" viewBox="0 0 48 48" fill="none" stroke={ACCENT_INK} strokeWidth="3" strokeLinecap="round"><circle cx="24" cy="21" r="9" /><path d="M24 30v9" /><path d="M19 12c0-3 2-6 5-6s5 3 5 6" /></svg>
                         </div>
                         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, letterSpacing: '-.02em', color: 'var(--text)' }}>Haul</div>
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{t.version} 1.4.0</div>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{t.version} {APP_VERSION}</div>
                         <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)', margin: '16px auto 18px' }}>{t.aboutTagline}</p>
+                        <div style={{ textAlign: 'left' }}><UpdateNotice t={t} /></div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
                             <a href="https://github.com/borborborja/haul" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                                 <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: ACCENT }}>{t.sourceCode} ↗</span>
