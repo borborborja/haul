@@ -84,7 +84,7 @@ fun ShoppingListTheme(
 
 // Soft app background gradient: very light mint → off-white cream (light),
 // subtle dark green (dark).
-private val LightBg = listOf(Color(0xFFE9F6EF), Color(0xFFFBFAF6), Color(0xFFFBFAF6))
+private val LightBg = listOf(Color(0xFFD3EFE3), Color(0xFFF2F7F4))
 private val DarkBg = listOf(Color(0xFF0C1B15), Color(0xFF0A1512))
 
 /** Brand background brush for the app shell (theme-aware). */

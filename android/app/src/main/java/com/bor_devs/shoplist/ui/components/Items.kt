@@ -33,13 +33,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.asFrameworkPaint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.bor_devs.shoplist.domain.AppMode
 import com.bor_devs.shoplist.domain.ShopItem
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
 import com.bor_devs.shoplist.ui.theme.categoryColor
+
+// Uniform soft outer glow on every edge (offset 0,0) — not a directional drop
+// shadow — so the card looks like it has an even halo around the whole border.
+private fun Modifier.cardGlow(corner: Dp, color: Color, blur: Dp): Modifier = drawBehind {
+    val r = corner.toPx()
+    val paint = Paint()
+    paint.asFrameworkPaint().apply {
+        this.color = android.graphics.Color.TRANSPARENT
+        setShadowLayer(blur.toPx(), 0f, 0f, color.toArgb())
+    }
+    drawIntoCanvas { it.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint) }
+}
+
+private val CardGlow = Color(0x26000000)
 
 @Composable
 fun ItemRow(
@@ -61,8 +82,7 @@ fun ItemRow(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 1.dp,
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().cardGlow(16.dp, CardGlow, 16.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -153,9 +173,9 @@ fun GridItemCard(
         color = if (item.checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 1.dp,
-        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
+            .cardGlow(16.dp, CardGlow, 16.dp)
             .clickable { onToggle() },
     ) {
         Column(
