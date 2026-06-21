@@ -47,7 +47,7 @@ fun AddBar(
     onOpenSettings: (() -> Unit)? = null,
 ) {
     val t = LocalStrings.current
-    val lang = systemLang()
+    val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     var text by remember { mutableStateOf("") }
     var showSuggestions by remember { mutableStateOf(false) }
     var showCategoryPicker by remember { mutableStateOf(false) }

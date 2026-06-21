@@ -61,7 +61,7 @@ fun CategoryList(
     onAddCategory: (key: String, icon: String) -> Unit,
 ) {
     val t = LocalStrings.current
-    val lang = systemLang()
+    val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     var activeCategory by remember { mutableStateOf<String?>(null) }
     var editMode by remember { mutableStateOf(false) }
     var showQuickAdd by remember { mutableStateOf(false) }

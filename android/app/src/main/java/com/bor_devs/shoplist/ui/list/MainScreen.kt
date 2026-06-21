@@ -113,14 +113,14 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
         }
     }
 
+    val appLang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     val inListNames = remember(items) { items.filter { it.inList }.map { it.name.lowercase() }.toSet() }
     fun toggleCatalog(name: String, cat: String) {
         val existing = items.find { it.name.equals(name, ignoreCase = true) }
         if (existing != null && existing.inList) vm.removeFromList(existing.id) else vm.addItem(name, cat)
     }
     fun addCustom(name: String) {
-        val lang = com.bor_devs.shoplist.ui.i18n.systemLang()
-        val match = categories.values.firstOrNull { c -> c.items.any { it.forLang(lang).equals(name, ignoreCase = true) } }
+        val match = categories.values.firstOrNull { c -> c.items.any { it.forLang(appLang).equals(name, ignoreCase = true) } }
         vm.addItem(name, match?.key ?: "other")
     }
 

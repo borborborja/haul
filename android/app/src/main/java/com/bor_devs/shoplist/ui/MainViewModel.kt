@@ -88,6 +88,7 @@ class MainViewModel @Inject constructor(
 
     // ---- Preferences ----
     fun setTheme(theme: ThemeMode) = launch { prefs.setTheme(theme) }
+    fun setAppLang(code: String?) = launch { prefs.setAppLang(code) }
     fun setAppMode(mode: AppMode) = launch {
         // grid is shopping-only; fall back to compact in planning (mirrors web)
         if (mode == AppMode.PLANNING && settings.value.viewMode == ViewMode.GRID) prefs.setViewMode(ViewMode.COMPACT)

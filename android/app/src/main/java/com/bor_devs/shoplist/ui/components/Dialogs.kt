@@ -63,7 +63,7 @@ fun ProductEditDialog(
     onDismiss: () -> Unit,
 ) {
     val t = LocalStrings.current
-    val lang = systemLang()
+    val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     var note by remember { mutableStateOf(item.note) }
     val cat = categories[item.category]
     val catName = t.cats[item.category] ?: item.category
@@ -168,7 +168,7 @@ fun CategoryPickerDialog(
     onDismiss: () -> Unit,
 ) {
     val t = LocalStrings.current
-    val lang = systemLang()
+    val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     var selected by remember { mutableStateOf<String?>(null) }
     var addToCatalog by remember { mutableStateOf(false) }
     AlertDialog(

@@ -28,9 +28,11 @@ function App() {
   usePresence(ensureGuestAuth);
   useStatusBarSync();
 
-  // Language follows the browser locale (no in-app selector); all 15 supported.
+  // Language follows the browser locale unless the user picked one in Settings.
   useEffect(() => {
-    useShopStore.getState().setLang(detectLang(navigator.language));
+    if (!useShopStore.getState().langManual) {
+      useShopStore.getState().setLang(detectLang(navigator.language));
+    }
   }, []);
 
   // --- Route Handlers ---

@@ -402,3 +402,7 @@ fun systemLang(): Lang {
 }
 
 val LocalStrings = staticCompositionLocalOf { CA }
+
+/** The effective app language (user choice, or the device locale). Catalog item
+ * names (`forLang`) read this so they follow the same language as the UI. */
+val LocalAppLang = staticCompositionLocalOf { Lang.CA }

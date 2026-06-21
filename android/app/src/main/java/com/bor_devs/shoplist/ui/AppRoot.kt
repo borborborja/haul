@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import com.bor_devs.shoplist.data.repo.ShopRepository
 import com.bor_devs.shoplist.ui.components.MergeReplaceDialog
+import com.bor_devs.shoplist.ui.i18n.LocalAppLang
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
 import com.bor_devs.shoplist.ui.i18n.stringsFor
 import com.bor_devs.shoplist.ui.i18n.systemLang
@@ -49,8 +50,12 @@ fun AppRoot(vm: MainViewModel) {
         }
     }
 
+    val appLang = settings.appLang?.let { com.bor_devs.shoplist.domain.Lang.from(it) } ?: systemLang()
     ShoppingListTheme(themeMode = settings.theme) {
-        CompositionLocalProvider(LocalStrings provides stringsFor(systemLang())) {
+        CompositionLocalProvider(
+            LocalStrings provides stringsFor(appLang),
+            LocalAppLang provides appLang,
+        ) {
             Box(Modifier.fillMaxSize().background(haulBackgroundBrush())) {
                 Surface(
                     color = Color.Transparent,

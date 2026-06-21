@@ -7,6 +7,7 @@ import { useSettingsExtras } from '../shared/useSettingsExtras';
 import type { LocalizedItem } from '../../types';
 import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } from '../theme';
 import { APP_VERSION } from '../../data/version';
+import { LANGS, detectLang } from '../../data/i18n';
 import UpdateNotice from '../shared/UpdateNotice';
 import { canonicalKey } from '../../utils/helpers';
 import { Capacitor } from '@capacitor/core';
@@ -18,7 +19,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
     const m = useHaulModel();
     const t = m.t;
     const {
-        theme, lang, setTheme, auth, sync,
+        theme, lang, setTheme, setLang, langManual, setLangManual, auth, sync,
         showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategory, addCategoryItem,
@@ -192,6 +193,21 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                             <button onClick={() => setTheme('dark')} style={{ textAlign: 'left', cursor: 'pointer', background: '#0E1D17', borderRadius: 15, padding: 14, height: 74, border: `2px solid ${theme === 'dark' ? ACCENT : 'transparent'}`, boxShadow: theme === 'dark' ? `0 0 0 4px ${alpha(ACCENT, 0.14)}` : 'none' }}>
                                 <div style={{ width: 24, height: 24, borderRadius: 8, background: ACCENT, marginBottom: 8 }} /><span style={{ fontWeight: 700, fontSize: 13, color: '#EAF2EC' }}>{t.dark}</span>
                             </button>
+                        </div>
+
+                        <div style={{ ...monoLabel, marginBottom: 11 }}>{t.language}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 24 }}>
+                            <button onClick={() => { setLangManual(false); setLang(detectLang(navigator.language)); }} style={{ cursor: 'pointer', background: 'var(--surface)', borderRadius: 12, padding: '9px 6px', border: `2px solid ${!langManual ? ACCENT : 'var(--line)'}`, color: 'var(--text)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                                <span style={{ fontSize: 17 }}>🌐</span><span style={{ fontWeight: 600, fontSize: 11.5 }}>Auto</span>
+                            </button>
+                            {LANGS.map((l) => {
+                                const on = langManual && lang === l.code;
+                                return (
+                                    <button key={l.code} onClick={() => { setLang(l.code); setLangManual(true); }} style={{ cursor: 'pointer', background: 'var(--surface)', borderRadius: 12, padding: '9px 6px', border: `2px solid ${on ? ACCENT : 'var(--line)'}`, color: 'var(--text)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                                        <span style={{ fontSize: 17 }}>{l.flag}</span><span style={{ fontWeight: 600, fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{l.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.viewOptions}</div>

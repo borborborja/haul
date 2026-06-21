@@ -63,6 +63,7 @@ interface ShopState {
 
     // UI State
     lang: Lang;
+    langManual: boolean; // true once the user picks a language → stop auto-detecting from the browser locale
     appMode: AppMode;
     viewMode: ViewMode;
     theme: 'light' | 'dark' | 'amoled' | 'auto';
@@ -90,6 +91,7 @@ interface ShopState {
 
     // Actions
     setLang: (lang: Lang) => void;
+    setLangManual: (manual: boolean) => void;
     setServerName: (name: string) => void;
     setEnableUsernames: (val: boolean) => void;
     setServerUrl: (url: string) => void;
@@ -165,6 +167,7 @@ export const useShopStore = create<ShopState>()(
             activeListId: DEFAULT_LIST_ID,
             listCaches: {},
             lang: 'ca',
+            langManual: false,
             appMode: 'planning',
             viewMode: 'list',
             theme: 'auto',
@@ -187,6 +190,7 @@ export const useShopStore = create<ShopState>()(
             autoClearEnabled: true,
 
             setLang: (lang) => set({ lang }),
+            setLangManual: (langManual) => set({ langManual }),
             setServerName: (serverName) => set({ serverName }),
             setEnableUsernames: (enableUsernames) => set({ enableUsernames }),
             setServerUrl: (serverUrl) => set({ serverUrl }),
@@ -900,6 +904,7 @@ export const useShopStore = create<ShopState>()(
                 activeListId: state.activeListId,
                 listCaches: state.listCaches,
                 lang: state.lang,
+                langManual: state.langManual,
                 appMode: state.appMode,
                 viewMode: state.viewMode,
                 theme: state.theme,

@@ -66,7 +66,7 @@ fun CatalogPanel(
     onManage: () -> Unit,
 ) {
     val t = LocalStrings.current
-    val lang = systemLang()
+    val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     var draft by remember { mutableStateOf("") }
     val orderedKeys = remember(categories) {
         categories.keys.sortedBy { val i = DefaultCatalog.keys.indexOf(it); if (i < 0) Int.MAX_VALUE else i }

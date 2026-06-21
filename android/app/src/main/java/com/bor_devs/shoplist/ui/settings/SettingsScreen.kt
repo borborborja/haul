@@ -212,7 +212,7 @@ private fun AuthForm(registrationOpen: Boolean, onClaim: (String, String) -> Uni
 @Composable
 private fun CatalogTab(vm: MainViewModel) {
     val t = LocalStrings.current
-    val lang = systemLang()
+    val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     val categories by vm.categories.collectAsState()
     val disabled by vm.disabledProducts.collectAsState()
     val lists by vm.lists.collectAsState()
@@ -317,6 +317,9 @@ private fun OtherTab(vm: MainViewModel) {
             onSelect = { vm.setTheme(it) },
         )
     }
+    Section(t.language) {
+        LangChips(selected = settings.appLang, onSelect = { vm.setAppLang(it) })
+    }
     Section(t.viewOptions) {
         ToggleRow(t.inlineComp, settings.showCompletedInline) { vm.setShowCompletedInline(it) }
         ToggleRow(t.autoCleanup, settings.autoClearEnabled) { vm.setAutoClearEnabled(it) }
@@ -416,6 +419,18 @@ private fun <T> ChipRow(options: List<Pair<T, String>>, selected: T, onSelect: (
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (value, label) ->
             FilterChip(selected = selected == value, onClick = { onSelect(value) }, label = { Text(label) })
+        }
+    }
+}
+
+// Language picker: "Auto" (follow system, appLang = null) + one chip per language.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LangChips(selected: String?, onSelect: (String?) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text("🌐 Auto") })
+        com.bor_devs.shoplist.domain.Lang.entries.forEach { l ->
+            FilterChip(selected = selected == l.code, onClick = { onSelect(l.code) }, label = { Text("${l.flag} ${l.label}") })
         }
     }
 }
