@@ -7,7 +7,7 @@ import { useSettingsExtras } from '../shared/useSettingsExtras';
 import type { LocalizedItem } from '../../types';
 import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } from '../theme';
 import { APP_VERSION } from '../../data/version';
-import { LANGS, detectLang } from '../../data/i18n';
+import { LANGS, detectLang, type Lang } from '../../data/i18n';
 import UpdateNotice from '../shared/UpdateNotice';
 import { canonicalKey } from '../../utils/helpers';
 import { Capacitor } from '@capacitor/core';
@@ -175,21 +175,16 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
 
                 {tab === 'other' && (
                     <div style={{ maxWidth: 680, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                        <div style={{ ...card, gridColumn: 'span 2' }}>
+                        <div style={card}>
                             <div style={{ ...mono, marginBottom: 14 }}>{t.language}</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                                <button onClick={() => { setLangManual(false); setLang(detectLang(navigator.language)); }} style={{ cursor: 'pointer', background: 'var(--surface2)', borderRadius: 12, padding: '10px 8px', border: `2px solid ${!langManual ? ACCENT : 'var(--line)'}`, color: 'var(--text)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                    <span style={{ fontSize: 18 }}>🌐</span><span style={{ fontWeight: 600, fontSize: 12.5 }}>Auto</span>
-                                </button>
-                                {LANGS.map((l) => {
-                                    const on = langManual && lang === l.code;
-                                    return (
-                                        <button key={l.code} onClick={() => { setLang(l.code); setLangManual(true); }} style={{ cursor: 'pointer', background: 'var(--surface2)', borderRadius: 12, padding: '10px 8px', border: `2px solid ${on ? ACCENT : 'var(--line)'}`, color: 'var(--text)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                            <span style={{ fontSize: 18 }}>{l.flag}</span><span style={{ fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{l.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <select
+                                value={langManual ? lang : '__auto__'}
+                                onChange={(e) => { const v = e.target.value; if (v === '__auto__') { setLangManual(false); setLang(detectLang(navigator.language)); } else { setLang(v as Lang); setLangManual(true); } }}
+                                style={{ ...inputStyle, cursor: 'pointer' }}
+                            >
+                                <option value="__auto__">🌐 Auto</option>
+                                {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
+                            </select>
                         </div>
                         <div style={card}>
                             <div style={{ ...mono, marginBottom: 14 }}>{t.viewOptions}</div>

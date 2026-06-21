@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -21,9 +22,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -318,7 +322,7 @@ private fun OtherTab(vm: MainViewModel) {
         )
     }
     Section(t.language) {
-        LangChips(selected = settings.appLang, onSelect = { vm.setAppLang(it) })
+        LangDropdown(selected = settings.appLang, onSelect = { vm.setAppLang(it) })
     }
     Section(t.viewOptions) {
         ToggleRow(t.inlineComp, settings.showCompletedInline) { vm.setShowCompletedInline(it) }
@@ -423,14 +427,24 @@ private fun <T> ChipRow(options: List<Pair<T, String>>, selected: T, onSelect: (
     }
 }
 
-// Language picker: "Auto" (follow system, appLang = null) + one chip per language.
-@OptIn(ExperimentalLayoutApi::class)
+// Language picker: a dropdown with "Auto" (follow system, appLang = null) + one
+// entry per language.
 @Composable
-private fun LangChips(selected: String?, onSelect: (String?) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text("🌐 Auto") })
-        com.bor_devs.shoplist.domain.Lang.entries.forEach { l ->
-            FilterChip(selected = selected == l.code, onClick = { onSelect(l.code) }, label = { Text("${l.flag} ${l.label}") })
+private fun LangDropdown(selected: String?, onSelect: (String?) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val current = selected?.let { code -> com.bor_devs.shoplist.domain.Lang.entries.firstOrNull { it.code == code } }
+    val label = if (current == null) "🌐 Auto" else "${current.flag} ${current.label}"
+    Box {
+        OutlinedButton(onClick = { expanded = true }) {
+            Text(label)
+            Spacer(Modifier.size(8.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("🌐 Auto") }, onClick = { onSelect(null); expanded = false })
+            com.bor_devs.shoplist.domain.Lang.entries.forEach { l ->
+                DropdownMenuItem(text = { Text("${l.flag} ${l.label}") }, onClick = { onSelect(l.code); expanded = false })
+            }
         }
     }
 }
