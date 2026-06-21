@@ -1,5 +1,8 @@
 package com.bor_devs.shoplist.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +22,9 @@ import com.bor_devs.shoplist.ui.i18n.stringsFor
 import com.bor_devs.shoplist.ui.i18n.systemLang
 import com.bor_devs.shoplist.ui.list.MainScreen
 import com.bor_devs.shoplist.ui.settings.SettingsScreen
+import androidx.compose.ui.graphics.Color
 import com.bor_devs.shoplist.ui.theme.ShoppingListTheme
+import com.bor_devs.shoplist.ui.theme.haulBackgroundBrush
 import com.bor_devs.shoplist.ui.wizard.ServerWizardScreen
 import kotlinx.coroutines.launch
 
@@ -46,13 +51,19 @@ fun AppRoot(vm: MainViewModel) {
 
     ShoppingListTheme(themeMode = settings.theme) {
         CompositionLocalProvider(LocalStrings provides stringsFor(systemLang())) {
-            Surface(modifier = Modifier.fillMaxSize()) {
-                val needsAccount = requireAccount && settings.serverUrl.isNotBlank() && !settings.auth.isLoggedIn
-                when {
-                    !settings.wizardDone -> ServerWizardScreen(vm) {}
-                    needsAccount -> AuthGateScreen(vm, registrationOpen)
-                    showSettings -> SettingsScreen(vm) { showSettings = false }
-                    else -> MainScreen(vm) { showSettings = true }
+            Box(Modifier.fillMaxSize().background(haulBackgroundBrush())) {
+                Surface(
+                    color = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    val needsAccount = requireAccount && settings.serverUrl.isNotBlank() && !settings.auth.isLoggedIn
+                    when {
+                        !settings.wizardDone -> ServerWizardScreen(vm) {}
+                        needsAccount -> AuthGateScreen(vm, registrationOpen)
+                        showSettings -> SettingsScreen(vm) { showSettings = false }
+                        else -> MainScreen(vm) { showSettings = true }
+                    }
                 }
             }
             pendingJoin?.let { info ->

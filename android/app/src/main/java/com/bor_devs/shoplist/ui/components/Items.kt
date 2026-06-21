@@ -61,6 +61,7 @@ fun ItemRow(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 1.dp,
+        shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -152,6 +153,7 @@ fun GridItemCard(
         color = if (item.checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 1.dp,
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle() },

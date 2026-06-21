@@ -9,7 +9,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -78,6 +80,18 @@ fun ShoppingListTheme(
     }
 
     MaterialTheme(colorScheme = colorScheme, typography = AppTypography, content = content)
+}
+
+// Soft app background gradient: very light mint → off-white cream (light),
+// subtle dark green (dark).
+private val LightBg = listOf(Color(0xFFE9F6EF), Color(0xFFFBFAF6), Color(0xFFFBFAF6))
+private val DarkBg = listOf(Color(0xFF0C1B15), Color(0xFF0A1512))
+
+/** Brand background brush for the app shell (theme-aware). */
+@Composable
+fun haulBackgroundBrush(): Brush {
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    return Brush.verticalGradient(if (dark) DarkBg else LightBg)
 }
 
 /** High-contrast Switch colors so the on/off state is clearly visible in both themes. */

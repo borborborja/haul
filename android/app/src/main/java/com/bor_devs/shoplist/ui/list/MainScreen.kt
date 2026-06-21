@@ -124,7 +124,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
         vm.addItem(name, match?.key ?: "other")
     }
 
-    Scaffold { padding ->
+    Scaffold(containerColor = Color.Transparent) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             HaulHeader(
                 title = listName ?: t.appTitle,
