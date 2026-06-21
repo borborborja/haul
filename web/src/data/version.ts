@@ -1,7 +1,7 @@
 // Single source of truth for the app version + GitHub repo used by the
 // "update available" checker. Keep APP_VERSION in sync with android versionName
 // and the release tag.
-export const APP_VERSION = '1.9.1';
+export const APP_VERSION = '1.9.2';
 export const GITHUB_REPO = 'borborborja/haul';
 export const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`;
 

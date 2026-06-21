@@ -230,6 +230,7 @@ class ShopRepository @Inject constructor(
         when {
             s.syncRecordId != null -> connectToList(s.syncRecordId)
             s.syncCode != null -> runCatching { connectToList(pb.joinList(s.syncCode).id) }
+            else -> syncActiveListToServer() // server present but list still local → auto-sync
         }
     }
 
@@ -521,6 +522,8 @@ class ShopRepository @Inject constructor(
         goLocal()
         prefs.setSync(null, null)
         notifyWidgets()
+        // With a server configured, a new list is synced by default.
+        if (pb.hasServer) syncActiveListToServer()
     }
 
     /** Make another saved list the active one, swapping items through the cache. */
@@ -540,6 +543,9 @@ class ShopRepository @Inject constructor(
             connectToList(target.recordId)
         } else {
             goLocal(target.code, target.recordId)
+            // Opening a never-synced list while a server exists syncs it (lazy).
+            // (A list with a code but no recordId was synced before — don't duplicate it.)
+            if (pb.hasServer && target.recordId == null && target.code == null) syncActiveListToServer()
         }
         notifyWidgets()
     }
@@ -560,6 +566,7 @@ class ShopRepository @Inject constructor(
                 connectToList(next.recordId)
             } else {
                 goLocal(next.code, next.recordId)
+                if (pb.hasServer && next.recordId == null && next.code == null) syncActiveListToServer()
             }
             notifyWidgets()
         } else {
@@ -612,6 +619,25 @@ class ShopRepository @Inject constructor(
             addToHistory(r.inviteCode)
             connectToList(r.id)
         }.onFailure { setMsg("Error", MsgType.ERROR) }
+    }
+
+    /**
+     * Lazy auto-sync: when a server is configured, promote the *current* local
+     * list to a synced one (creates it on the server, keeping its name, and
+     * pushes the local items via connectToList → pushPending). No-op without a
+     * server or if the active list is already synced. This is what makes
+     * "server ⇒ every list synced" hold without a manual "create shared" step.
+     */
+    private suspend fun syncActiveListToServer() {
+        if (!pb.hasServer || _sync.value.recordId != null) return
+        if (!ensureGuestSession()) return
+        val name = _listName.value
+        runCatching {
+            val r = pb.createList(name?.ifBlank { null } ?: "Shopping list")
+            setConnected(r.inviteCode, r.id)
+            addToHistory(r.inviteCode)
+            connectToList(r.id)
+        }
     }
 
     /** Joins the list membership and reports whether local data would be affected. */
