@@ -120,6 +120,12 @@ class MainViewModel @Inject constructor(
     fun rotateCode() = repo.rotateCode()
     fun disconnect() = repo.disconnect()
 
+    // ---- Public link sharing ----
+    fun serverBaseUrl() = repo.serverBaseUrl()
+    suspend fun getShare() = repo.getShare()
+    suspend fun setShare(mode: String, rotate: Boolean = false) = repo.setShare(mode, rotate)
+    suspend fun revokeShare() = repo.revokeShare()
+
     // ---- Auth ----
     suspend fun claimAccount(email: String, password: String) = repo.claimAccount(email, password)
     suspend fun login(email: String, password: String) = repo.login(email, password)

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, Download, Upload, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Plus, Download, Upload, RotateCcw, Link2 } from 'lucide-react';
+import PublicShareButton from '../shared/PublicShareButton';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized, catLabel } from '../shared/model';
 import { useAccountSync } from '../shared/useAccountSync';
@@ -96,6 +97,9 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                                     <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 4 }}>{t.syncCode}</div>
                                     <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, letterSpacing: '.08em', color: 'var(--text)', marginBottom: 12 }}>{sync.code}</div>
                                 </>}
+                                <PublicShareButton recordId={sync.recordId} t={t} trigger={(o) => (
+                                    <button onClick={o} style={{ ...ghostBtn, width: '100%', marginBottom: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Link2 size={16} />{t.publicLink}</button>
+                                )} />
                                 <button onClick={acc.disconnect} style={{ ...ghostBtn, width: '100%' }}>{t.disconnect}</button>
                             </div>
                         ) : (

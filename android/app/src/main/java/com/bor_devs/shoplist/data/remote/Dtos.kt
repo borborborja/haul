@@ -33,6 +33,9 @@ data class ListApiResponse(
 data class RotateCodeResponse(val inviteCode: String)
 
 @Serializable
+data class ShareResponse(val token: String = "", val mode: String = "")
+
+@Serializable
 data class HealthResponse(val status: String = "")
 
 @Serializable

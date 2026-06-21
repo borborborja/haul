@@ -126,6 +126,20 @@ data class Strings(
     val catalogLocal: String = "Local catalog",
     val tapHint: String = "Tap a product to deactivate it for this list",
     val accountRequired: String = "Sign in to continue",
+    // Public link sharing (defaults in English; ES/CA overridden below)
+    val publicLink: String = "Public link",
+    val publicLinkSub: String = "Let anyone open this list on the web",
+    val chooseAccess: String = "Choose access",
+    val shareModeReadL: String = "View only",
+    val shareModeShopL: String = "Check off",
+    val shareModePlanL: String = "Full edit",
+    val shareModeReadSub: String = "See the list and its progress",
+    val shareModeShopSub: String = "See it and mark items as bought",
+    val shareModePlanSub: String = "Add, remove and check items",
+    val copyLink: String = "Copy link",
+    val linkCopied: String = "Link copied",
+    val regenerateLink: String = "New link",
+    val stopSharing: String = "Stop sharing",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -169,6 +183,10 @@ private val ES = Strings(
     localMode = "Modo local", enterCode = "Introduce el código", confirm = "Confirmar", delete = "Eliminar",
     myLists = "Mis listas", newList = "Nueva lista", listSynced = "Sincronizada", listLocal = "Local",
     listCodeBtn = "Código", listNameHint = "Nombre de la lista", listCreate = "Crear",
+    publicLink = "Enlace público", publicLinkSub = "Deja que cualquiera abra esta lista en la web",
+    chooseAccess = "Elige el acceso", shareModeReadL = "Solo ver", shareModeShopL = "Marcar comprado", shareModePlanL = "Editar todo",
+    shareModeReadSub = "Ver la lista y su progreso", shareModeShopSub = "Verla y marcar productos comprados", shareModePlanSub = "Añadir, quitar y marcar productos",
+    copyLink = "Copiar enlace", linkCopied = "Enlace copiado", regenerateLink = "Nuevo enlace", stopSharing = "Dejar de compartir",
 )
 
 private val CA = Strings(
@@ -210,6 +228,10 @@ private val CA = Strings(
     localMode = "Mode local", enterCode = "Introdueix el codi", confirm = "Confirmar", delete = "Eliminar",
     myLists = "Les meves llistes", newList = "Nova llista", listSynced = "Sincronitzada", listLocal = "Local",
     listCodeBtn = "Codi", listNameHint = "Nom de la llista", listCreate = "Crea",
+    publicLink = "Enllaç públic", publicLinkSub = "Deixa que qualsevol obri aquesta llista al web",
+    chooseAccess = "Tria l'accés", shareModeReadL = "Només veure", shareModeShopL = "Marcar comprat", shareModePlanL = "Editar-ho tot",
+    shareModeReadSub = "Veure la llista i el progrés", shareModeShopSub = "Veure-la i marcar productes comprats", shareModePlanSub = "Afegir, treure i marcar productes",
+    copyLink = "Copiar enllaç", linkCopied = "Enllaç copiat", regenerateLink = "Nou enllaç", stopSharing = "Deixar de compartir",
 )
 
 private val EN = Strings(

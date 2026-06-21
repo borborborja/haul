@@ -47,6 +47,9 @@ export interface UIDict {
     deactivate: string; reactivate: string; tapToToggle: string;
     accountRequired: string; authError: string;
     manageCatalog: string; manageCatalogSub: string; addNamed: string;
+    publicLink: string; publicLinkSub: string; shareModeRead: string; shareModeShop: string; shareModePlan: string;
+    shareModeReadSub: string; shareModeShopSub: string; shareModePlanSub: string;
+    createLink: string; copyLink: string; linkCopied: string; regenerate: string; stopSharing: string; sharingActive: string; chooseAccess: string;
     cats: Record<CatKey, string>;
 }
 
@@ -68,6 +71,10 @@ const en: UIDict = {
     deactivate: 'Deactivate', reactivate: 'Reactivate', tapToToggle: 'Tap a product to deactivate it for this list',
     accountRequired: 'Sign in to continue', authError: 'Check your email and password',
     manageCatalog: 'Manage catalog', manageCatalogSub: 'Add or remove products and categories', addNamed: 'Add «{x}»',
+    publicLink: 'Public link', publicLinkSub: 'Let anyone open this list on the web',
+    shareModeRead: 'View only', shareModeShop: 'Check off', shareModePlan: 'Full edit',
+    shareModeReadSub: 'See the list and its progress', shareModeShopSub: 'See it and mark items as bought', shareModePlanSub: 'Add, remove and check items',
+    createLink: 'Create link', copyLink: 'Copy link', linkCopied: 'Link copied', regenerate: 'New link', stopSharing: 'Stop sharing', sharingActive: 'Link active', chooseAccess: 'Choose access',
     cats: { fruit: 'Fruit', veg: 'Vegetables', meat: 'Meat/Fish', dairy: 'Dairy', pantry: 'Pantry/Bread', cleaning: 'Cleaning/Hygiene', home: 'Home', snacks: 'Snacks/Sweets', frozen: 'Frozen', processed: 'Processed', drinks: 'Drinks', spices: 'Spices', other: 'General/Other' },
 };
 
@@ -92,6 +99,10 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         deactivate: 'Desactivar', reactivate: 'Reactivar', tapToToggle: 'Toca un producto para desactivarlo en esta lista',
         accountRequired: 'Inicia sesión para continuar', authError: 'Revisa el correo y la contraseña',
         manageCatalog: 'Gestión del catálogo', manageCatalogSub: 'Añade o elimina productos y categorías', addNamed: 'Añade «{x}»',
+        publicLink: 'Enlace público', publicLinkSub: 'Deja que cualquiera abra esta lista en la web',
+        shareModeRead: 'Solo ver', shareModeShop: 'Marcar comprado', shareModePlan: 'Editar todo',
+        shareModeReadSub: 'Ver la lista y su progreso', shareModeShopSub: 'Verla y marcar productos comprados', shareModePlanSub: 'Añadir, quitar y marcar productos',
+        createLink: 'Crear enlace', copyLink: 'Copiar enlace', linkCopied: 'Enlace copiado', regenerate: 'Nuevo enlace', stopSharing: 'Dejar de compartir', sharingActive: 'Enlace activo', chooseAccess: 'Elige el acceso',
         cats: { fruit: 'Fruta', veg: 'Verdura', meat: 'Carne/Pescado', dairy: 'Lácteos', pantry: 'Despensa/Pan', cleaning: 'Higiene/Limpieza', home: 'Hogar', snacks: 'Snacks/Dulces', frozen: 'Congelados', processed: 'Procesados', drinks: 'Bebidas', spices: 'Especias', other: 'General/Otros' },
     },
     ca: {
@@ -112,6 +123,10 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         deactivate: 'Desactivar', reactivate: 'Reactivar', tapToToggle: 'Toca un producte per desactivar-lo en aquesta llista',
         accountRequired: 'Inicia sessió per continuar', authError: 'Revisa el correu i la contrasenya',
         manageCatalog: 'Gestió del catàleg', manageCatalogSub: 'Afegeix o elimina productes i categories', addNamed: 'Afegeix «{x}»',
+        publicLink: 'Enllaç públic', publicLinkSub: 'Deixa que qualsevol obri aquesta llista al web',
+        shareModeRead: 'Només veure', shareModeShop: 'Marcar comprat', shareModePlan: 'Editar-ho tot',
+        shareModeReadSub: 'Veure la llista i el progrés', shareModeShopSub: 'Veure-la i marcar productes comprats', shareModePlanSub: 'Afegir, treure i marcar productes',
+        createLink: 'Crear enllaç', copyLink: 'Copiar enllaç', linkCopied: 'Enllaç copiat', regenerate: 'Nou enllaç', stopSharing: 'Deixar de compartir', sharingActive: 'Enllaç actiu', chooseAccess: "Tria l'accés",
         cats: { fruit: 'Fruita', veg: 'Verdura', meat: 'Carn/Peix', dairy: 'Làctics', pantry: 'Rebost/Pa', cleaning: 'Higiene/Neteja', home: 'Llar', snacks: 'Snacks/Dolços', frozen: 'Congelats', processed: 'Processats', drinks: 'Begudes', spices: 'Espècies', other: 'General/Altres' },
     },
     zh: {

@@ -93,6 +93,20 @@ class PocketBaseClient @Inject constructor(
     suspend fun presence(listId: String): List<PresenceDto> =
         decode(request("GET", "/api/shoplist/lists/$listId/presence"))
 
+    // ---- Public link sharing (owner-only management) ----
+
+    suspend fun getShare(listId: String): ShareResponse =
+        decode(request("GET", "/api/shoplist/lists/$listId/share"))
+
+    suspend fun setShare(listId: String, mode: String, rotate: Boolean = false): ShareResponse =
+        decode(request("POST", "/api/shoplist/lists/$listId/share", buildJsonObject {
+            put("mode", mode); put("rotate", rotate)
+        }))
+
+    suspend fun revokeShare(listId: String) {
+        request("POST", "/api/shoplist/lists/$listId/share/revoke", JsonObject(emptyMap()))
+    }
+
     // ---- Collection CRUD ----
 
     suspend fun getItems(listId: String): List<ItemRecord> =

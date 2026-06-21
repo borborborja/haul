@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
@@ -52,7 +54,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bor_devs.shoplist.BuildConfig
@@ -120,6 +124,7 @@ private fun AccountTab(vm: MainViewModel) {
 
     var showCreate by remember { mutableStateOf(false) }
     var showJoin by remember { mutableStateOf(false) }
+    var showShare by remember { mutableStateOf(false) }
     var pendingJoin by remember { mutableStateOf<ShopRepository.JoinInfo?>(null) }
     val registrationOpen by vm.registrationOpen.collectAsState()
     val hasServer = settings.serverUrl.isNotBlank()
@@ -141,6 +146,11 @@ private fun AccountTab(vm: MainViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { sync.code?.let { shareText(context, t.shareTitle, t.shareBody + joinLink(it)) } }) { Text(t.shareCode) }
                 OutlinedButton(onClick = { vm.rotateCode() }) { Text(t.rotateCode) }
+            }
+            OutlinedButton(onClick = { showShare = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text(t.publicLink)
             }
             OutlinedButton(onClick = { vm.disconnect() }) { Text(t.disconnect) }
         } else {
@@ -185,6 +195,7 @@ private fun AccountTab(vm: MainViewModel) {
 
     if (showCreate) CreateListDialog(onCreate = { vm.createList(it); showCreate = false }, onDismiss = { showCreate = false })
     if (showJoin) JoinDialog(onJoin = { code -> showJoin = false; scope.launch { vm.beginJoin(code)?.let { pendingJoin = it } ?: toast(context, "Error") } }, onDismiss = { showJoin = false })
+    if (showShare) ShareLinkDialog(vm, onDismiss = { showShare = false })
     pendingJoin?.let { info ->
         if (info.hasLocalItems) {
             MergeReplaceDialog(
@@ -195,6 +206,75 @@ private fun AccountTab(vm: MainViewModel) {
             )
         } else {
             vm.finishJoin(info, false); pendingJoin = null
+        }
+    }
+}
+
+@Composable
+private fun ShareLinkDialog(vm: MainViewModel, onDismiss: () -> Unit) {
+    val t = LocalStrings.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+
+    var mode by remember { mutableStateOf("") }
+    var token by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        vm.getShare()?.let { mode = it.mode; token = it.token }
+    }
+
+    val link = if (token.isNotBlank()) "${vm.serverBaseUrl()}/s/$token" else ""
+
+    fun choose(m: String, rotate: Boolean = false) {
+        busy = true
+        scope.launch {
+            vm.setShare(m, rotate)?.let { mode = it.mode; token = it.token }
+            busy = false
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text(t.confirm) } },
+        title = { Text(t.publicLink) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(t.publicLinkSub, style = MaterialTheme.typography.bodySmall)
+                Text(t.chooseAccess, style = MaterialTheme.typography.labelMedium)
+                ShareModeRow(t.shareModeReadL, t.shareModeReadSub, mode == "read", busy) { choose("read") }
+                ShareModeRow(t.shareModeShopL, t.shareModeShopSub, mode == "shop", busy) { choose("shop") }
+                ShareModeRow(t.shareModePlanL, t.shareModePlanSub, mode == "plan", busy) { choose("plan") }
+
+                if (link.isNotBlank() && mode.isNotBlank()) {
+                    Divider()
+                    Text(link, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { clipboard.setText(AnnotatedString(link)); toast(context, t.linkCopied) }) { Text(t.copyLink) }
+                        OutlinedButton(enabled = !busy, onClick = { choose(mode, rotate = true) }) { Text(t.regenerateLink) }
+                    }
+                    TextButton(enabled = !busy, onClick = {
+                        busy = true
+                        scope.launch { vm.revokeShare(); mode = ""; token = ""; busy = false }
+                    }) { Text(t.stopSharing) }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun ShareModeRow(label: String, sub: String, selected: Boolean, busy: Boolean, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = !busy,
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (selected) androidx.compose.material3.ButtonDefaults.buttonColors() else androidx.compose.material3.ButtonDefaults.outlinedButtonColors(),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Text(label + if (selected) "  ✓" else "", fontWeight = FontWeight.Bold)
+            Text(sub, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

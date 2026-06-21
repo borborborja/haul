@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, Share2, RefreshCw, Download, Upload, RotateCcw, Trash2 } from 'lucide-react';
+import { ChevronLeft, Plus, Share2, RefreshCw, Download, Upload, RotateCcw, Trash2, Link2 } from 'lucide-react';
+import PublicShareButton from '../shared/PublicShareButton';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized, catLabel } from '../shared/model';
 import { useAccountSync } from '../shared/useAccountSync';
@@ -99,6 +100,9 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                                     {sync.connected ? <>
                                         <button onClick={extras.shareCode} style={{ ...greenBtn, display: 'flex', alignItems: 'center', gap: 7 }}><Share2 size={15} />{t.add}</button>
                                         <button onClick={extras.rotateCode} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}><RefreshCw size={15} />{t.sync}</button>
+                                        <PublicShareButton recordId={sync.recordId} t={t} trigger={(o) => (
+                                            <button onClick={o} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}><Link2 size={15} />{t.publicLink}</button>
+                                        )} />
                                     </> : <>
                                         <button disabled={acc.busy} onClick={acc.createShared} style={greenBtn}>{t.createList}</button>
                                         <button disabled={acc.busy} onClick={() => { const c = window.prompt(t.syncCode); if (c) acc.join(c); }} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer' }}>{t.join}</button>

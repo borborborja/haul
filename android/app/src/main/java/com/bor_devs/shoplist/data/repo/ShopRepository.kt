@@ -17,6 +17,7 @@ import com.bor_devs.shoplist.data.remote.ItemRecord
 import com.bor_devs.shoplist.data.remote.PbRealtimeClient
 import com.bor_devs.shoplist.data.remote.PocketBaseClient
 import com.bor_devs.shoplist.data.remote.RealtimeEvent
+import com.bor_devs.shoplist.data.remote.ShareResponse
 import com.bor_devs.shoplist.data.sync.SyncMeta
 import com.bor_devs.shoplist.data.sync.WriteKind
 import com.bor_devs.shoplist.data.sync.WriteOp
@@ -636,6 +637,25 @@ class ShopRepository @Inject constructor(
             prefs.setSync(r.inviteCode, id); addToHistory(r.inviteCode)
             upsertActiveListMeta()
         }
+    }
+
+    // ---- Public link sharing ----
+    /** Base server URL, used to build the public /s/<token> link. */
+    fun serverBaseUrl(): String = pb.baseUrl
+
+    suspend fun getShare(): ShareResponse? {
+        val id = _sync.value.recordId ?: return null
+        return runCatching { pb.getShare(id) }.getOrNull()
+    }
+
+    suspend fun setShare(mode: String, rotate: Boolean = false): ShareResponse? {
+        val id = _sync.value.recordId ?: return null
+        return runCatching { pb.setShare(id, mode, rotate) }.getOrNull()
+    }
+
+    suspend fun revokeShare() {
+        val id = _sync.value.recordId ?: return
+        runCatching { pb.revokeShare(id) }
     }
 
     fun disconnect() = scope.launch {

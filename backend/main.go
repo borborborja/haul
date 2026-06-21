@@ -94,6 +94,16 @@ func registerRoutes(app core.App, publicDir string) {
 			e.Router.POST("/api/shoplist/lists/{id}/rotate-code", rotateCode).Bind(apis.RequireAuth("users"))
 			e.Router.GET("/api/shoplist/lists/{id}/presence", listPresence).Bind(apis.RequireAuth("users"))
 
+			// Public link sharing: owner-only management + unauthenticated
+			// access gated by the opaque share token (see share.go).
+			e.Router.GET("/api/shoplist/lists/{id}/share", getShare).Bind(apis.RequireAuth("users"))
+			e.Router.POST("/api/shoplist/lists/{id}/share", manageShare).Bind(apis.RequireAuth("users"))
+			e.Router.POST("/api/shoplist/lists/{id}/share/revoke", revokeShare).Bind(apis.RequireAuth("users"))
+			e.Router.GET("/api/shoplist/public/{token}", publicSnapshot)
+			e.Router.POST("/api/shoplist/public/{token}/items/{itemId}/check", publicCheckItem)
+			e.Router.POST("/api/shoplist/public/{token}/items", publicAddItem)
+			e.Router.DELETE("/api/shoplist/public/{token}/items/{itemId}", publicRemoveItem)
+
 				// Admin-only AI catalog translation (superuser session required).
 				e.Router.POST("/api/shoplist/admin/translate", translateHandler).Bind(apis.RequireSuperuserAuth())
 
@@ -125,8 +135,10 @@ func protectAccountTypes(app core.App) {
 	app.OnRecordUpdateRequest("shopping_lists").BindFunc(func(e *core.RecordRequestEvent) error {
 		original := e.Record.Original()
 		if e.Record.GetString("owner") != original.GetString("owner") ||
-			e.Record.GetString("invite_code") != original.GetString("invite_code") {
-			return apis.NewForbiddenError("List ownership and invitation codes can only be changed by server actions.", nil)
+			e.Record.GetString("invite_code") != original.GetString("invite_code") ||
+			e.Record.GetString("share_token") != original.GetString("share_token") ||
+			e.Record.GetString("share_mode") != original.GetString("share_mode") {
+			return apis.NewForbiddenError("List ownership, invitation codes and share links can only be changed by server actions.", nil)
 		}
 		return e.Next()
 	})
