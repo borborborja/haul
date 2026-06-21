@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { Copy, MessageCircle, Send } from 'lucide-react';
 import { pb } from '../../lib/pocketbase';
 import { shareUrl, type ShareMode } from '../share/shareApi';
 import type { UIDict } from '../../data/i18n';
@@ -55,6 +56,9 @@ export default function PublicShareButton({ recordId, t, trigger }: Props) {
         } catch { /* clipboard blocked */ }
     };
 
+    const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(shareUrl(state.token))}`, '_blank');
+    const telegram = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl(state.token))}`, '_blank');
+
     const modes: { key: ShareMode; label: string; sub: string }[] = [
         { key: 'read', label: t.shareModeRead, sub: t.shareModeReadSub },
         { key: 'shop', label: t.shareModeShop, sub: t.shareModeShopSub },
@@ -91,9 +95,13 @@ export default function PublicShareButton({ recordId, t, trigger }: Props) {
 
                 {active && (
                     <>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'rgba(6,35,26,0.05)', borderRadius: 11, padding: '10px 12px', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'rgba(6,35,26,0.05)', borderRadius: 11, padding: '10px 12px', marginBottom: 10 }}>
                             <span style={{ flex: 1, fontFamily: 'DM Mono, monospace', fontSize: 12.5, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl(state.token)}</span>
-                            <button onClick={copy} style={{ border: 'none', background: MINT, color: '#fff', borderRadius: 9, padding: '7px 13px', fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>{copied ? t.linkCopied : t.copyLink}</button>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                            <button onClick={copy} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, border: 'none', background: MINT, color: '#fff', borderRadius: 11, padding: '11px 12px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}><Copy size={15} />{copied ? t.linkCopied : t.copyLink}</button>
+                            <button onClick={whatsapp} aria-label="WhatsApp" style={{ ...iconBtn, color: '#25D366' }}><MessageCircle size={18} /></button>
+                            <button onClick={telegram} aria-label="Telegram" style={{ ...iconBtn, color: '#229ED9' }}><Send size={18} /></button>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button disabled={busy} onClick={() => setMode(state.mode as ShareMode, true)} style={ghost}>{t.regenerate}</button>
@@ -119,4 +127,8 @@ const sheet: React.CSSProperties = {
 const ghost: React.CSSProperties = {
     flex: 1, border: '1px solid rgba(6,35,26,0.16)', background: '#fff', color: INK,
     borderRadius: 11, padding: '10px 12px', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
+};
+const iconBtn: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44,
+    border: '1px solid rgba(6,35,26,0.14)', background: '#fff', borderRadius: 11, cursor: 'pointer', flexShrink: 0,
 };

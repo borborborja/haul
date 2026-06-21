@@ -252,12 +252,15 @@ private fun ShareLinkDialog(vm: MainViewModel, onDismiss: () -> Unit) {
                     Text(link, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { clipboard.setText(AnnotatedString(link)); toast(context, t.linkCopied) }) { Text(t.copyLink) }
-                        OutlinedButton(enabled = !busy, onClick = { choose(mode, rotate = true) }) { Text(t.regenerateLink) }
+                        OutlinedButton(onClick = { shareText(context, t.publicLink, link) }) { Text(t.shareCode) }
                     }
-                    TextButton(enabled = !busy, onClick = {
-                        busy = true
-                        scope.launch { vm.revokeShare(); mode = ""; token = ""; busy = false }
-                    }) { Text(t.stopSharing) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(enabled = !busy, onClick = { choose(mode, rotate = true) }) { Text(t.regenerateLink) }
+                        TextButton(enabled = !busy, onClick = {
+                            busy = true
+                            scope.launch { vm.revokeShare(); mode = ""; token = ""; busy = false }
+                        }) { Text(t.stopSharing) }
+                    }
                 }
             }
         },
