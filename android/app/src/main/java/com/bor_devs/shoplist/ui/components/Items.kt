@@ -35,9 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.asFrameworkPaint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,12 +51,11 @@ import com.bor_devs.shoplist.ui.theme.categoryColor
 // shadow — so the card looks like it has an even halo around the whole border.
 private fun Modifier.cardGlow(corner: Dp, color: Color, blur: Dp): Modifier = drawBehind {
     val r = corner.toPx()
-    val paint = Paint()
-    paint.asFrameworkPaint().apply {
+    val paint = android.graphics.Paint().apply {
         this.color = android.graphics.Color.TRANSPARENT
         setShadowLayer(blur.toPx(), 0f, 0f, color.toArgb())
     }
-    drawIntoCanvas { it.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint) }
+    drawIntoCanvas { it.nativeCanvas.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint) }
 }
 
 private val CardGlow = Color(0x26000000)
