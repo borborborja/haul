@@ -16,13 +16,6 @@ interface CatalogItem {
     expand?: { category: { key: string, icon: string, name_es: string, hidden: boolean } }
 }
 
-// Build the i18n payload from the three base inputs + extra-language edits.
-const buildI18nPayload = (d: Partial<CatalogItem>): Record<string, string> => ({
-    ...(d.i18n || {}),
-    es: d.name_es || (d.i18n?.es ?? ''),
-    ca: d.name_ca || (d.i18n?.ca ?? ''),
-    en: d.name_en || (d.i18n?.en ?? ''),
-});
 
 const ProductManager = () => {
     const [items, setItems] = useState<CatalogItem[]>([]);
@@ -122,7 +115,8 @@ const ProductManager = () => {
     const handleSave = async () => {
         try {
             const { expand, ...rest } = formData as any;
-            const payload = { ...rest, i18n: buildI18nPayload(formData) };
+            const i18n = { ...(formData.i18n || {}) };
+            const payload = { ...rest, name_es: i18n.es || '', name_ca: i18n.ca || '', name_en: i18n.en || '', i18n };
             if (isCreating) {
                 await pb.collection('catalog_items').create(payload);
             } else if (editingId) {
@@ -289,7 +283,7 @@ const ProductManager = () => {
                                         </td>
                                         <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
                                             <div className="flex justify-end gap-1">
-                                                <button onClick={() => { setEditingId(item.id); setFormData(item); setIsCreating(false); }} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit size={18} /></button>
+                                                <button onClick={() => { setEditingId(item.id); setFormData({ ...item, i18n: { es: item.name_es, ca: item.name_ca, en: item.name_en, ...(item.i18n || {}) } }); setIsCreating(false); }} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit size={18} /></button>
                                                 <button onClick={() => handleDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={18} /></button>
                                             </div>
                                         </td>
@@ -313,19 +307,16 @@ const ProductForm = ({ data, onChange, onSave, onCancel, categories }: any) => {
     const handleChange = (field: string, val: any) => onChange({ ...data, [field]: val });
     const [translating, setTranslating] = useState(false);
     const handleTranslate = async () => {
-        const text = (data.name_es || data.name_ca || data.name_en || '').trim();
+        const i18n = data.i18n || {};
+        const source = i18n.es ? 'es' : i18n.ca ? 'ca' : i18n.en ? 'en' : (Object.keys(i18n).find((k) => (i18n[k] || '').trim()) || '');
+        const text = (i18n[source] || '').trim();
         if (!text) { alert('Escribe el nombre en al menos un idioma primero.'); return; }
-        const source = data.name_es ? 'es' : data.name_ca ? 'ca' : 'en';
         setTranslating(true);
         try {
             const res = await translate(text, source, 'product');
-            onChange({
-                ...data,
-                name_ca: data.name_ca || res.ca || '',
-                name_en: data.name_en || res.en || '',
-                name_es: data.name_es || res.es || '',
-                i18n: { ...(data.i18n || {}), ...res },
-            });
+            const merged: Record<string, string> = { ...i18n };
+            for (const [k, v] of Object.entries(res)) if (!(merged[k] || '').trim()) merged[k] = v as string;
+            onChange({ ...data, i18n: merged });
         } catch (e: any) {
             alert(e?.response?.message || e?.message || 'Error al traducir');
         } finally {
@@ -345,33 +336,6 @@ const ProductForm = ({ data, onChange, onSave, onCancel, categories }: any) => {
                         <option value="">Seleccionar Categoría...</option>
                         {categories.map((c: any) => <option key={c.id} value={c.id}>{c.icon} {c.key}</option>)}
                     </select>
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400">Nombre (Castellano)</label>
-                    <input
-                        placeholder="Ej: Manzanas"
-                        value={data.name_es || ''}
-                        onChange={e => handleChange('name_es', e.target.value)}
-                        className="input-admin w-full"
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400">Nombre (Català)</label>
-                    <input
-                        placeholder="Ej: Pomes"
-                        value={data.name_ca || ''}
-                        onChange={e => handleChange('name_ca', e.target.value)}
-                        className="input-admin w-full"
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400">Nombre (English)</label>
-                    <input
-                        placeholder="Ej: Apples"
-                        value={data.name_en || ''}
-                        onChange={e => handleChange('name_en', e.target.value)}
-                        className="input-admin w-full"
-                    />
                 </div>
             </div>
 

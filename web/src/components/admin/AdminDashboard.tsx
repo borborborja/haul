@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { translations } from '../../data/constants';
+import { LANGS } from '../../data/i18n';
 import CategoryManager from './CategoryManager';
 import ProductManager from './ProductManager';
 import AdminSettings from './AdminSettings';
@@ -43,12 +44,9 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                 <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, letterSpacing: '-.02em', color: 'var(--text)' }}>{serverName || 'Haul'}</span>
                 <span style={{ fontFamily: FONT_MONO, fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: ACCENT, border: `1px solid ${ACCENT}66`, padding: '3px 8px', borderRadius: 999 }}>Admin</span>
                 <div style={{ flex: 1 }} />
-                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--seg)', borderRadius: 999, padding: 3, fontFamily: FONT_MONO, fontSize: 11, fontWeight: 500 }}>
-                    {(['ca', 'es', 'en'] as const).map((l) => {
-                        const on = lang === l;
-                        return <button key={l} onClick={() => setLang(l)} style={{ border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 999, background: on ? ACCENT : 'transparent', color: on ? ACCENT_INK : 'var(--muted)', textTransform: 'uppercase', fontFamily: 'inherit', fontWeight: 600 }}>{l}</button>;
-                    })}
-                </div>
+                <select value={lang} onChange={(e) => setLang(e.target.value as any)} aria-label="language" style={{ border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', borderRadius: 10, padding: '6px 10px', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}>
+                    {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+                </select>
                 <button onClick={onLogout} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit' }}>
                     <LogOut size={17} /> {t.logout}
                 </button>

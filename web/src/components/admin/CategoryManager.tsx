@@ -19,13 +19,6 @@ interface CatalogCategory {
     i18n?: Record<string, string>;
 }
 
-const buildI18nPayload = (d: Partial<CatalogCategory>): Record<string, string> => ({
-    ...(d.i18n || {}),
-    es: d.name_es || (d.i18n?.es ?? ''),
-    ca: d.name_ca || (d.i18n?.ca ?? ''),
-    en: d.name_en || (d.i18n?.en ?? ''),
-});
-
 const CategoryManager = () => {
     const [categories, setCategories] = useState<CatalogCategory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -93,7 +86,8 @@ const CategoryManager = () => {
 
     const handleEdit = (cat: CatalogCategory) => {
         setEditingId(cat.id);
-        setFormData(cat);
+        // Seed the uniform language map from the base fields so all 15 show together.
+        setFormData({ ...cat, i18n: { es: cat.name_es, ca: cat.name_ca, en: cat.name_en, ...(cat.i18n || {}) } });
         setIsCreating(false);
     };
 
@@ -119,8 +113,9 @@ const CategoryManager = () => {
 
     const handleSave = async () => {
         try {
-            const { i18n: _ignore, ...rest } = formData as any;
-            const payload = { ...rest, i18n: buildI18nPayload(formData) };
+            const i18n = { ...(formData.i18n || {}) };
+            // Base name_* mirror the uniform language map (for runtime + search).
+            const payload = { ...formData, name_es: i18n.es || '', name_ca: i18n.ca || '', name_en: i18n.en || '', i18n };
             if (isCreating) {
                 await pb.collection('catalog_categories').create(payload);
             } else if (editingId) {
@@ -280,19 +275,17 @@ const CategoryForm = ({ data, onChange, onSave, onCancel }: { data: any, onChang
     const handleChange = (field: string, val: any) => onChange({ ...data, [field]: val });
     const [translating, setTranslating] = useState(false);
     const handleTranslate = async () => {
-        const text = (data.name_es || data.name_ca || data.name_en || '').trim();
+        const i18n = data.i18n || {};
+        const source = i18n.es ? 'es' : i18n.ca ? 'ca' : i18n.en ? 'en' : (Object.keys(i18n).find((k) => (i18n[k] || '').trim()) || '');
+        const text = (i18n[source] || '').trim();
         if (!text) { alert('Escribe el nombre en al menos un idioma primero.'); return; }
-        const source = data.name_es ? 'es' : data.name_ca ? 'ca' : 'en';
         setTranslating(true);
         try {
             const res = await translate(text, source, 'category');
-            onChange({
-                ...data,
-                name_ca: data.name_ca || res.ca || '',
-                name_en: data.name_en || res.en || '',
-                name_es: data.name_es || res.es || '',
-                i18n: { ...(data.i18n || {}), ...res },
-            });
+            // Only fill empty languages; never overwrite manual entries.
+            const merged: Record<string, string> = { ...i18n };
+            for (const [k, v] of Object.entries(res)) if (!(merged[k] || '').trim()) merged[k] = v as string;
+            onChange({ ...data, i18n: merged });
         } catch (e: any) {
             alert(e?.response?.message || e?.message || 'Error al traducir');
         } finally {
@@ -340,33 +333,6 @@ const CategoryForm = ({ data, onChange, onSave, onCancel }: { data: any, onChang
                         placeholder="Ej: bg-red-500"
                         value={data.color || ''}
                         onChange={e => handleChange('color', e.target.value)}
-                        className="input-admin w-full"
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400">Nombre (Castellano)</label>
-                    <input
-                        placeholder="Frutas"
-                        value={data.name_es || ''}
-                        onChange={e => handleChange('name_es', e.target.value)}
-                        className="input-admin w-full"
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400">Nombre (Català)</label>
-                    <input
-                        placeholder="Fruites"
-                        value={data.name_ca || ''}
-                        onChange={e => handleChange('name_ca', e.target.value)}
-                        className="input-admin w-full"
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400">Nombre (English)</label>
-                    <input
-                        placeholder="Fruits"
-                        value={data.name_en || ''}
-                        onChange={e => handleChange('name_en', e.target.value)}
                         className="input-admin w-full"
                     />
                 </div>
