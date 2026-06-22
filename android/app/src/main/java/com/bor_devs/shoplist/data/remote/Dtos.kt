@@ -142,6 +142,13 @@ data class DisabledProductRecord(
 )
 
 @Serializable
+data class DisabledCategoryRecord(
+    val id: String,
+    val key: String = "",
+    val list: String = "",
+)
+
+@Serializable
 data class CatalogCategoryRecord(
     val id: String,
     val key: String = "",

@@ -48,6 +48,7 @@ export function useHaulModel() {
     const items = useShopStore((s) => s.items);
     const categories = useShopStore((s) => s.categories);
     const disabledProducts = useShopStore((s) => s.disabledProducts);
+    const disabledCategories = useShopStore((s) => s.disabledCategories);
     const lang = useShopStore((s) => s.lang);
     const lists = useShopStore((s) => s.lists);
     const activeListId = useShopStore((s) => s.activeListId);
@@ -72,15 +73,17 @@ export function useHaulModel() {
     const done = useMemo(() => inListAll.filter((i) => i.checked).length, [inListAll]);
     const frac = total ? done / total : 0;
 
-    // Catalog bands (category chips) + items for the active band.
+    // Catalog bands (category chips) + items for the active band. Categories the
+    // list has hidden are dropped from the planner browse.
+    const disabledCatSet = useMemo(() => new Set(disabledCategories), [disabledCategories]);
     const bands = useMemo(
-        () => Object.keys(categories).map((key) => ({
+        () => Object.keys(categories).filter((key) => !disabledCatSet.has(key)).map((key) => ({
             key,
             label: catLabel(key, lang, categories[key].names),
             emoji: categories[key].icon,
             color: catColor(key, categories[key].color),
         })),
-        [categories, lang],
+        [categories, lang, disabledCatSet],
     );
 
     const currentNames = useMemo(

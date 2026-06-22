@@ -101,6 +101,10 @@ class ShopRepository @Inject constructor(
         disabledDao.observe().map { list -> list.map { it.name }.toSet() }
             .stateIn(scope, SharingStarted.Eagerly, emptySet())
 
+    /** Keys of default categories hidden for the active list (synced, in-memory). */
+    private val _disabledCategories = MutableStateFlow<Set<String>>(emptySet())
+    val disabledCategories: StateFlow<Set<String>> = _disabledCategories
+
     private val _sync = MutableStateFlow(SyncState())
     val sync: StateFlow<SyncState> = _sync
 
@@ -550,6 +554,25 @@ class ShopRepository @Inject constructor(
         runCatching {
             disabledDao.replaceAll(pb.getListDisabledProducts(recordId).map { DisabledProductEntity(it.name) })
         }
+        runCatching {
+            _disabledCategories.value = pb.getListDisabledCategories(recordId).map { it.key }.toSet()
+        }
+    }
+
+    /** Hide a default category for the active list (synced). */
+    fun deactivateCategory(key: String) = scope.launch {
+        if (key.isBlank() || _disabledCategories.value.contains(key)) return@launch
+        _disabledCategories.update { it + key }
+        val recordId = _sync.value.recordId
+        if (_sync.value.connected && recordId != null) runCatching { pb.createDisabledCategory(recordId, key) }
+    }
+
+    fun reactivateCategory(key: String) = scope.launch {
+        _disabledCategories.update { it - key }
+        val recordId = _sync.value.recordId
+        if (_sync.value.connected && recordId != null) runCatching {
+            pb.getListDisabledCategories(recordId).firstOrNull { it.key == key }?.let { pb.deleteDisabledCategory(it.id) }
+        }
     }
 
     // ---- Multi-list switching ----
@@ -646,6 +669,7 @@ class ShopRepository @Inject constructor(
         realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
         _activeUsers.value = emptyList()
         scope.launch { disabledDao.clear() } // disabled set is per-list; local lists start empty
+        _disabledCategories.value = emptySet()
         _sync.update { it.copy(connected = false, code = code, recordId = recordId, msg = "", msgType = MsgType.INFO) }
     }
 
@@ -892,7 +916,7 @@ class ShopRepository @Inject constructor(
 
     private fun startRealtime(recordId: String) {
         realtimeJob?.cancel()
-        realtime.start(listOf("shopping_items/*", "list_categories/*", "list_items/*", "list_disabled_products/*", "shopping_lists/$recordId"))
+        realtime.start(listOf("shopping_items/*", "list_categories/*", "list_items/*", "list_disabled_products/*", "list_disabled_categories/*", "shopping_lists/$recordId"))
         realtimeJob = scope.launch { realtime.events.collect { handleRealtime(recordId, it) } }
     }
 
@@ -991,6 +1015,14 @@ class ShopRepository @Inject constructor(
                 when (e.action) {
                     "create" -> disabledDao.insert(DisabledProductEntity(rec.name))
                     "delete" -> disabledDao.deleteByName(rec.name)
+                }
+            }
+            "list_disabled_categories" -> {
+                val rec = pb.json.decodeFromJsonElement(com.bor_devs.shoplist.data.remote.DisabledCategoryRecord.serializer(), e.record)
+                if (rec.list != recordId) return
+                when (e.action) {
+                    "create" -> _disabledCategories.update { it + rec.key }
+                    "delete" -> _disabledCategories.update { it - rec.key }
                 }
             }
             "shopping_lists" -> {

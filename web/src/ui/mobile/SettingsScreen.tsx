@@ -26,7 +26,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
         showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategory, addCategoryItem,
-        disabledProducts, deactivateProduct, reactivateProduct, registrationOpen,
+        disabledProducts, deactivateProduct, reactivateProduct, disabledCategories, deactivateCategory, reactivateCategory, registrationOpen,
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
@@ -160,11 +160,13 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                         {Object.keys(categories).map((key) => {
                             const cat = categories[key];
                             const color = catColor(key, cat.color);
+                            const catOff = disabledCategories.includes(key);
                             return (
-                                <div key={key} style={{ marginBottom: 20 }}>
+                                <div key={key} style={{ marginBottom: 20, opacity: catOff ? 0.5 : 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                         <div style={{ width: 26, height: 26, borderRadius: 8, background: alpha(color, 0.16), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{cat.icon}</div>
-                                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, letterSpacing: '-.01em', color: 'var(--text)' }}>{catLabel(key, lang, cat.names)}</span>
+                                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, letterSpacing: '-.01em', color: 'var(--text)', textDecoration: catOff ? 'line-through' : 'none' }}>{catLabel(key, lang, cat.names)}</span>
+                                        <button onClick={() => catOff ? reactivateCategory(key) : deactivateCategory(key)} title={catOff ? t.reactivate : t.deactivate} style={{ marginLeft: 'auto', flex: 'none', cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--muted)', borderRadius: 9, padding: '4px 10px', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>{catOff ? t.reactivate : t.deactivate}</button>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                                         {cat.items.map((it: LocalizedItem | string, idx: number) => {

@@ -54,6 +54,7 @@ interface ShopState {
     categories: Categories;
     // Canonical keys of products deactivated for the active list (synced per list).
     disabledProducts: string[];
+    disabledCategories: string[];
     listName: string | null;
 
     // Multi-list
@@ -148,6 +149,8 @@ interface ShopState {
     // Per-list product deactivation (translucent in settings, removed from the list, synced)
     deactivateProduct: (item: LocalizedItem | string) => Promise<void>;
     reactivateProduct: (item: LocalizedItem | string) => Promise<void>;
+    deactivateCategory: (key: string) => void;
+    reactivateCategory: (key: string) => void;
 
     // Auth Actions
     setAuth: (auth: Partial<AuthState>) => void;
@@ -162,6 +165,7 @@ export const useShopStore = create<ShopState>()(
             items: [],
             categories: defaultCategories,
             disabledProducts: [],
+            disabledCategories: [],
             listName: null,
             lists: [{ id: DEFAULT_LIST_ID, name: null, emoji: '🛒', code: null, recordId: null, isLocal: true }],
             activeListId: DEFAULT_LIST_ID,
@@ -528,6 +532,7 @@ export const useShopStore = create<ShopState>()(
                     listName: cached?.listName ?? target.name,
                     // Reset per-list disabled set; loadListCustomData repopulates for synced lists
                     disabledProducts: [],
+                    disabledCategories: [],
                     // Re-point sync at the target list; hooks (useListSync) reconnect for synced lists
                     sync: {
                         ...sync,
@@ -842,12 +847,15 @@ export const useShopStore = create<ShopState>()(
                         }
                     });
 
-                    // Load deactivated products for this list
+                    // Load deactivated products + categories for this list
                     const disabledRecs = await pb.collection('list_disabled_products').getFullList({
                         filter: `list = "${sync.recordId}"`
                     });
+                    const disabledCatRecs = await pb.collection('list_disabled_categories').getFullList({
+                        filter: `list = "${sync.recordId}"`
+                    }).catch(() => []);
 
-                    set({ categories: mergedCats, disabledProducts: disabledRecs.map((r: any) => r.name) });
+                    set({ categories: mergedCats, disabledProducts: disabledRecs.map((r: any) => r.name), disabledCategories: (disabledCatRecs as any[]).map((r: any) => r.key) });
                     console.log("Loaded list custom data:", customCats.length, "categories,", customItems.length, "items,", disabledRecs.length, "disabled");
                 } catch (e) {
                     console.error("Failed to load list custom data", e);
@@ -882,6 +890,26 @@ export const useShopStore = create<ShopState>()(
                     try {
                         const recs = await pb.collection('list_disabled_products').getFullList({ filter: `list = "${sync.recordId}" && name = "${key.replace(/"/g, '')}"` });
                         await Promise.all(recs.map((r: any) => pb.collection('list_disabled_products').delete(r.id)));
+                    } catch { /* realtime/refresh will reconcile */ }
+                }
+            },
+
+            deactivateCategory: (key) => {
+                const { sync, disabledCategories } = get();
+                if (!key || disabledCategories.includes(key)) return;
+                set({ disabledCategories: [...disabledCategories, key] });
+                if (sync.connected && sync.recordId) {
+                    pb.collection('list_disabled_categories').create({ list: sync.recordId, key }).catch(() => { });
+                }
+            },
+
+            reactivateCategory: async (key) => {
+                const { sync, disabledCategories } = get();
+                set({ disabledCategories: disabledCategories.filter((k) => k !== key) });
+                if (sync.connected && sync.recordId) {
+                    try {
+                        const recs = await pb.collection('list_disabled_categories').getFullList({ filter: `list = "${sync.recordId}" && key = "${key.replace(/"/g, '')}"` });
+                        await Promise.all(recs.map((r: any) => pb.collection('list_disabled_categories').delete(r.id)));
                     } catch { /* realtime/refresh will reconcile */ }
                 }
             }

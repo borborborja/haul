@@ -159,43 +159,52 @@ const AdminSettings = () => {
     };
 
     const handleImportDefaults = async () => {
-        if (!confirm('Esto importará todos los datos por defecto a la base de datos. Si ya existen, se duplicarán (usa Borrar Todo antes si es necesario). ¿Continuar?')) return;
+        if (!confirm('Esto añade al catálogo común las categorías y productos por defecto que falten (no duplica los ya existentes). ¿Continuar?')) return;
 
         setSeeding(true);
         setStatus('Iniciando importación...');
 
         try {
             const keys = Object.keys(defaultCategories);
-            let totalCats = 0;
-            let totalItems = 0;
-            for (const key of keys) {
+            let newCats = 0;
+            let newItems = 0;
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
                 const catData = defaultCategories[key];
                 setStatus(`Importando categoría: ${key}...`);
 
-                // Create Category
-                const catRecord = await pb.collection('catalog_categories').create({
-                    key: key,
-                    icon: catData.icon,
-                    color: key,
-                    name_es: (translations as any).es.cats[key] || key,
-                    name_ca: (translations as any).ca.cats[key] || key,
-                    name_en: (translations as any).en.cats[key] || key
-                });
-                totalCats++;
-
-                // Create Items
-                for (const item of catData.items) {
-                    await pb.collection('catalog_items').create({
-                        category: catRecord.id,
-                        name_es: item.es,
-                        name_ca: item.ca,
-                        name_en: item.en
+                // Find existing category by key, else create it (with order + i18n).
+                const existingCat = await pb.collection('catalog_categories').getList(1, 1, { filter: `key="${key}"` });
+                let catId: string;
+                if (existingCat.items.length) {
+                    catId = existingCat.items[0].id;
+                } else {
+                    const name_es = (translations as any).es.cats[key] || key;
+                    const name_ca = (translations as any).ca.cats[key] || key;
+                    const name_en = (translations as any).en.cats[key] || key;
+                    const catRecord = await pb.collection('catalog_categories').create({
+                        key, icon: catData.icon, color: key, order: i, hidden: false,
+                        name_es, name_ca, name_en, i18n: { es: name_es, ca: name_ca, en: name_en },
                     });
-                    totalItems++;
+                    catId = catRecord.id;
+                    newCats++;
+                }
+
+                // Existing item names in this category (avoid duplicates).
+                const existingItems = await pb.collection('catalog_items').getFullList({ filter: `category="${catId}"` });
+                const seen = new Set(existingItems.map((it: any) => (it.name_es || '').toLowerCase()));
+                for (const item of catData.items) {
+                    if (seen.has((item.es || '').toLowerCase())) continue;
+                    await pb.collection('catalog_items').create({
+                        category: catId,
+                        name_es: item.es, name_ca: item.ca, name_en: item.en, hidden: false,
+                        i18n: { es: item.es, ca: item.ca, en: item.en },
+                    });
+                    newItems++;
                 }
             }
 
-            setStatus(`¡Éxito! Importadas ${totalCats} categorías y ${totalItems} productos.`);
+            setStatus(`¡Listo! Añadidas ${newCats} categorías y ${newItems} productos nuevos.`);
             setTimeout(() => setStatus(''), 5000);
         } catch (e: any) {
             console.error(e);

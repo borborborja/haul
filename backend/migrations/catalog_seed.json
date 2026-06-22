@@ -1,0 +1,1117 @@
+{
+  "categories": [
+    {
+      "key": "fruit",
+      "icon": "🍎",
+      "color": "fruit",
+      "order": 0,
+      "name_es": "Fruta",
+      "name_ca": "Fruita",
+      "name_en": "Fruit",
+      "items": [
+        {
+          "name_es": "Manzanas",
+          "name_ca": "Pomes",
+          "name_en": "Apples"
+        },
+        {
+          "name_es": "Plátanos",
+          "name_ca": "Plàtans",
+          "name_en": "Bananas"
+        },
+        {
+          "name_es": "Naranjas",
+          "name_ca": "Taronges",
+          "name_en": "Oranges"
+        },
+        {
+          "name_es": "Peras",
+          "name_ca": "Peres",
+          "name_en": "Pears"
+        },
+        {
+          "name_es": "Fresas",
+          "name_ca": "Sindries",
+          "name_en": "Strawberries"
+        },
+        {
+          "name_es": "Uvas",
+          "name_ca": "Raïm",
+          "name_en": "Grapes"
+        },
+        {
+          "name_es": "Limones",
+          "name_ca": "Llimones",
+          "name_en": "Lemons"
+        },
+        {
+          "name_es": "Mandarinas",
+          "name_ca": "Mandarines",
+          "name_en": "Tangerines"
+        },
+        {
+          "name_es": "Melón",
+          "name_ca": "Meló",
+          "name_en": "Melon"
+        },
+        {
+          "name_es": "Sandía",
+          "name_ca": "Síndria",
+          "name_en": "Watermelon"
+        },
+        {
+          "name_es": "Piña",
+          "name_ca": "Pinya",
+          "name_en": "Pineapple"
+        },
+        {
+          "name_es": "Kiwi",
+          "name_ca": "Kiwi",
+          "name_en": "Kiwi"
+        },
+        {
+          "name_es": "Melocotón",
+          "name_ca": "Préssec",
+          "name_en": "Peach"
+        },
+        {
+          "name_es": "Cerezas",
+          "name_ca": "Cireres",
+          "name_en": "Cherries"
+        },
+        {
+          "name_es": "Ciruelas",
+          "name_ca": "Prunes",
+          "name_en": "Plums"
+        },
+        {
+          "name_es": "Aguacate",
+          "name_ca": "Alvocat",
+          "name_en": "Avocado"
+        },
+        {
+          "name_es": "Pomelo",
+          "name_ca": "Pomelo",
+          "name_en": "Grapefruit"
+        },
+        {
+          "name_es": "Higos",
+          "name_ca": "Figues",
+          "name_en": "Figs"
+        },
+        {
+          "name_es": "Mango",
+          "name_ca": "Mango",
+          "name_en": "Mango"
+        },
+        {
+          "name_es": "Papaya",
+          "name_ca": "Papaya",
+          "name_en": "Papaya"
+        }
+      ]
+    },
+    {
+      "key": "veg",
+      "icon": "🥦",
+      "color": "veg",
+      "order": 1,
+      "name_es": "Verdura",
+      "name_ca": "Verdura",
+      "name_en": "Veg",
+      "items": [
+        {
+          "name_es": "Lechuga",
+          "name_ca": "Enciam",
+          "name_en": "Lettuce"
+        },
+        {
+          "name_es": "Tomates",
+          "name_ca": "Tomàquets",
+          "name_en": "Tomatoes"
+        },
+        {
+          "name_es": "Cebollas",
+          "name_ca": "Cebes",
+          "name_en": "Onions"
+        },
+        {
+          "name_es": "Patatas",
+          "name_ca": "Patates",
+          "name_en": "Potatoes"
+        },
+        {
+          "name_es": "Zanahorias",
+          "name_ca": "Pastanagues",
+          "name_en": "Carrots"
+        },
+        {
+          "name_es": "Pimientos",
+          "name_ca": "Pebrots",
+          "name_en": "Peppers"
+        },
+        {
+          "name_es": "Calabacín",
+          "name_ca": "Carbassó",
+          "name_en": "Zucchini"
+        },
+        {
+          "name_es": "Rúcula",
+          "name_ca": "Ruca",
+          "name_en": "Arugula"
+        },
+        {
+          "name_es": "Berenjena",
+          "name_ca": "Albergínia",
+          "name_en": "Eggplant"
+        },
+        {
+          "name_es": "Brócoli",
+          "name_ca": "Bròcoli",
+          "name_en": "Broccoli"
+        },
+        {
+          "name_es": "Coliflor",
+          "name_ca": "Coliflor",
+          "name_en": "Cauliflower"
+        },
+        {
+          "name_es": "Espárragos",
+          "name_ca": "Espàrrecs",
+          "name_en": "Asparagus"
+        },
+        {
+          "name_es": "Pepino",
+          "name_ca": "Pepino",
+          "name_en": "Cucumber"
+        },
+        {
+          "name_es": "Ajos",
+          "name_ca": "Alls",
+          "name_en": "Garlic"
+        },
+        {
+          "name_es": "Espinacas",
+          "name_ca": "Espinacs",
+          "name_en": "Spinach"
+        },
+        {
+          "name_es": "Judías verdes",
+          "name_ca": "Mongetes verdes",
+          "name_en": "Green beans"
+        },
+        {
+          "name_es": "Champiñones",
+          "name_ca": "Xampinyons",
+          "name_en": "Mushrooms"
+        },
+        {
+          "name_es": "Puerros",
+          "name_ca": "Porros",
+          "name_en": "Leeks"
+        },
+        {
+          "name_es": "Calabaza",
+          "name_ca": "Carbassa",
+          "name_en": "Pumpkin"
+        },
+        {
+          "name_es": "Apio",
+          "name_ca": "Api",
+          "name_en": "Celery"
+        },
+        {
+          "name_es": "Rábanos",
+          "name_ca": "Raves",
+          "name_en": "Radishes"
+        }
+      ]
+    },
+    {
+      "key": "meat",
+      "icon": "🥩",
+      "color": "meat",
+      "order": 2,
+      "name_es": "Carne/Pescado",
+      "name_ca": "Carn/Peix",
+      "name_en": "Meat/Fish",
+      "items": [
+        {
+          "name_es": "Pollo",
+          "name_ca": "Pollastre",
+          "name_en": "Chicken"
+        },
+        {
+          "name_es": "Ternera",
+          "name_ca": "Vedella",
+          "name_en": "Beef"
+        },
+        {
+          "name_es": "Cerdo",
+          "name_ca": "Porc",
+          "name_en": "Pork"
+        },
+        {
+          "name_es": "Cordero",
+          "name_ca": "Xai",
+          "name_en": "Lamb"
+        },
+        {
+          "name_es": "Pavo",
+          "name_ca": "Gall dindi",
+          "name_en": "Turkey"
+        },
+        {
+          "name_es": "Conejo",
+          "name_ca": "Conill",
+          "name_en": "Rabbit"
+        },
+        {
+          "name_es": "Salchichas",
+          "name_ca": "Salsitxes",
+          "name_en": "Sausages"
+        },
+        {
+          "name_es": "Bacon",
+          "name_ca": "Bacon",
+          "name_en": "Bacon"
+        },
+        {
+          "name_es": "Jamón York",
+          "name_ca": "Pernil dolç",
+          "name_en": "Ham"
+        },
+        {
+          "name_es": "Jamón Serrano",
+          "name_ca": "Pernil quadrat",
+          "name_en": "Serrano Ham"
+        },
+        {
+          "name_es": "Chorizo",
+          "name_ca": "Xoriço",
+          "name_en": "Chorizo"
+        },
+        {
+          "name_es": "Lomo",
+          "name_ca": "Llonguet",
+          "name_en": "Pork loin"
+        },
+        {
+          "name_es": "Pescado blanco",
+          "name_ca": "Peix blanc",
+          "name_en": "White fish"
+        },
+        {
+          "name_es": "Salmón",
+          "name_ca": "Salmó",
+          "name_en": "Salmon"
+        },
+        {
+          "name_es": "Atún fresco",
+          "name_ca": "Tonyina fresca",
+          "name_en": "Fresh tuna"
+        },
+        {
+          "name_es": "Gambas",
+          "name_ca": "Gambes",
+          "name_en": "Shrimp"
+        },
+        {
+          "name_es": "Mejillones",
+          "name_ca": "Musclos",
+          "name_en": "Mussels"
+        },
+        {
+          "name_es": "Calamares",
+          "name_ca": "Calamars",
+          "name_en": "Squid"
+        },
+        {
+          "name_es": "Bacalao",
+          "name_ca": "Bacallà",
+          "name_en": "Cod"
+        },
+        {
+          "name_es": "Rape",
+          "name_ca": "Rap",
+          "name_en": "Monkfish"
+        },
+        {
+          "name_es": "Carne picada",
+          "name_ca": "Carn picada",
+          "name_en": "Minced meat"
+        }
+      ]
+    },
+    {
+      "key": "dairy",
+      "icon": "🧀",
+      "color": "dairy",
+      "order": 3,
+      "name_es": "Lácteos",
+      "name_ca": "Làctics",
+      "name_en": "Dairy",
+      "items": [
+        {
+          "name_es": "Leche",
+          "name_ca": "Llet",
+          "name_en": "Milk"
+        },
+        {
+          "name_es": "Queso",
+          "name_ca": "Formatge",
+          "name_en": "Cheese"
+        },
+        {
+          "name_es": "Yogur",
+          "name_ca": "Iogurt",
+          "name_en": "Yogurt"
+        },
+        {
+          "name_es": "Mantequilla",
+          "name_ca": "Mantega",
+          "name_en": "Butter"
+        },
+        {
+          "name_es": "Nata",
+          "name_ca": "Nata",
+          "name_en": "Cream"
+        },
+        {
+          "name_es": "Huevos",
+          "name_ca": "Ous",
+          "name_en": "Eggs"
+        },
+        {
+          "name_es": "Clara 0,0",
+          "name_ca": "Clara 0,0",
+          "name_en": "Egg whites"
+        },
+        {
+          "name_es": "Queso rallado",
+          "name_ca": "Formatge ratllat",
+          "name_en": "Grated cheese"
+        },
+        {
+          "name_es": "Leche de avena",
+          "name_ca": "Llet d'avena",
+          "name_en": "Oat milk"
+        },
+        {
+          "name_es": "Leche de soja",
+          "name_ca": "Llet de soja",
+          "name_en": "Soy milk"
+        },
+        {
+          "name_es": "Margarina",
+          "name_ca": "Margarina",
+          "name_en": "Margarine"
+        },
+        {
+          "name_es": "Kefir",
+          "name_ca": "Kefir",
+          "name_en": "Kefir"
+        },
+        {
+          "name_es": "Queso crema",
+          "name_ca": "Formatge crema",
+          "name_en": "Cream cheese"
+        },
+        {
+          "name_es": "Requesón",
+          "name_ca": "Recuit",
+          "name_en": "Cottage cheese"
+        },
+        {
+          "name_es": "Flan",
+          "name_ca": "Flams",
+          "name_en": "Flan"
+        },
+        {
+          "name_es": "Natillas",
+          "name_ca": "Natilles",
+          "name_en": "Custard"
+        }
+      ]
+    },
+    {
+      "key": "pantry",
+      "icon": "🍝",
+      "color": "pantry",
+      "order": 4,
+      "name_es": "Despensa/Pan",
+      "name_ca": "Rebost/Pa",
+      "name_en": "Pantry/Bread",
+      "items": [
+        {
+          "name_es": "Pan",
+          "name_ca": "Pa",
+          "name_en": "Bread"
+        },
+        {
+          "name_es": "Arroz",
+          "name_ca": "Arròs",
+          "name_en": "Rice"
+        },
+        {
+          "name_es": "Pasta",
+          "name_ca": "Pasta",
+          "name_en": "Pasta"
+        },
+        {
+          "name_es": "Aceite",
+          "name_ca": "Oli",
+          "name_en": "Oil"
+        },
+        {
+          "name_es": "Vinagre",
+          "name_ca": "Vinagre",
+          "name_en": "Vinegar"
+        },
+        {
+          "name_es": "Sal",
+          "name_ca": "Sal",
+          "name_en": "Salt"
+        },
+        {
+          "name_es": "Azúcar",
+          "name_ca": "Sucre",
+          "name_en": "Sugar"
+        },
+        {
+          "name_es": "Harina",
+          "name_ca": "Farina",
+          "name_en": "Flour"
+        },
+        {
+          "name_es": "Café",
+          "name_ca": "Cafè",
+          "name_en": "Coffee"
+        },
+        {
+          "name_es": "Té",
+          "name_ca": "Te",
+          "name_en": "Tea"
+        },
+        {
+          "name_es": "Cereales",
+          "name_ca": "Cereals",
+          "name_en": "Cereals"
+        },
+        {
+          "name_es": "Galletas",
+          "name_ca": "Galetes",
+          "name_en": "Cookies"
+        },
+        {
+          "name_es": "Atún lata",
+          "name_ca": "Tonyina llauna",
+          "name_en": "Canned tuna"
+        },
+        {
+          "name_es": "Tomate frito",
+          "name_ca": "Tomàquet fregit",
+          "name_en": "Tomato sauce"
+        },
+        {
+          "name_es": "Legumbres",
+          "name_ca": "Llegums",
+          "name_en": "Legumes"
+        },
+        {
+          "name_es": "Lentejas",
+          "name_ca": "Llenties",
+          "name_en": "Lentils"
+        },
+        {
+          "name_es": "Garbanzos",
+          "name_ca": "Garbanços",
+          "name_en": "Chickpeas"
+        },
+        {
+          "name_es": "Mermelada",
+          "name_ca": "Melmelada",
+          "name_en": "Jam"
+        },
+        {
+          "name_es": "Miel",
+          "name_ca": "Mel",
+          "name_en": "Honey"
+        },
+        {
+          "name_es": "Caldo",
+          "name_ca": "Brou",
+          "name_en": "Broth"
+        },
+        {
+          "name_es": "Ajo molido",
+          "name_ca": "All mofalt",
+          "name_en": "Garlic powder"
+        },
+        {
+          "name_es": "Bulgur",
+          "name_ca": "Bulgur",
+          "name_en": "Bulgur"
+        },
+        {
+          "name_es": "Estevia en hoja",
+          "name_ca": "Estèvia en fulla",
+          "name_en": "Stevia leaves"
+        },
+        {
+          "name_es": "Harina de sarraceno",
+          "name_ca": "Farina de fajol",
+          "name_en": "Buckwheat flour"
+        },
+        {
+          "name_es": "Fideos de arroz",
+          "name_ca": "Fideus d'arròs",
+          "name_en": "Rice noodles"
+        },
+        {
+          "name_es": "Flocs de civada",
+          "name_ca": "Flocs de civada",
+          "name_en": "Oat flakes"
+        },
+        {
+          "name_es": "Pan de vidrio",
+          "name_ca": "Pa de vidre",
+          "name_en": "Glass bread"
+        },
+        {
+          "name_es": "Frutos secos",
+          "name_ca": "Fruits secs",
+          "name_en": "Nuts"
+        },
+        {
+          "name_es": "Pan de molde",
+          "name_ca": "Pa de molde",
+          "name_en": "Sliced bread"
+        }
+      ]
+    },
+    {
+      "key": "cleaning",
+      "icon": "🧼",
+      "color": "cleaning",
+      "order": 5,
+      "name_es": "Higiene/Limpieza",
+      "name_ca": "Higiene/Neteja",
+      "name_en": "Cleaning/Hygiene",
+      "items": [
+        {
+          "name_es": "Detergente",
+          "name_ca": "Detergent",
+          "name_en": "Detergent"
+        },
+        {
+          "name_es": "Papel WC",
+          "name_ca": "Paper WC",
+          "name_en": "Toilet Paper"
+        },
+        {
+          "name_es": "Suavizante",
+          "name_ca": "Suavitzant",
+          "name_en": "Fabric softener"
+        },
+        {
+          "name_es": "Lavavajillas",
+          "name_ca": "Rentaplats",
+          "name_en": "Dish soap"
+        },
+        {
+          "name_es": "Lejía",
+          "name_ca": "Lleixiu",
+          "name_en": "Bleach"
+        },
+        {
+          "name_es": "Limpiacristales",
+          "name_ca": "Netejacristalls",
+          "name_en": "Glass cleaner"
+        },
+        {
+          "name_es": "Multiúsos",
+          "name_ca": "Multiusos",
+          "name_en": "All-purpose cleaner"
+        },
+        {
+          "name_es": "Estropajos",
+          "name_ca": "Fregalls",
+          "name_en": "Scouring pads"
+        },
+        {
+          "name_es": "Bayetas",
+          "name_ca": "Baietes",
+          "name_en": "Cleaning cloths"
+        },
+        {
+          "name_es": "Bolsas basura",
+          "name_ca": "Bosses escombraries",
+          "name_en": "Trash bags"
+        },
+        {
+          "name_es": "Champú",
+          "name_ca": "Xampú",
+          "name_en": "Shampoo"
+        },
+        {
+          "name_es": "Gel de baño",
+          "name_ca": "Gel de bany",
+          "name_en": "Shower gel"
+        },
+        {
+          "name_es": "Pasta de dientes",
+          "name_ca": "Pasta de dents",
+          "name_en": "Toothpaste"
+        },
+        {
+          "name_es": "Desodorante",
+          "name_ca": "Desodorant",
+          "name_en": "Deodorant"
+        },
+        {
+          "name_es": "Papel cocina",
+          "name_ca": "Paper cuina",
+          "name_en": "Kitchen paper"
+        },
+        {
+          "name_es": "Servilletas",
+          "name_ca": "Torallons",
+          "name_en": "Napkins"
+        },
+        {
+          "name_es": "Compresas",
+          "name_ca": "Compreses",
+          "name_en": "Pads"
+        },
+        {
+          "name_es": "Pañuelos",
+          "name_ca": "Mocadors",
+          "name_en": "Tissues"
+        },
+        {
+          "name_es": "Caja de pañuelos",
+          "name_ca": "Caixa de mocadors",
+          "name_en": "Tissue box"
+        },
+        {
+          "name_es": "Bolsas basura orgánica",
+          "name_ca": "Bosses escombraries orgànica",
+          "name_en": "Organic trash bags"
+        },
+        {
+          "name_es": "Papel absorbente",
+          "name_ca": "Paper absorbent",
+          "name_en": "Absorbent paper"
+        },
+        {
+          "name_es": "Papel WC húmedo",
+          "name_ca": "Paper WC humit",
+          "name_en": "Wet toilet paper"
+        }
+      ]
+    },
+    {
+      "key": "home",
+      "icon": "🏠",
+      "color": "home",
+      "order": 6,
+      "name_es": "Hogar",
+      "name_ca": "Llar",
+      "name_en": "Home",
+      "items": [
+        {
+          "name_es": "Pilas",
+          "name_ca": "Piles",
+          "name_en": "Batteries"
+        },
+        {
+          "name_es": "Bombillas",
+          "name_ca": "Bombetes",
+          "name_en": "Light bulbs"
+        },
+        {
+          "name_es": "Papel aluminio",
+          "name_ca": "Paper alumini",
+          "name_en": "Aluminum foil"
+        },
+        {
+          "name_es": "Film transparente",
+          "name_ca": "Film transparent",
+          "name_en": "Plastic wrap"
+        },
+        {
+          "name_es": "Velas",
+          "name_ca": "Espelmes",
+          "name_en": "Candles"
+        },
+        {
+          "name_es": "Cerillas",
+          "name_ca": "Mistus",
+          "name_en": "Matches"
+        },
+        {
+          "name_es": "Cinta adhesiva",
+          "name_ca": "Cinta adhesiva",
+          "name_en": "Adhesive tape"
+        },
+        {
+          "name_es": "Filtros café",
+          "name_ca": "Filtres cafè",
+          "name_en": "Coffee filters"
+        },
+        {
+          "name_es": "Papel de horno",
+          "name_ca": "Paper de forn",
+          "name_en": "Baking paper"
+        }
+      ]
+    },
+    {
+      "key": "snacks",
+      "icon": "🍪",
+      "color": "snacks",
+      "order": 7,
+      "name_es": "Snacks/Dulces",
+      "name_ca": "Snacks/Dolços",
+      "name_en": "Snacks/Sweets",
+      "items": [
+        {
+          "name_es": "Chocolate",
+          "name_ca": "Xocolata",
+          "name_en": "Chocolate"
+        },
+        {
+          "name_es": "Patatas Chips",
+          "name_ca": "Patates Xips",
+          "name_en": "Chips"
+        },
+        {
+          "name_es": "Gominolas",
+          "name_ca": "Llacrimons",
+          "name_en": "Gummy candies"
+        },
+        {
+          "name_es": "Aceitunas",
+          "name_ca": "Olives",
+          "name_en": "Olives"
+        },
+        {
+          "name_es": "Palomitas",
+          "name_ca": "Crispetes",
+          "name_en": "Popcorn"
+        },
+        {
+          "name_es": "Tortitas de arroz",
+          "name_ca": "Tortitas d'arròs",
+          "name_en": "Rice cakes"
+        },
+        {
+          "name_es": "Barritas cereales",
+          "name_ca": "Barretes cereals",
+          "name_en": "Cereal bars"
+        },
+        {
+          "name_es": "Helado",
+          "name_ca": "Gelat",
+          "name_en": "Ice cream"
+        },
+        {
+          "name_es": "Bizcocho",
+          "name_ca": "Biscuit",
+          "name_en": "Sponge cake"
+        },
+        {
+          "name_es": "Gelatina neutra",
+          "name_ca": "Gelatina neutra",
+          "name_en": "Neutral gelatin"
+        },
+        {
+          "name_es": "Gelatina limón",
+          "name_ca": "Gelatina llimona",
+          "name_en": "Lemon gelatin"
+        },
+        {
+          "name_es": "Nachos",
+          "name_ca": "Nachos",
+          "name_en": "Nachos"
+        }
+      ]
+    },
+    {
+      "key": "frozen",
+      "icon": "🧊",
+      "color": "frozen",
+      "order": 8,
+      "name_es": "Congelados",
+      "name_ca": "Congelats",
+      "name_en": "Frozen",
+      "items": [
+        {
+          "name_es": "Helado",
+          "name_ca": "Gelat",
+          "name_en": "Ice Cream"
+        },
+        {
+          "name_es": "Pizza congelada",
+          "name_ca": "Pizza congelada",
+          "name_en": "Frozen pizza"
+        },
+        {
+          "name_es": "Guisantes congeladores",
+          "name_ca": "Pèsols congelats",
+          "name_en": "Frozen peas"
+        },
+        {
+          "name_es": "Patatas fritas",
+          "name_ca": "Patates fregides",
+          "name_en": "French fries"
+        },
+        {
+          "name_es": "Pescado congelado",
+          "name_ca": "Peix congelat",
+          "name_en": "Frozen fish"
+        },
+        {
+          "name_es": "Verdura congelada",
+          "name_ca": "Verdura congelada",
+          "name_en": "Frozen vegetables"
+        },
+        {
+          "name_es": "Croquetas",
+          "name_ca": "Croquetes",
+          "name_en": "Croquettes"
+        },
+        {
+          "name_es": "Cannelones",
+          "name_ca": "Canelons",
+          "name_en": "Cannelloni"
+        }
+      ]
+    },
+    {
+      "key": "processed",
+      "icon": "🍕",
+      "color": "processed",
+      "order": 9,
+      "name_es": "Procesados",
+      "name_ca": "Processats",
+      "name_en": "Processed",
+      "items": [
+        {
+          "name_es": "Pizza Fresca",
+          "name_ca": "Pizza Fresca",
+          "name_en": "Fresh Pizza"
+        },
+        {
+          "name_es": "Gazpacho",
+          "name_ca": "Gaspatxo",
+          "name_en": "Gazpacho"
+        },
+        {
+          "name_es": "Hummus",
+          "name_ca": "Hummus",
+          "name_en": "Hummus"
+        },
+        {
+          "name_es": "Guacamole",
+          "name_ca": "Guacamole",
+          "name_en": "Guacamole"
+        },
+        {
+          "name_es": "Platos preparados",
+          "name_ca": "Plats preparats",
+          "name_en": "Ready meals"
+        },
+        {
+          "name_es": "Masa de hojaldre",
+          "name_ca": "Massa de full",
+          "name_en": "Puff pastry"
+        },
+        {
+          "name_es": "Masa de pizza",
+          "name_ca": "Massa de pizza",
+          "name_en": "Pizza dough"
+        }
+      ]
+    },
+    {
+      "key": "drinks",
+      "icon": "🍷",
+      "color": "drinks",
+      "order": 10,
+      "name_es": "Bebidas",
+      "name_ca": "Begudes",
+      "name_en": "Drinks",
+      "items": [
+        {
+          "name_es": "Agua",
+          "name_ca": "Aigua",
+          "name_en": "Water"
+        },
+        {
+          "name_es": "Vino",
+          "name_ca": "Vi",
+          "name_en": "Wine"
+        },
+        {
+          "name_es": "Cerveza",
+          "name_ca": "Cervesa",
+          "name_en": "Beer"
+        },
+        {
+          "name_es": "Cerveza 0,0",
+          "name_ca": "Cervesa 0,0",
+          "name_en": "Beer 0,0"
+        },
+        {
+          "name_es": "Garrafa Agua",
+          "name_ca": "Garrafa Aigua",
+          "name_en": "Water jug"
+        },
+        {
+          "name_es": "Refrescos",
+          "name_ca": "Refrescos",
+          "name_en": "Soft drinks"
+        },
+        {
+          "name_es": "Zumo",
+          "name_ca": "Suc",
+          "name_en": "Juice"
+        },
+        {
+          "name_es": "Leche",
+          "name_ca": "Llet",
+          "name_en": "Milk"
+        },
+        {
+          "name_es": "Batidos",
+          "name_ca": "Batuts",
+          "name_en": "Milkshakes"
+        },
+        {
+          "name_es": "Tónica",
+          "name_ca": "Tònica",
+          "name_en": "Tonic water"
+        },
+        {
+          "name_es": "Cava",
+          "name_ca": "Cava",
+          "name_en": "Cava"
+        },
+        {
+          "name_es": "Vermut",
+          "name_ca": "Vermut",
+          "name_en": "Vermouth"
+        },
+        {
+          "name_es": "Isotónicas",
+          "name_ca": "Isotòniques",
+          "name_en": "Sports drinks"
+        }
+      ]
+    },
+    {
+      "key": "spices",
+      "icon": "🧂",
+      "color": "spices",
+      "order": 11,
+      "name_es": "Especias",
+      "name_ca": "Espècies",
+      "name_en": "Spices",
+      "items": [
+        {
+          "name_es": "Curry",
+          "name_ca": "Curri",
+          "name_en": "Curry"
+        },
+        {
+          "name_es": "Canela",
+          "name_ca": "Canyella",
+          "name_en": "Cinnamon"
+        },
+        {
+          "name_es": "Comino",
+          "name_ca": "Comí",
+          "name_en": "Cumin"
+        },
+        {
+          "name_es": "Pimienta Negra",
+          "name_ca": "Pebre Negre",
+          "name_en": "Black Pepper"
+        },
+        {
+          "name_es": "Orégano",
+          "name_ca": "Orenga",
+          "name_en": "Oregano"
+        },
+        {
+          "name_es": "Pimentón",
+          "name_ca": "Pebre vermell",
+          "name_en": "Paprika"
+        },
+        {
+          "name_es": "Tomillo",
+          "name_ca": "Farigola",
+          "name_en": "Thyme"
+        },
+        {
+          "name_es": "Romero",
+          "name_ca": "Romaní",
+          "name_en": "Rosemary"
+        },
+        {
+          "name_es": "Albahaca",
+          "name_ca": "Alfàbrega",
+          "name_en": "Basil"
+        },
+        {
+          "name_es": "Perejil",
+          "name_ca": "Julivert",
+          "name_en": "Parsley"
+        },
+        {
+          "name_es": "Sal",
+          "name_ca": "Sal",
+          "name_en": "Salt"
+        },
+        {
+          "name_es": "Laurel",
+          "name_ca": "Llorer",
+          "name_en": "Bay leaf"
+        },
+        {
+          "name_es": "Ajo en polvo",
+          "name_ca": "All en pols",
+          "name_en": "Garlic powder"
+        }
+      ]
+    },
+    {
+      "key": "other",
+      "icon": "📦",
+      "color": "other",
+      "order": 12,
+      "name_es": "General/Otros",
+      "name_ca": "General/Altres",
+      "name_en": "General/Other",
+      "items": [
+        {
+          "name_es": "Comida gato",
+          "name_ca": "Menjar gat",
+          "name_en": "Cat food"
+        },
+        {
+          "name_es": "Comida perro",
+          "name_ca": "Menjar gos",
+          "name_en": "Dog food"
+        },
+        {
+          "name_es": "Arena gato",
+          "name_ca": "Sorra gat",
+          "name_en": "Cat litter"
+        }
+      ]
+    }
+  ]
+}

@@ -442,6 +442,7 @@ private fun CatalogTab(vm: MainViewModel) {
     val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     val categories by vm.categories.collectAsState()
     val disabled by vm.disabledProducts.collectAsState()
+    val disabledCats by vm.disabledCategories.collectAsState()
     val lists by vm.lists.collectAsState()
     val activeListId by vm.activeListId.collectAsState()
     var showAddCat by remember { mutableStateOf(false) }
@@ -472,8 +473,12 @@ private fun CatalogTab(vm: MainViewModel) {
         Button(onClick = { showAddCat = true }) { Text(t.newCategory) }
     }
     categories.values.forEach { cat ->
+        val catOff = disabledCats.contains(cat.key)
         Section("${cat.icon} ${t.cats[cat.key] ?: cat.key}") {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = { if (catOff) vm.reactivateCategory(cat.key) else vm.deactivateCategory(cat.key) }) {
+                Text(if (catOff) t.reactivate else t.deactivate, style = MaterialTheme.typography.labelMedium)
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.alpha(if (catOff) 0.45f else 1f)) {
                 cat.items.forEach { item ->
                     val off = disabled.contains(canonKey(item))
                     FilterChip(

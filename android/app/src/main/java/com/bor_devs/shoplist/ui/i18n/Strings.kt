@@ -158,6 +158,8 @@ data class Strings(
     val avatar: String = "Avatar",
     val choosePhoto: String = "Photo",
     val chooseColor: String = "Color",
+    val deactivate: String = "Hide",
+    val reactivate: String = "Show",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -205,6 +207,7 @@ private val ES = Strings(
     chooseAccess = "Elige el acceso", shareModeReadL = "Solo ver", shareModeShopL = "Marcar comprado", shareModePlanL = "Editar todo",
     shareModeReadSub = "Ver la lista y su progreso", shareModeShopSub = "Verla y marcar productos comprados", shareModePlanSub = "Añadir, quitar y marcar productos",
     copyLink = "Copiar enlace", linkCopied = "Enlace copiado", regenerateLink = "Nuevo enlace", stopSharing = "Dejar de compartir",
+    deactivate = "Ocultar", reactivate = "Mostrar",
     members = "Miembros", roleOwner = "Propietario", roleAdmin = "Administrador", roleGuest = "Invitado",
     addAdmin = "Añadir administrador", adminByEmail = "Añadir por correo", adminLink = "Enlace de admin", copyAdminLink = "Copiar enlace de admin",
     emailNoAccount = "No hay cuenta con ese correo — comparte el enlace de admin.", adminAdded = "Administrador añadido",
@@ -255,6 +258,7 @@ private val CA = Strings(
     chooseAccess = "Tria l'accés", shareModeReadL = "Només veure", shareModeShopL = "Marcar comprat", shareModePlanL = "Editar-ho tot",
     shareModeReadSub = "Veure la llista i el progrés", shareModeShopSub = "Veure-la i marcar productes comprats", shareModePlanSub = "Afegir, treure i marcar productes",
     copyLink = "Copiar enllaç", linkCopied = "Enllaç copiat", regenerateLink = "Nou enllaç", stopSharing = "Deixar de compartir",
+    deactivate = "Amaga", reactivate = "Mostra",
     members = "Membres", roleOwner = "Propietari", roleAdmin = "Administrador", roleGuest = "Convidat",
     addAdmin = "Afegir administrador", adminByEmail = "Afegir per correu", adminLink = "Enllaç d'admin", copyAdminLink = "Copiar enllaç d'admin",
     emailNoAccount = "No hi ha cap compte amb aquest correu — comparteix l'enllaç d'admin.", adminAdded = "Administrador afegit",

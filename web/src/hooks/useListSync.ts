@@ -359,6 +359,20 @@ export function useListSync() {
             }, { filter: `list = "${currentRecordId}"` });
             if (cancelled) { unsubDisabled(); return; }
             unsubscribers.push(unsubDisabled);
+
+            // Deactivated default categories (hidden from the planner for this list)
+            const unsubDisabledCats = await pb.collection('list_disabled_categories').subscribe('*', (e) => {
+                if (e.record.list !== currentRecordId) return;
+                const { disabledCategories } = useShopStore.getState();
+                const key = e.record.key as string;
+                if (e.action === 'create') {
+                    if (!disabledCategories.includes(key)) useShopStore.setState({ disabledCategories: [...disabledCategories, key] });
+                } else if (e.action === 'delete') {
+                    useShopStore.setState({ disabledCategories: disabledCategories.filter((k) => k !== key) });
+                }
+            }, { filter: `list = "${currentRecordId}"` });
+            if (cancelled) { unsubDisabledCats(); return; }
+            unsubscribers.push(unsubDisabledCats);
         };
 
         const init = async () => {
