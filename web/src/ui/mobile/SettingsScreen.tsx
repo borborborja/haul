@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, Download, Upload, RotateCcw, Link2 } from 'lucide-react';
+import { ChevronLeft, Plus, Download, Upload, RotateCcw, Link2, Users } from 'lucide-react';
 import PublicShareButton from '../shared/PublicShareButton';
+import MembersButton from '../shared/MembersButton';
+import AvatarPicker from '../shared/AvatarPicker';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized, catLabel } from '../shared/model';
 import { useAccountSync } from '../shared/useAccountSync';
@@ -20,7 +22,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
     const m = useHaulModel();
     const t = m.t;
     const {
-        theme, lang, setTheme, setLang, langManual, setLangManual, auth, sync,
+        theme, lang, setTheme, setLang, langManual, setLangManual, auth, sync, listName,
         showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategory, addCategoryItem,
@@ -93,29 +95,31 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT, animation: 'pulseDot 1.8s ease-in-out infinite' }} />
                                     <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: ACCENT }}>{t.connected}</span>
                                 </div>
-                                {sync.code && <>
-                                    <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 4 }}>{t.syncCode}</div>
-                                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, letterSpacing: '.08em', color: 'var(--text)', marginBottom: 12 }}>{sync.code}</div>
-                                </>}
+                                <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--text)', marginBottom: 12 }}>{listName || t.myList}</div>
                                 <PublicShareButton recordId={sync.recordId} t={t} trigger={(o) => (
                                     <button onClick={o} style={{ ...ghostBtn, width: '100%', marginBottom: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Link2 size={16} />{t.publicLink}</button>
+                                )} />
+                                <MembersButton recordId={sync.recordId} t={t} trigger={(o) => (
+                                    <button onClick={o} style={{ ...ghostBtn, width: '100%', marginBottom: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Users size={16} />{t.members}</button>
                                 )} />
                                 <button onClick={acc.disconnect} style={{ ...ghostBtn, width: '100%' }}>{t.disconnect}</button>
                             </div>
                         ) : (
                             <div style={{ display: 'flex', gap: 9, marginBottom: 24 }}>
                                 <button disabled={acc.busy} onClick={acc.createShared} style={{ ...greenBtn, flex: 1, opacity: acc.busy ? 0.6 : 1 }}>{t.createList}</button>
-                                <button disabled={acc.busy} onClick={() => { const c = window.prompt(t.syncCode); if (c) acc.join(c); }} style={{ ...ghostBtn, flex: 1 }}>{t.join}</button>
                             </div>
                         )}
                         </>}
 
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.account}</div>
                         {auth.isLoggedIn ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                                <input value={auth.email || ''} readOnly style={{ ...inputStyle, flex: 1 }} />
-                                <button onClick={acc.logout} style={{ ...ghostBtn, flex: 'none' }}>{t.logout}</button>
-                            </div>
+                            <>
+                                <div style={{ marginBottom: 14 }}><AvatarPicker t={t} /></div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                                    <input value={auth.email || ''} readOnly style={{ ...inputStyle, flex: 1 }} />
+                                    <button onClick={acc.logout} style={{ ...ghostBtn, flex: 'none' }}>{t.logout}</button>
+                                </div>
+                            </>
                         ) : (
                             <>
                                 <input placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 9 }} />

@@ -11,6 +11,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -106,6 +107,61 @@ class PocketBaseClient @Inject constructor(
     suspend fun revokeShare(listId: String) {
         request("POST", "/api/shoplist/lists/$listId/share/revoke", JsonObject(emptyMap()))
     }
+
+    // ---- Link-based membership ----
+
+    suspend fun joinByToken(token: String): JoinResponse =
+        decode(request("POST", "/api/shoplist/join/$token", JsonObject(emptyMap())))
+
+    suspend fun addAdmin(listId: String, email: String): AddAdminResponse =
+        decode(request("POST", "/api/shoplist/lists/$listId/admins", buildJsonObject { put("email", email) }))
+
+    suspend fun adminLink(listId: String): AdminLinkResponse =
+        decode(request("POST", "/api/shoplist/lists/$listId/admin-link", JsonObject(emptyMap())))
+
+    suspend fun listMembers(listId: String): List<MemberDto> =
+        decode(request("GET", "/api/shoplist/lists/$listId/members"))
+
+    suspend fun removeMember(listId: String, userId: String) {
+        request("DELETE", "/api/shoplist/lists/$listId/members/$userId")
+    }
+
+    // ---- Public (guest) list ops, gated by the link mode server-side ----
+
+    suspend fun publicSnapshot(token: String): PublicSnapshot =
+        decode(request("GET", "/api/shoplist/public/$token"))
+
+    suspend fun publicCheck(token: String, itemId: String, checked: Boolean) {
+        request("POST", "/api/shoplist/public/$token/items/$itemId/check", buildJsonObject { put("checked", checked) })
+    }
+
+    suspend fun publicAdd(token: String, name: String, category: String) {
+        request("POST", "/api/shoplist/public/$token/items", buildJsonObject { put("name", name); put("category", category) })
+    }
+
+    suspend fun publicRemove(token: String, itemId: String) {
+        request("DELETE", "/api/shoplist/public/$token/items/$itemId")
+    }
+
+    // ---- Avatar (multipart upload + color) ----
+
+    suspend fun uploadAvatar(userId: String, bytes: ByteArray, filename: String, mime: String): UserRecord =
+        withContext(Dispatchers.IO) {
+            if (baseUrl.isBlank()) throw PbException(0, "No server configured")
+            val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("avatar", filename, bytes.toRequestBody(mime.toMediaType()))
+                .build()
+            val builder = Request.Builder().url("$baseUrl/api/collections/users/records/$userId").patch(multipart)
+            token?.let { builder.header("Authorization", it) }
+            http.newCall(builder.build()).execute().use { resp ->
+                val text = resp.body?.string().orEmpty()
+                if (!resp.isSuccessful) throw PbException(resp.code, "HTTP ${resp.code}", text)
+                json.decodeFromString(text)
+            }
+        }
+
+    suspend fun setAvatarColor(userId: String, color: String): UserRecord =
+        decode(request("PATCH", "/api/collections/users/records/$userId", buildJsonObject { put("avatar_color", color) }))
 
     // ---- Collection CRUD ----
 

@@ -10,14 +10,38 @@ export function useAccountSync() {
     const [error, setError] = useState('');
     const lang = useShopStore((s) => s.lang);
 
+    const fileBase = () => (pb as any).baseURL || (pb as any).baseUrl || window.location.origin;
+    const userAvatarUrl = (rec: any) => (rec?.avatar ? `${fileBase()}/api/files/users/${rec.id}/${rec.avatar}` : null);
+
     const syncAccountState = () => {
-        const rec = pb.authStore.record;
+        const rec = pb.authStore.record as any;
         useShopStore.getState().setAuth({
             isLoggedIn: pb.authStore.isValid,
             email: rec?.email ?? null,
             userId: rec?.id ?? null,
             username: rec?.display_name ?? null,
+            avatarUrl: userAvatarUrl(rec),
+            avatarColor: rec?.avatar_color ?? null,
         });
+    };
+
+    const saveUserAvatar = async (file: File) => {
+        const id = pb.authStore.record?.id;
+        if (!id) return;
+        const fd = new FormData();
+        fd.append('avatar', file);
+        try {
+            const rec = await pb.collection('users').update(id, fd);
+            useShopStore.getState().setAuth({ avatarUrl: userAvatarUrl(rec) });
+        } catch { /* upload failed */ }
+    };
+
+    const saveUserColor = async (color: string) => {
+        const id = pb.authStore.record?.id;
+        useShopStore.getState().setAuth({ avatarColor: color });
+        if (id && pb.authStore.isValid) {
+            try { await pb.collection('users').update(id, { avatar_color: color }); } catch { /* best effort */ }
+        }
     };
 
     const finishConnection = (recordId: string, code: string | null, data: { items: any[]; categories: any; listName?: string | null }) => {
@@ -122,5 +146,5 @@ export function useAccountSync() {
         }
     };
 
-    return { busy, error, setError, join, createShared, disconnect, claim, login, logout, saveUsername };
+    return { busy, error, setError, join, createShared, disconnect, claim, login, logout, saveUsername, saveUserAvatar, saveUserColor };
 }

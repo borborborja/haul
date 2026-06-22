@@ -104,6 +104,14 @@ func registerRoutes(app core.App, publicDir string) {
 			e.Router.POST("/api/shoplist/public/{token}/items", publicAddItem)
 			e.Router.DELETE("/api/shoplist/public/{token}/items/{itemId}", publicRemoveItem)
 
+			// Link-based membership: join by a share/admin token, manage admins
+			// and members, list members + guests.
+			e.Router.POST("/api/shoplist/join/{token}", joinByToken).Bind(apis.RequireAuth("users"))
+			e.Router.POST("/api/shoplist/lists/{id}/admins", addAdmin).Bind(apis.RequireAuth("users"))
+			e.Router.POST("/api/shoplist/lists/{id}/admin-link", adminLink).Bind(apis.RequireAuth("users"))
+			e.Router.GET("/api/shoplist/lists/{id}/members", listMembers).Bind(apis.RequireAuth("users"))
+			e.Router.DELETE("/api/shoplist/lists/{id}/members/{userId}", removeMember).Bind(apis.RequireAuth("users"))
+
 				// Admin-only AI catalog translation (superuser session required).
 				e.Router.POST("/api/shoplist/admin/translate", translateHandler).Bind(apis.RequireSuperuserAuth())
 
@@ -137,7 +145,8 @@ func protectAccountTypes(app core.App) {
 		if e.Record.GetString("owner") != original.GetString("owner") ||
 			e.Record.GetString("invite_code") != original.GetString("invite_code") ||
 			e.Record.GetString("share_token") != original.GetString("share_token") ||
-			e.Record.GetString("share_mode") != original.GetString("share_mode") {
+			e.Record.GetString("share_mode") != original.GetString("share_mode") ||
+			e.Record.GetString("admin_token") != original.GetString("admin_token") {
 			return apis.NewForbiddenError("List ownership, invitation codes and share links can only be changed by server actions.", nil)
 		}
 		return e.Next()
@@ -600,6 +609,8 @@ func listPresence(e *core.RequestEvent) error {
 		Id           string `json:"id"`
 		Username     string `json:"username"`
 		LastActiveAt string `json:"lastActiveAt"`
+		AvatarURL    string `json:"avatarUrl"`
+		Color        string `json:"color"`
 	}
 	out := make([]presenceUser, 0, len(users))
 	for _, u := range users {
@@ -607,6 +618,8 @@ func listPresence(e *core.RequestEvent) error {
 			Id:           u.Id,
 			Username:     u.GetString("display_name"),
 			LastActiveAt: u.GetDateTime("last_active_at").String(),
+			AvatarURL:    avatarURL(u),
+			Color:        u.GetString("avatar_color"),
 		})
 	}
 	return e.JSON(http.StatusOK, out)

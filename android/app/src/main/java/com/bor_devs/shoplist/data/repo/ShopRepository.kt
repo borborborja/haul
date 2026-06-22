@@ -16,6 +16,7 @@ import com.bor_devs.shoplist.data.prefs.SettingsDataStore
 import com.bor_devs.shoplist.data.remote.ItemRecord
 import com.bor_devs.shoplist.data.remote.PbRealtimeClient
 import com.bor_devs.shoplist.data.remote.PocketBaseClient
+import com.bor_devs.shoplist.data.remote.MemberDto
 import com.bor_devs.shoplist.data.remote.RealtimeEvent
 import com.bor_devs.shoplist.data.remote.ShareResponse
 import com.bor_devs.shoplist.data.sync.SyncMeta
@@ -109,6 +110,20 @@ class ShopRepository @Inject constructor(
     private val _activeUsers = MutableStateFlow<List<PresenceUser>>(emptyList())
     val activeUsers: StateFlow<List<PresenceUser>> = _activeUsers
 
+    /** True while the active list is a guest list (opened via a share link). */
+    private val _isGuest = MutableStateFlow(false)
+    val isGuest: StateFlow<Boolean> = _isGuest
+
+    /** The active share link's mode ("read"|"shop"|"plan") when [isGuest]. */
+    private val _shareMode = MutableStateFlow("")
+    val shareMode: StateFlow<String> = _shareMode
+
+    /** Current user's avatar file URL (absolute) and color hex, for Settings. */
+    private val _avatarUrl = MutableStateFlow<String?>(null)
+    val avatarUrl: StateFlow<String?> = _avatarUrl
+    private val _avatarColor = MutableStateFlow<String?>(null)
+    val avatarColor: StateFlow<String?> = _avatarColor
+
     val serverName = MutableStateFlow("ShoppingList")
     val enableUsernames = MutableStateFlow(false)
     val requireAccount = MutableStateFlow(false)
@@ -138,6 +153,7 @@ class ShopRepository @Inject constructor(
     private var listDataRef: JsonObject = JsonObject(emptyMap())
     private var realtimeJob: Job? = null
     private var presenceJob: Job? = null
+    private var guestJob: Job? = null
     private var sessionUserId: String? = null
 
     // ---- Write queue (ported from itemWriteQueue.ts) ----
@@ -227,7 +243,10 @@ class ShopRepository @Inject constructor(
         if (!pb.hasServer) return // local mode
         ensureGuestSession()
         loadCatalog()
+        val active = s.lists.firstOrNull { it.id == s.activeListId }
+        val guestToken = if (active != null && active.role == "guest") active.code else null
         when {
+            guestToken != null -> connectAsGuest(guestToken, active?.recordId)
             s.syncRecordId != null -> connectToList(s.syncRecordId)
             s.syncCode != null -> runCatching { connectToList(pb.joinList(s.syncCode).id) }
             else -> syncActiveListToServer() // server present but list still local → auto-sync
@@ -257,6 +276,9 @@ class ShopRepository @Inject constructor(
             auth.record.displayName, auth.record.accountType,
             auth.record.collectionName ?: "users",
         )
+        _avatarUrl.value = auth.record.avatar.takeIf { it.isNotBlank() }
+            ?.let { "${pb.baseUrl}/api/files/users/${auth.record.id}/$it" }
+        _avatarColor.value = auth.record.avatarColor.ifBlank { null }
     }
 
     suspend fun loadCatalog() {
@@ -295,6 +317,10 @@ class ShopRepository @Inject constructor(
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return@launch
         val cat = category ?: DefaultCatalog.guessCategory(trimmed)
+        guestToken()?.let { token ->
+            if (_shareMode.value == "plan") runCatching { pb.publicAdd(token, trimmed, cat) }
+            return@launch
+        }
         val all = itemDao.getAll()
         val existing = all.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
         if (existing != null) {
@@ -324,6 +350,13 @@ class ShopRepository @Inject constructor(
 
     fun toggleCheck(id: String) = scope.launch {
         val item = itemDao.getById(id) ?: return@launch
+        guestToken()?.let { token ->
+            if (_shareMode.value != "shop" && _shareMode.value != "plan") return@launch
+            val updated = item.copy(checked = !item.checked, updatedAt = now())
+            itemDao.upsert(updated); notifyWidgets()
+            runCatching { pb.publicCheck(token, id, updated.checked) }
+            return@launch
+        }
         val updated = item.copy(checked = !item.checked, updatedAt = now())
         itemDao.upsert(updated)
         pushFieldUpdate(updated, mapOf("checked" to updated.checked))
@@ -331,6 +364,12 @@ class ShopRepository @Inject constructor(
     }
 
     fun deleteItem(id: String) = scope.launch {
+        guestToken()?.let { token ->
+            if (_shareMode.value != "plan") return@launch
+            itemDao.deleteById(id); notifyWidgets()
+            runCatching { pb.publicRemove(token, id) }
+            return@launch
+        }
         itemDao.deleteById(id)
         if (!id.startsWith("local_") && _sync.value.connected) itemQueue.enqueueDelete("shopping_items", id)
         notifyWidgets()
@@ -344,6 +383,12 @@ class ShopRepository @Inject constructor(
     }
 
     fun removeFromList(id: String) = scope.launch {
+        guestToken()?.let { token ->
+            if (_shareMode.value != "plan") return@launch
+            itemDao.deleteById(id); notifyWidgets()
+            runCatching { pb.publicRemove(token, id) }
+            return@launch
+        }
         val item = itemDao.getById(id) ?: return@launch
         val updated = item.copy(inList = false, checked = false, updatedAt = now())
         itemDao.upsert(updated)
@@ -538,7 +583,9 @@ class ShopRepository @Inject constructor(
         itemDao.replaceAll(targetItems.map { it.toEntity() })
         _listName.value = target.name; prefs.setListName(target.name)
         prefs.setSync(target.code, target.recordId)
-        if (pb.hasServer && target.recordId != null) {
+        if (target.role == "guest" && target.code != null) {
+            connectAsGuest(target.code, target.recordId)
+        } else if (pb.hasServer && target.recordId != null) {
             _sync.update { it.copy(connected = true, code = target.code, recordId = target.recordId, msg = "", msgType = MsgType.INFO) }
             connectToList(target.recordId)
         } else {
@@ -561,7 +608,9 @@ class ShopRepository @Inject constructor(
             prefs.setLists(remaining); prefs.setListCaches(caches); prefs.setActiveListId(next.id)
             itemDao.replaceAll(nextItems.map { it.toEntity() })
             _listName.value = next.name; prefs.setListName(next.name); prefs.setSync(next.code, next.recordId)
-            if (pb.hasServer && next.recordId != null) {
+            if (next.role == "guest" && next.code != null) {
+                connectAsGuest(next.code, next.recordId)
+            } else if (pb.hasServer && next.recordId != null) {
                 _sync.update { it.copy(connected = true, code = next.code, recordId = next.recordId, msg = "", msgType = MsgType.INFO) }
                 connectToList(next.recordId)
             } else {
@@ -589,6 +638,7 @@ class ShopRepository @Inject constructor(
 
     /** Stop realtime/presence and mark the active list local (optionally keeping linkage for re-join). */
     private fun goLocal(code: String? = null, recordId: String? = null) {
+        stopGuest()
         realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
         _activeUsers.value = emptyList()
         scope.launch { disabledDao.clear() } // disabled set is per-list; local lists start empty
@@ -684,7 +734,131 @@ class ShopRepository @Inject constructor(
         runCatching { pb.revokeShare(id) }
     }
 
+    // ---- Members / admins ----
+
+    /** Add an admin by email. true = added, null = no account with that email, false = error. */
+    suspend fun addAdmin(email: String): Boolean? {
+        val id = _sync.value.recordId ?: return false
+        return runCatching {
+            val r = pb.addAdmin(id, email.trim())
+            if (r.noAccount) null else r.ok
+        }.getOrDefault(false)
+    }
+
+    /** Generate/return the admin invite link ({origin}/s/<token>), or null if not allowed. */
+    suspend fun adminLink(): String? {
+        val id = _sync.value.recordId ?: return null
+        return runCatching { "${pb.baseUrl}/s/${pb.adminLink(id).token}" }.getOrNull()
+    }
+
+    suspend fun listMembers(): List<MemberDto> {
+        val id = _sync.value.recordId ?: return emptyList()
+        return runCatching {
+            pb.listMembers(id).map { it.copy(avatarUrl = absolutize(it.avatarUrl)) }
+        }.getOrDefault(emptyList())
+    }
+
+    suspend fun removeMember(userId: String) {
+        val id = _sync.value.recordId ?: return
+        runCatching { pb.removeMember(id, userId) }
+    }
+
+    private fun absolutize(url: String): String =
+        if (url.isBlank() || url.startsWith("http")) url else "${pb.baseUrl}$url"
+
+    // ---- Avatar ----
+
+    suspend fun uploadAvatar(bytes: ByteArray, filename: String, mime: String) {
+        val uid = sessionUserId ?: return
+        runCatching {
+            val rec = pb.uploadAvatar(uid, bytes, filename, mime)
+            _avatarUrl.value = rec.avatar.takeIf { it.isNotBlank() }?.let { "${pb.baseUrl}/api/files/users/$uid/$it" }
+        }
+    }
+
+    suspend fun setAvatarColor(color: String) {
+        val uid = sessionUserId ?: return
+        _avatarColor.value = color
+        runCatching { pb.setAvatarColor(uid, color) }
+    }
+
+    // ---- Guest lists (opened via a share link) ----
+
+    private fun guestToken(): String? = if (_isGuest.value) _sync.value.code else null
+
+    private fun stopGuest() {
+        guestJob?.cancel(); guestJob = null
+        _isGuest.value = false
+        _shareMode.value = ""
+    }
+
+    /**
+     * Open a share/admin link while signed in. Admin tokens make a full member
+     * (normal authenticated sync); share tokens make a guest list driven by the
+     * mode-gated public endpoints.
+     */
+    fun openSharedLink(token: String) = scope.launch {
+        if (!ensureGuestSession()) { setMsg("No server", MsgType.ERROR); return@launch }
+        val r = runCatching { pb.joinByToken(token) }.getOrNull()
+        if (r == null || r.listId.isBlank()) { setMsg("Error", MsgType.ERROR); return@launch }
+
+        val s = prefs.snapshot()
+        snapshotActiveItems(s)
+        val existing = s.lists.firstOrNull { it.recordId == r.listId }
+        val localId = existing?.id ?: ("list_" + UUID.randomUUID())
+        val role = if (r.role == "admin") "admin" else "guest"
+        val saved = SavedList(
+            id = localId,
+            name = r.name.ifBlank { null },
+            emoji = existing?.emoji ?: "🛒",
+            code = if (role == "guest") token else null,
+            recordId = r.listId,
+            isLocal = false,
+            role = role,
+        )
+        prefs.setLists(if (existing != null) s.lists.map { if (it.id == localId) saved else it } else s.lists + saved)
+        prefs.setActiveListId(localId)
+        itemDao.clear()
+        _listName.value = saved.name; prefs.setListName(saved.name)
+
+        if (role == "admin") {
+            prefs.setSync(null, r.listId)
+            setConnected(null, r.listId)
+            connectToList(r.listId)
+        } else {
+            prefs.setSync(token, r.listId)
+            connectAsGuest(token, r.listId)
+        }
+        notifyWidgets()
+    }
+
+    /** Drive a guest list from the public token endpoints: poll the snapshot and
+     *  map items read-only; writes go through the gated public endpoints. */
+    private fun connectAsGuest(token: String, recordId: String?) {
+        realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
+        _activeUsers.value = emptyList()
+        _sync.update { it.copy(connected = false, code = token, recordId = recordId, msg = "", msgType = MsgType.INFO) }
+        _isGuest.value = true
+        guestJob?.cancel()
+        guestJob = scope.launch {
+            while (true) {
+                runCatching {
+                    val snap = pb.publicSnapshot(token)
+                    _shareMode.value = snap.mode
+                    _listName.value = snap.list.name.ifBlank { null }
+                    prefs.setListName(snap.list.name.ifBlank { null })
+                    itemDao.replaceAll(snap.items.map {
+                        ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false)
+                    })
+                    notifyWidgets()
+                }
+                delay(5_000)
+            }
+        }
+    }
+
     fun disconnect() = scope.launch {
+        stopGuest()
         realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
         _activeUsers.value = emptyList()
         _sync.update { it.copy(connected = false, code = null, recordId = null, msg = "", msgType = MsgType.INFO) }
@@ -699,6 +873,7 @@ class ShopRepository @Inject constructor(
     }
 
     private fun connectToList(recordId: String) {
+        stopGuest()
         _sync.update { it.copy(connected = true, recordId = recordId) }
         startRealtime(recordId)
         scope.launch {

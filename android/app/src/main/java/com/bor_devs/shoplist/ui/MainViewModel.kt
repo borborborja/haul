@@ -43,6 +43,10 @@ class MainViewModel @Inject constructor(
     val activeListId = repo.activeListId
     val listCounts = repo.listCounts
     val activeUsers = repo.activeUsers
+    val isGuest = repo.isGuest
+    val shareMode = repo.shareMode
+    val avatarUrl = repo.avatarUrl
+    val avatarColor = repo.avatarColor
     val serverName = repo.serverName
     val enableUsernames = repo.enableUsernames
     val requireAccount = repo.requireAccount
@@ -62,10 +66,13 @@ class MainViewModel @Inject constructor(
     fun onDeepLink(uriString: String?) {
         viewModelScope.launch {
             com.bor_devs.shoplist.util.parseServerOverride(uriString)?.let { repo.applyServer(it) }
+            val token = com.bor_devs.shoplist.util.parseShareToken(uriString)
+            if (token != null) { repo.openSharedLink(token); return@launch }
             com.bor_devs.shoplist.util.parseSyncCode(uriString)?.let { pendingJoinCode.value = it }
         }
     }
     fun consumePendingCode() { pendingJoinCode.value = null }
+    fun onShareLink(token: String) = repo.openSharedLink(token)
 
     // ---- Item actions ----
     fun addItem(name: String, category: String? = null) = repo.addItem(name, category)
@@ -125,6 +132,15 @@ class MainViewModel @Inject constructor(
     suspend fun getShare() = repo.getShare()
     suspend fun setShare(mode: String, rotate: Boolean = false) = repo.setShare(mode, rotate)
     suspend fun revokeShare() = repo.revokeShare()
+
+    // ---- Members / admins / avatar ----
+    /** true = added, null = no account with that email, false = error. */
+    suspend fun addAdmin(email: String): Boolean? = repo.addAdmin(email)
+    suspend fun adminLink(): String? = repo.adminLink()
+    suspend fun listMembers() = repo.listMembers()
+    suspend fun removeMember(userId: String) = repo.removeMember(userId)
+    suspend fun uploadAvatar(bytes: ByteArray, filename: String, mime: String) = repo.uploadAvatar(bytes, filename, mime)
+    suspend fun setAvatarColor(color: String) = repo.setAvatarColor(color)
 
     // ---- Auth ----
     suspend fun claimAccount(email: String, password: String) = repo.claimAccount(email, password)

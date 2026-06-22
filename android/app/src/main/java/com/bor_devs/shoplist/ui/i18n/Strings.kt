@@ -140,6 +140,24 @@ data class Strings(
     val linkCopied: String = "Link copied",
     val regenerateLink: String = "New link",
     val stopSharing: String = "Stop sharing",
+    // Members & admins, avatar (defaults in English; ES/CA overridden below)
+    val members: String = "Members",
+    val roleOwner: String = "Owner",
+    val roleAdmin: String = "Admin",
+    val roleGuest: String = "Guest",
+    val addAdmin: String = "Add admin",
+    val adminByEmail: String = "Add by email",
+    val adminLink: String = "Admin link",
+    val copyAdminLink: String = "Copy admin link",
+    val emailNoAccount: String = "No account with that email — share the admin link instead.",
+    val adminAdded: String = "Admin added",
+    val remove: String = "Remove",
+    val lastActive: String = "Last active",
+    val neverActive: String = "Never",
+    val guestBanner: String = "You're a guest — you don't administer this list.",
+    val avatar: String = "Avatar",
+    val choosePhoto: String = "Photo",
+    val chooseColor: String = "Color",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -187,6 +205,11 @@ private val ES = Strings(
     chooseAccess = "Elige el acceso", shareModeReadL = "Solo ver", shareModeShopL = "Marcar comprado", shareModePlanL = "Editar todo",
     shareModeReadSub = "Ver la lista y su progreso", shareModeShopSub = "Verla y marcar productos comprados", shareModePlanSub = "Añadir, quitar y marcar productos",
     copyLink = "Copiar enlace", linkCopied = "Enlace copiado", regenerateLink = "Nuevo enlace", stopSharing = "Dejar de compartir",
+    members = "Miembros", roleOwner = "Propietario", roleAdmin = "Administrador", roleGuest = "Invitado",
+    addAdmin = "Añadir administrador", adminByEmail = "Añadir por correo", adminLink = "Enlace de admin", copyAdminLink = "Copiar enlace de admin",
+    emailNoAccount = "No hay cuenta con ese correo — comparte el enlace de admin.", adminAdded = "Administrador añadido",
+    remove = "Quitar", lastActive = "Última vez activo", neverActive = "Nunca",
+    guestBanner = "Eres invitado — no administras esta lista.", avatar = "Avatar", choosePhoto = "Foto", chooseColor = "Color",
 )
 
 private val CA = Strings(
@@ -232,6 +255,11 @@ private val CA = Strings(
     chooseAccess = "Tria l'accés", shareModeReadL = "Només veure", shareModeShopL = "Marcar comprat", shareModePlanL = "Editar-ho tot",
     shareModeReadSub = "Veure la llista i el progrés", shareModeShopSub = "Veure-la i marcar productes comprats", shareModePlanSub = "Afegir, treure i marcar productes",
     copyLink = "Copiar enllaç", linkCopied = "Enllaç copiat", regenerateLink = "Nou enllaç", stopSharing = "Deixar de compartir",
+    members = "Membres", roleOwner = "Propietari", roleAdmin = "Administrador", roleGuest = "Convidat",
+    addAdmin = "Afegir administrador", adminByEmail = "Afegir per correu", adminLink = "Enllaç d'admin", copyAdminLink = "Copiar enllaç d'admin",
+    emailNoAccount = "No hi ha cap compte amb aquest correu — comparteix l'enllaç d'admin.", adminAdded = "Administrador afegit",
+    remove = "Treure", lastActive = "Última vegada actiu", neverActive = "Mai",
+    guestBanner = "Ets convidat — no administres aquesta llista.", avatar = "Avatar", choosePhoto = "Foto", chooseColor = "Color",
 )
 
 private val EN = Strings(

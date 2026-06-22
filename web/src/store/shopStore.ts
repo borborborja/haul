@@ -180,7 +180,7 @@ export const useShopStore = create<ShopState>()(
             registrationOpen: true,
             activeUsers: [],
             sync: { connected: false, code: null, recordId: null, msg: '', msgType: 'info', syncHistory: [], lastSync: null, syncVersion: 0, lastLocalInteraction: 0 },
-            auth: { isLoggedIn: false, email: null, userId: null, username: null },
+            auth: { isLoggedIn: false, email: null, userId: null, username: null, avatarUrl: null, avatarColor: null },
             enableUsernames: false,
             serverUrl: '',
             sortOrder: 'category',
@@ -714,7 +714,7 @@ export const useShopStore = create<ShopState>()(
             setAuth: (auth) => set((state) => ({ auth: { ...state.auth, ...auth } })),
             setUsername: (username) => set((state) => ({ auth: { ...state.auth, username } })),
             setActiveUsers: (activeUsers) => set({ activeUsers }),
-            logout: () => set({ auth: { isLoggedIn: false, email: null, userId: null, username: null } }),
+            logout: () => set({ auth: { isLoggedIn: false, email: null, userId: null, username: null, avatarUrl: null, avatarColor: null } }),
             addToSyncHistory: (code: string) => set((state) => {
                 const title = state.listName || undefined;
                 // Remove existing entry for this code if present

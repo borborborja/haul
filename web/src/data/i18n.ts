@@ -50,6 +50,9 @@ export interface UIDict {
     publicLink: string; publicLinkSub: string; shareModeRead: string; shareModeShop: string; shareModePlan: string;
     shareModeReadSub: string; shareModeShopSub: string; shareModePlanSub: string;
     createLink: string; copyLink: string; linkCopied: string; regenerate: string; stopSharing: string; sharingActive: string; chooseAccess: string;
+    members: string; roleOwner: string; roleAdmin: string; roleGuest: string; addAdmin: string; adminByEmail: string; adminLink: string; copyAdminLink: string;
+    emailNoAccount: string; adminAdded: string; remove: string; lastActive: string; neverActive: string; guestBanner: string;
+    avatar: string; choosePhoto: string; chooseColor: string; addToMyLists: string;
     cats: Record<CatKey, string>;
 }
 
@@ -75,6 +78,9 @@ const en: UIDict = {
     shareModeRead: 'View only', shareModeShop: 'Check off', shareModePlan: 'Full edit',
     shareModeReadSub: 'See the list and its progress', shareModeShopSub: 'See it and mark items as bought', shareModePlanSub: 'Add, remove and check items',
     createLink: 'Create link', copyLink: 'Copy link', linkCopied: 'Link copied', regenerate: 'New link', stopSharing: 'Stop sharing', sharingActive: 'Link active', chooseAccess: 'Choose access',
+    members: 'Members', roleOwner: 'Owner', roleAdmin: 'Admin', roleGuest: 'Guest', addAdmin: 'Add admin', adminByEmail: 'Add by email', adminLink: 'Admin link', copyAdminLink: 'Copy admin link',
+    emailNoAccount: 'No account with that email — share the admin link instead.', adminAdded: 'Admin added', remove: 'Remove', lastActive: 'Last active', neverActive: 'Never', guestBanner: "You're a guest — you don't administer this list.",
+    avatar: 'Avatar', choosePhoto: 'Photo', chooseColor: 'Color', addToMyLists: 'Add to my lists',
     cats: { fruit: 'Fruit', veg: 'Vegetables', meat: 'Meat/Fish', dairy: 'Dairy', pantry: 'Pantry/Bread', cleaning: 'Cleaning/Hygiene', home: 'Home', snacks: 'Snacks/Sweets', frozen: 'Frozen', processed: 'Processed', drinks: 'Drinks', spices: 'Spices', other: 'General/Other' },
 };
 
@@ -103,6 +109,9 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         shareModeRead: 'Solo ver', shareModeShop: 'Marcar comprado', shareModePlan: 'Editar todo',
         shareModeReadSub: 'Ver la lista y su progreso', shareModeShopSub: 'Verla y marcar productos comprados', shareModePlanSub: 'Añadir, quitar y marcar productos',
         createLink: 'Crear enlace', copyLink: 'Copiar enlace', linkCopied: 'Enlace copiado', regenerate: 'Nuevo enlace', stopSharing: 'Dejar de compartir', sharingActive: 'Enlace activo', chooseAccess: 'Elige el acceso',
+        members: 'Miembros', roleOwner: 'Propietario', roleAdmin: 'Administrador', roleGuest: 'Invitado', addAdmin: 'Añadir administrador', adminByEmail: 'Añadir por correo', adminLink: 'Enlace de admin', copyAdminLink: 'Copiar enlace de admin',
+        emailNoAccount: 'No hay cuenta con ese correo — comparte el enlace de admin.', adminAdded: 'Administrador añadido', remove: 'Quitar', lastActive: 'Última vez activo', neverActive: 'Nunca', guestBanner: 'Eres invitado — no administras esta lista.',
+        avatar: 'Avatar', choosePhoto: 'Foto', chooseColor: 'Color', addToMyLists: 'Añadir a mis listas',
         cats: { fruit: 'Fruta', veg: 'Verdura', meat: 'Carne/Pescado', dairy: 'Lácteos', pantry: 'Despensa/Pan', cleaning: 'Higiene/Limpieza', home: 'Hogar', snacks: 'Snacks/Dulces', frozen: 'Congelados', processed: 'Procesados', drinks: 'Bebidas', spices: 'Especias', other: 'General/Otros' },
     },
     ca: {
@@ -127,6 +136,9 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         shareModeRead: 'Només veure', shareModeShop: 'Marcar comprat', shareModePlan: 'Editar-ho tot',
         shareModeReadSub: 'Veure la llista i el progrés', shareModeShopSub: 'Veure-la i marcar productes comprats', shareModePlanSub: 'Afegir, treure i marcar productes',
         createLink: 'Crear enllaç', copyLink: 'Copiar enllaç', linkCopied: 'Enllaç copiat', regenerate: 'Nou enllaç', stopSharing: 'Deixar de compartir', sharingActive: 'Enllaç actiu', chooseAccess: "Tria l'accés",
+        members: 'Membres', roleOwner: 'Propietari', roleAdmin: 'Administrador', roleGuest: 'Convidat', addAdmin: 'Afegir administrador', adminByEmail: 'Afegir per correu', adminLink: "Enllaç d'admin", copyAdminLink: "Copiar enllaç d'admin",
+        emailNoAccount: "No hi ha cap compte amb aquest correu — comparteix l'enllaç d'admin.", adminAdded: 'Administrador afegit', remove: 'Treure', lastActive: 'Última vegada actiu', neverActive: 'Mai', guestBanner: 'Ets convidat — no administres aquesta llista.',
+        avatar: 'Avatar', choosePhoto: 'Foto', chooseColor: 'Color', addToMyLists: 'Afegir a les meves llistes',
         cats: { fruit: 'Fruita', veg: 'Verdura', meat: 'Carn/Peix', dairy: 'Làctics', pantry: 'Rebost/Pa', cleaning: 'Higiene/Neteja', home: 'Llar', snacks: 'Snacks/Dolços', frozen: 'Congelats', processed: 'Processats', drinks: 'Begudes', spices: 'Espècies', other: 'General/Altres' },
     },
     zh: {

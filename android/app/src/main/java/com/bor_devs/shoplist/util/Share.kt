@@ -32,3 +32,21 @@ fun parseServerOverride(uriString: String?): String? {
     if (uriString.isNullOrBlank()) return null
     return runCatching { android.net.Uri.parse(uriString).getQueryParameter("server")?.trim() }.getOrNull()
 }
+
+/**
+ * Parses a share/admin token from a `/s/<token>` link (https://host/s/<token>
+ * or shoppinglist://.../s/<token>). Returns null when there is no /s/ segment.
+ */
+fun parseShareToken(uriString: String?): String? {
+    if (uriString.isNullOrBlank()) return null
+    return runCatching {
+        val uri = android.net.Uri.parse(uriString)
+        val segs = uri.pathSegments ?: emptyList()
+        val i = segs.indexOf("s")
+        when {
+            i >= 0 && i + 1 < segs.size -> segs[i + 1].trim().ifBlank { null }
+            uri.host == "s" && segs.isNotEmpty() -> segs[0].trim().ifBlank { null } // shoppinglist://s/<token>
+            else -> null
+        }
+    }.getOrNull()
+}

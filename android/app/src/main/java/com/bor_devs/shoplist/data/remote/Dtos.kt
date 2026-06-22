@@ -18,6 +18,8 @@ data class UserRecord(
     @SerialName("display_name") val displayName: String? = null,
     @SerialName("account_type") val accountType: String? = null,
     @SerialName("current_list") val currentList: String? = null,
+    val avatar: String = "",
+    @SerialName("avatar_color") val avatarColor: String = "",
     val collectionName: String? = null,
 )
 
@@ -34,6 +36,52 @@ data class RotateCodeResponse(val inviteCode: String)
 
 @Serializable
 data class ShareResponse(val token: String = "", val mode: String = "")
+
+// ---- Link-based membership ----
+
+@Serializable
+data class JoinResponse(val listId: String = "", val name: String = "", val role: String = "", val mode: String = "")
+
+@Serializable
+data class AdminLinkResponse(val token: String = "")
+
+@Serializable
+data class AddAdminResponse(val ok: Boolean = false, val noAccount: Boolean = false)
+
+@Serializable
+data class MemberDto(
+    val userId: String = "",
+    val name: String = "",
+    val role: String = "",
+    val avatarUrl: String = "",
+    val color: String = "",
+    val lastActiveAt: String = "",
+)
+
+// ---- Public (guest) snapshot ----
+
+@Serializable
+data class PublicListDto(val name: String = "")
+
+@Serializable
+data class PublicItemDto(
+    val id: String = "",
+    val name: String = "",
+    val category: String = "other",
+    val checked: Boolean = false,
+    val note: String = "",
+)
+
+@Serializable
+data class PublicCatDto(val key: String = "", val icon: String = "", val name: Map<String, String> = emptyMap())
+
+@Serializable
+data class PublicSnapshot(
+    val list: PublicListDto = PublicListDto(),
+    val mode: String = "",
+    val items: List<PublicItemDto> = emptyList(),
+    val categories: List<PublicCatDto> = emptyList(),
+)
 
 @Serializable
 data class HealthResponse(val status: String = "")

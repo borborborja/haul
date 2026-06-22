@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, Share2, RefreshCw, Download, Upload, RotateCcw, Trash2, Link2 } from 'lucide-react';
+import { ChevronLeft, Plus, Download, Upload, RotateCcw, Trash2, Link2, Users } from 'lucide-react';
 import PublicShareButton from '../shared/PublicShareButton';
+import MembersButton from '../shared/MembersButton';
+import AvatarPicker from '../shared/AvatarPicker';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized, catLabel } from '../shared/model';
 import { useAccountSync } from '../shared/useAccountSync';
@@ -22,7 +24,7 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
     const m = useHaulModel();
     const t = m.t;
     const {
-        lang, setLang, langManual, setLangManual, auth, sync, showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
+        lang, setLang, langManual, setLangManual, auth, sync, listName, showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategory, addCategoryItem,
         disabledProducts, deactivateProduct, reactivateProduct, registrationOpen,
@@ -89,24 +91,23 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                         <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg,#13352A,#0E1D17)', borderRadius: 18, padding: 24, color: '#EAF2EC', position: 'relative', overflow: 'hidden' }}>
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
                                 <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
                                         <span style={{ width: 9, height: 9, borderRadius: '50%', background: ACCENT, animation: 'pulseDot 1.8s ease-in-out infinite' }} />
                                         <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: ACCENT }}>{sync.connected ? t.connected : t.sync}</span>
                                     </div>
-                                    <div style={{ fontSize: 13, color: '#A9BBB1', marginBottom: 6 }}>{t.syncCode}</div>
-                                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 34, letterSpacing: '.08em', color: '#EAF2EC' }}>{sync.code || '—'}</div>
+                                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, color: '#EAF2EC' }}>{listName || t.myList}</div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                                     {sync.connected ? <>
-                                        <button onClick={extras.shareCode} style={{ ...greenBtn, display: 'flex', alignItems: 'center', gap: 7 }}><Share2 size={15} />{t.add}</button>
-                                        <button onClick={extras.rotateCode} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}><RefreshCw size={15} />{t.sync}</button>
                                         <PublicShareButton recordId={sync.recordId} t={t} trigger={(o) => (
-                                            <button onClick={o} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}><Link2 size={15} />{t.publicLink}</button>
+                                            <button onClick={o} style={{ ...greenBtn, display: 'flex', alignItems: 'center', gap: 7 }}><Link2 size={15} />{t.publicLink}</button>
                                         )} />
-                                    </> : <>
+                                        <MembersButton recordId={sync.recordId} t={t} trigger={(o) => (
+                                            <button onClick={o} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}><Users size={15} />{t.members}</button>
+                                        )} />
+                                    </> : (
                                         <button disabled={acc.busy} onClick={acc.createShared} style={greenBtn}>{t.createList}</button>
-                                        <button disabled={acc.busy} onClick={() => { const c = window.prompt(t.syncCode); if (c) acc.join(c); }} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer' }}>{t.join}</button>
-                                    </>}
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -114,10 +115,8 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                         {/* account */}
                         <div style={card}>
                             {auth.isLoggedIn ? <>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 18 }}>
-                                    <div style={{ width: 46, height: 46, borderRadius: 14, background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', color: ACCENT_INK, fontWeight: 700, fontSize: 18, fontFamily: FONT_DISPLAY }}>{(auth.username || 'H').charAt(0).toUpperCase()}</div>
-                                    <div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{auth.username || 'Haul'}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{auth.email}</div></div>
-                                </div>
+                                <div style={{ marginBottom: 16 }}><AvatarPicker t={t} /></div>
+                                <div style={{ marginBottom: 16 }}><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{auth.username || 'Haul'}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{auth.email}</div></div>
                                 <button onClick={acc.logout} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${alpha(DANGER, 0.3)}`, borderRadius: 11, padding: 11, fontWeight: 600, fontSize: 13.5, color: DANGER, cursor: 'pointer' }}>{t.logout}</button>
                             </> : <>
                                 <div style={{ ...mono, marginBottom: 12 }}>{t.account}</div>

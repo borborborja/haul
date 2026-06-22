@@ -16,6 +16,8 @@ data class SavedList(
     val code: String? = null,
     val recordId: String? = null,
     val isLocal: Boolean = true,
+    /** "owner" | "admin" (full member) | "guest" (opened a share link, mode-limited). */
+    val role: String = "owner",
 )
 
 /** Snapshot of a non-active list's item, persisted in DataStore. */

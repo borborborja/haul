@@ -38,6 +38,8 @@ export interface AuthState {
     email: string | null;
     userId: string | null;
     username: string | null;
+    avatarUrl: string | null;
+    avatarColor: string | null;
 }
 
 export interface PresenceUser {

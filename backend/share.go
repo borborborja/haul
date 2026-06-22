@@ -246,6 +246,7 @@ func publicCheckItem(e *core.RequestEvent) error {
 	if err := e.App.Save(item); err != nil {
 		return apis.NewBadRequestError("Could not update the item.", err)
 	}
+	touchGuest(e, list.Id)
 	return e.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -288,6 +289,7 @@ func publicAddItem(e *core.RequestEvent) error {
 	if err := e.App.Save(item); err != nil {
 		return apis.NewBadRequestError("Could not add the item.", err)
 	}
+	touchGuest(e, list.Id)
 	return e.JSON(http.StatusCreated, map[string]string{"id": item.Id})
 }
 
@@ -312,5 +314,6 @@ func publicRemoveItem(e *core.RequestEvent) error {
 	if err := e.App.Save(item); err != nil {
 		return apis.NewBadRequestError("Could not remove the item.", err)
 	}
+	touchGuest(e, list.Id)
 	return e.JSON(http.StatusOK, map[string]bool{"ok": true})
 }

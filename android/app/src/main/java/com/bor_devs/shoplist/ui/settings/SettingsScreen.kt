@@ -5,6 +5,8 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,12 +20,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -54,6 +58,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -67,16 +74,10 @@ import com.bor_devs.shoplist.ui.MainViewModel
 import com.bor_devs.shoplist.util.AppUpdater
 import com.bor_devs.shoplist.util.ReleaseInfo
 import com.bor_devs.shoplist.ui.components.AddCategoryDialog
-import com.bor_devs.shoplist.ui.components.CreateListDialog
-import com.bor_devs.shoplist.ui.components.JoinDialog
-import com.bor_devs.shoplist.ui.components.MergeReplaceDialog
-import com.bor_devs.shoplist.data.repo.ShopRepository
 import com.bor_devs.shoplist.ui.components.canonKey
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
-import com.bor_devs.shoplist.ui.i18n.systemLang
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextDecoration
-import com.bor_devs.shoplist.util.joinLink
 import com.bor_devs.shoplist.util.shareText
 import kotlinx.coroutines.launch
 
@@ -121,13 +122,13 @@ private fun AccountTab(vm: MainViewModel) {
     val sync by vm.sync.collectAsState()
     val settings by vm.settings.collectAsState()
     val enableUsernames by vm.enableUsernames.collectAsState()
-
-    var showCreate by remember { mutableStateOf(false) }
-    var showJoin by remember { mutableStateOf(false) }
-    var showShare by remember { mutableStateOf(false) }
-    var pendingJoin by remember { mutableStateOf<ShopRepository.JoinInfo?>(null) }
+    val isGuest by vm.isGuest.collectAsState()
+    val listName by vm.listName.collectAsState()
     val registrationOpen by vm.registrationOpen.collectAsState()
     val hasServer = settings.serverUrl.isNotBlank()
+
+    var showShare by remember { mutableStateOf(false) }
+    var showMembers by remember { mutableStateOf(false) }
     var serverUrlInput by remember(settings.serverUrl) { mutableStateOf(settings.serverUrl) }
 
     Section(t.server) {
@@ -140,39 +141,30 @@ private fun AccountTab(vm: MainViewModel) {
     }
 
     if (hasServer) {
-    Section(t.sync) {
-        if (sync.connected) {
-            Text("${t.connected}: ${sync.code ?: "-"}", fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { sync.code?.let { shareText(context, t.shareTitle, t.shareBody + joinLink(it)) } }) { Text(t.shareCode) }
-                OutlinedButton(onClick = { vm.rotateCode() }) { Text(t.rotateCode) }
+        if (isGuest) {
+            // A guest list opened from a share link: read-only / not administered.
+            Section(t.sync) {
+                Text(listName ?: t.myList, fontWeight = FontWeight.Bold)
+                Text(t.guestBanner, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            OutlinedButton(onClick = { showShare = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Link, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp))
-                Text(t.publicLink)
-            }
-            OutlinedButton(onClick = { vm.disconnect() }) { Text(t.disconnect) }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { showCreate = true }) { Text(t.createList) }
-                OutlinedButton(onClick = { showJoin = true }) { Text(t.join) }
-            }
-        }
-    }
-
-    if (sync.syncHistory.isNotEmpty()) {
-        Section(t.syncHistory) {
-            sync.syncHistory.forEach { h ->
-                TextButton(onClick = {
-                    scope.launch { vm.beginJoin(h.code)?.let { pendingJoin = it } }
-                }) { Text("${h.title ?: h.code} (${h.code})") }
+        } else if (sync.connected) {
+            Section(t.sync) {
+                Text(listName ?: t.myList, fontWeight = FontWeight.Bold)
+                OutlinedButton(onClick = { showShare = true }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp)); Text(t.publicLink)
+                }
+                OutlinedButton(onClick = { showMembers = true }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.People, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp)); Text(t.members)
+                }
+                OutlinedButton(onClick = { vm.disconnect() }) { Text(t.disconnect) }
             }
         }
     }
-    } // end if (hasServer)
 
     Section(t.tabAccount) {
+        if (hasServer) AvatarRow(vm)
         if (settings.auth.isLoggedIn) {
             Text("${t.loggedAs}: ${settings.auth.email ?: ""}")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -193,20 +185,153 @@ private fun AccountTab(vm: MainViewModel) {
         }
     }
 
-    if (showCreate) CreateListDialog(onCreate = { vm.createList(it); showCreate = false }, onDismiss = { showCreate = false })
-    if (showJoin) JoinDialog(onJoin = { code -> showJoin = false; scope.launch { vm.beginJoin(code)?.let { pendingJoin = it } ?: toast(context, "Error") } }, onDismiss = { showJoin = false })
     if (showShare) ShareLinkDialog(vm, onDismiss = { showShare = false })
-    pendingJoin?.let { info ->
-        if (info.hasLocalItems) {
-            MergeReplaceDialog(
-                listName = info.name,
-                onMerge = { vm.finishJoin(info, false); pendingJoin = null },
-                onReplace = { vm.finishJoin(info, true); pendingJoin = null },
-                onDismiss = { pendingJoin = null },
-            )
-        } else {
-            vm.finishJoin(info, false); pendingJoin = null
+    if (showMembers) MembersDialog(vm, onDismiss = { showMembers = false })
+}
+
+@Composable
+private fun AvatarRow(vm: MainViewModel) {
+    val t = LocalStrings.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val avatarUrl by vm.avatarUrl.collectAsState()
+    val avatarColor by vm.avatarColor.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val initial = (settings.auth.username ?: settings.auth.email ?: "H").firstOrNull()?.uppercase() ?: "H"
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
+            val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+            val ext = when { mime.contains("png") -> "png"; mime.contains("webp") -> "webp"; else -> "jpg" }
+            vm.uploadAvatar(bytes, "avatar.$ext", mime)
         }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+        AvatarCircle(avatarUrl, avatarColor, initial, 56.dp)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { picker.launch("image/*") }) { Text(t.choosePhoto) }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                AVATAR_COLORS.forEach { c ->
+                    Box(
+                        Modifier.size(24.dp).clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(c)))
+                            .clickable { scope.launch { vm.setAvatarColor(c) } },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvatarCircle(url: String?, color: String?, initial: String, size: androidx.compose.ui.unit.Dp) {
+    if (!url.isNullOrBlank()) {
+        coil.compose.AsyncImage(
+            model = url, contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.size(size).clip(CircleShape),
+        )
+    } else {
+        val bg = parseColorOr(color, MaterialTheme.colorScheme.primary)
+        Box(Modifier.size(size).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+            Text(initial, color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun MembersDialog(vm: MainViewModel, onDismiss: () -> Unit) {
+    val t = LocalStrings.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+    var members by remember { mutableStateOf<List<com.bor_devs.shoplist.data.remote.MemberDto>>(emptyList()) }
+    var email by remember { mutableStateOf("") }
+    var msg by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+
+    fun reload() { scope.launch { members = vm.listMembers() } }
+    LaunchedEffect(Unit) { members = vm.listMembers() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text(t.confirm) } },
+        title = { Text(t.members) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                members.forEach { m ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MemberAvatar(m)
+                        Column(Modifier.weight(1f)) {
+                            Text(m.name.ifBlank { "—" }, fontWeight = FontWeight.Bold)
+                            Text("${roleLabel(t, m.role)} · ${relTime(m.lastActiveAt, t.neverActive)}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (m.role != "owner") TextButton(onClick = { scope.launch { vm.removeMember(m.userId); reload() } }) { Text(t.remove) }
+                    }
+                }
+                Divider()
+                Text(t.addAdmin, style = MaterialTheme.typography.labelMedium)
+                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(t.email) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(enabled = !busy, onClick = {
+                        busy = true
+                        scope.launch {
+                            val r = vm.addAdmin(email.trim())
+                            msg = when (r) { null -> t.emailNoAccount; true -> t.adminAdded; else -> "Error" }
+                            if (r == true) { email = ""; reload() }
+                            busy = false
+                        }
+                    }) { Text(t.adminByEmail) }
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            val link = vm.adminLink()
+                            if (link != null) { clipboard.setText(AnnotatedString(link)); toast(context, t.linkCopied) }
+                        }
+                    }) { Text(t.copyAdminLink) }
+                }
+                if (msg.isNotBlank()) Text(msg, style = MaterialTheme.typography.bodySmall)
+            }
+        },
+    )
+}
+
+@Composable
+private fun MemberAvatar(m: com.bor_devs.shoplist.data.remote.MemberDto) {
+    if (m.avatarUrl.isNotBlank()) {
+        coil.compose.AsyncImage(
+            model = m.avatarUrl, contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.size(36.dp).clip(CircleShape),
+        )
+    } else {
+        val bg = parseColorOr(m.color, MaterialTheme.colorScheme.primary)
+        Box(Modifier.size(36.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+            Text(m.name.firstOrNull()?.uppercase() ?: "?", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+private val AVATAR_COLORS = listOf("#10B981", "#0EA5E9", "#6366F1", "#EC4899", "#F59E0B", "#EF4444", "#14B8A6", "#8B5CF6")
+
+private fun roleLabel(t: com.bor_devs.shoplist.ui.i18n.Strings, role: String): String = when (role) {
+    "owner" -> t.roleOwner
+    "admin" -> t.roleAdmin
+    else -> t.roleGuest
+}
+
+private fun parseColorOr(hex: String?, fallback: Color): Color =
+    if (hex.isNullOrBlank()) fallback else runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(fallback)
+
+private fun relTime(iso: String, never: String): String {
+    if (iso.isBlank()) return never
+    val norm = iso.trim().replace(" ", "T").let { if (it.endsWith("Z")) it else "${it}Z" }
+    val inst = runCatching { java.time.Instant.parse(norm) }.getOrNull() ?: return never
+    val secs = System.currentTimeMillis() / 1000 - inst.epochSecond
+    return when {
+        secs < 90 -> "·"
+        secs < 3600 -> "${secs / 60}m"
+        secs < 86400 -> "${secs / 3600}h"
+        else -> "${secs / 86400}d"
     }
 }
 
