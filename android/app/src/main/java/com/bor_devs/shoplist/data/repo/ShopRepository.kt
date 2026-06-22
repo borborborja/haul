@@ -626,6 +626,10 @@ class ShopRepository @Inject constructor(
     fun setActiveListEmoji(emoji: String) = scope.launch {
         val s = prefs.snapshot()
         prefs.setLists(s.lists.map { if (it.id == s.activeListId) it.copy(emoji = emoji) else it })
+        val rid = _sync.value.recordId
+        if (_sync.value.connected && rid != null) {
+            runCatching { listDataRef = pb.updateListData(rid, JsonObject(listDataRef + mapOf("emoji" to JsonPrimitive(emoji)))).data ?: listDataRef }
+        }
     }
 
     /** Snapshot the current active items into the DataStore cache; returns the new map. */
@@ -907,6 +911,16 @@ class ShopRepository @Inject constructor(
         listRecord.data?.get("listName")?.let { el ->
             val name = if (el is JsonNull) null else el.jsonPrimitive.contentOrNull
             _listName.value = name; prefs.setListName(name)
+        }
+        // Emoji is stored on the server (data.emoji) so it shows on every device.
+        val remoteEmoji = listRecord.data?.get("emoji")?.let { if (it is JsonNull) null else it.jsonPrimitive.contentOrNull }
+        val es = prefs.snapshot()
+        val localEmoji = es.lists.firstOrNull { it.recordId == recordId }?.emoji
+        if (!remoteEmoji.isNullOrBlank()) {
+            if (localEmoji != remoteEmoji) prefs.setLists(es.lists.map { if (it.recordId == recordId) it.copy(emoji = remoteEmoji) else it })
+        } else if (!localEmoji.isNullOrBlank() && localEmoji != "🛒") {
+            // Back-fill an emoji chosen before server-side emoji sync existed.
+            runCatching { listDataRef = pb.updateListData(recordId, JsonObject(listDataRef + mapOf("emoji" to JsonPrimitive(localEmoji)))).data ?: listDataRef }
         }
         notifyWidgets()
     }

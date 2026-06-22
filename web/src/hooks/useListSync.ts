@@ -64,6 +64,14 @@ export function useListSync() {
             ...(remoteListName !== undefined ? { listName: remoteListName ?? null } : {})
         });
 
+        // Reflect the server-stored emoji on this device's saved list.
+        const remoteEmoji = listRecord.data?.emoji;
+        if (remoteEmoji) {
+            useShopStore.setState((s) => ({
+                lists: s.lists.map((l) => l.recordId === currentRecordId && l.emoji !== remoteEmoji ? { ...l, emoji: remoteEmoji } : l),
+            }));
+        }
+
         // Custom categories/items live in per-row collections (merge-safe).
         await useShopStore.getState().loadListCustomData();
     };

@@ -22,7 +22,7 @@ export function useAccountLists() {
                     expand: 'list',
                 });
                 const server = members
-                    .map((m: any) => ({ recordId: m.expand?.list?.id as string, name: (m.expand?.list?.data?.listName ?? m.expand?.list?.name ?? null) as string | null }))
+                    .map((m: any) => ({ recordId: m.expand?.list?.id as string, name: (m.expand?.list?.data?.listName ?? m.expand?.list?.name ?? null) as string | null, emoji: (m.expand?.list?.data?.emoji ?? '🛒') as string }))
                     .filter((l) => !!l.recordId);
                 if (!server.length) return;
 
@@ -30,7 +30,7 @@ export function useAccountLists() {
                 const known = new Set(st.lists.filter((l) => l.recordId).map((l) => l.recordId as string));
                 const additions = server
                     .filter((l) => !known.has(l.recordId))
-                    .map((l) => ({ id: `list_${l.recordId}`, name: l.name, emoji: '🛒', code: null, recordId: l.recordId, isLocal: false }));
+                    .map((l) => ({ id: `list_${l.recordId}`, name: l.name, emoji: l.emoji, code: null, recordId: l.recordId, isLocal: false }));
                 if (additions.length) useShopStore.setState({ lists: [...st.lists, ...additions] });
 
                 // If sitting on the pristine empty default, jump to a real list.

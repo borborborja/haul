@@ -114,7 +114,8 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     }
 
     val appLang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
-    val inListNames = remember(items) { items.filter { it.inList }.map { it.name.lowercase() }.toSet() }
+    // Bought items count as "used", not "in list", so the planner catalog lets you re-add them.
+    val inListNames = remember(items) { items.filter { it.inList && !it.checked }.map { it.name.lowercase() }.toSet() }
     fun toggleCatalog(name: String, cat: String) {
         val existing = items.find { it.name.equals(name, ignoreCase = true) }
         if (existing != null && existing.inList) vm.removeFromList(existing.id) else vm.addItem(name, cat)
@@ -151,7 +152,12 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                 else { activeItems = inList.filter { !it.checked }; completedItems = inList.filter { it.checked } }
                 previouslyUsed = emptyList()
             } else {
-                activeItems = inList; completedItems = emptyList(); previouslyUsed = items.filter { !it.inList }
+                // Planner: a bought (checked) item is "used" — drop it from the
+                // active selection and show it under "previously used" (matches web
+                // and clearPreviouslyUsed's predicate).
+                activeItems = inList.filter { !it.checked }
+                completedItems = emptyList()
+                previouslyUsed = items.filter { !it.inList || it.checked }
             }
 
             if (!shopping && catalogOpen) {

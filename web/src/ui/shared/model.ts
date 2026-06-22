@@ -55,14 +55,21 @@ export function useHaulModel() {
 
     const t = tt(lang);
 
-    const inList = useMemo(() => items.filter((i) => i.inList !== false), [items]);
-    const recent = useMemo(() => items.filter((i) => i.inList === false), [items]);
+    const appMode = useShopStore((s) => s.appMode);
+    const planning = appMode === 'planning';
+
+    // In the planner a bought (checked) item is "used" — it leaves the active
+    // selection and shows under "previously used", just like clearCompleted's
+    // predicate. In shopping mode checked items stay in the list (struck through).
+    const inListAll = useMemo(() => items.filter((i) => i.inList !== false), [items]);
+    const inList = useMemo(() => (planning ? inListAll.filter((i) => !i.checked) : inListAll), [inListAll, planning]);
+    const recent = useMemo(() => items.filter((i) => i.inList === false || (planning && i.checked)), [items, planning]);
     const groups = useMemo(() => buildGroups(inList, categories, lang), [inList, categories, lang]);
     const pending = useMemo(() => inList.filter((i) => !i.checked), [inList]);
-    const completed = useMemo(() => inList.filter((i) => i.checked), [inList]);
+    const completed = useMemo(() => (planning ? [] : inListAll.filter((i) => i.checked)), [inListAll, planning]);
 
-    const total = inList.length;
-    const done = completed.length;
+    const total = inListAll.length;
+    const done = useMemo(() => inListAll.filter((i) => i.checked).length, [inListAll]);
     const frac = total ? done / total : 0;
 
     // Catalog bands (category chips) + items for the active band.
@@ -94,7 +101,7 @@ export function useHaulModel() {
     const listSummaries = useMemo(
         () => lists.map((l) => {
             const isActive = l.id === activeListId;
-            const cacheItems = isActive ? inList : (listCaches[l.id]?.items?.filter((i) => i.inList !== false) ?? []);
+            const cacheItems = isActive ? inListAll : (listCaches[l.id]?.items?.filter((i) => i.inList !== false) ?? []);
             const d = cacheItems.filter((i) => i.checked).length;
             return {
                 id: l.id,

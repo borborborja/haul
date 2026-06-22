@@ -574,9 +574,19 @@ export const useShopStore = create<ShopState>()(
                 }
             },
 
-            setActiveListEmoji: (emoji) => set((state) => ({
-                lists: state.lists.map(l => l.id === state.activeListId ? { ...l, emoji } : l),
-            })),
+            setActiveListEmoji: (emoji) => {
+                set((state) => ({
+                    lists: state.lists.map(l => l.id === state.activeListId ? { ...l, emoji } : l),
+                }));
+                // Persist the emoji on the server so it shows on every device.
+                const { sync } = get();
+                if (sync.connected && sync.recordId) {
+                    const rid = sync.recordId;
+                    pb.collection('shopping_lists').getOne(rid)
+                        .then((rec: any) => pb.collection('shopping_lists').update(rid, { data: { ...(rec.data || {}), emoji } }))
+                        .catch(() => { /* best effort */ });
+                }
+            },
 
             // Called when the active list becomes synced (create/join) or disconnects.
             registerActiveListSync: ({ code, recordId }) => set((state) => ({
