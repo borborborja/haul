@@ -11,6 +11,7 @@ const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 import { useGuestAuth } from './hooks/useGuestAuth';
 import { useListSync } from './hooks/useListSync';
 import { useAutoSync } from './hooks/useAutoSync';
+import { useAccountLists } from './hooks/useAccountLists';
 import { usePresence } from './hooks/usePresence';
 import { useStatusBarSync } from './hooks/useStatusBarSync';
 import { isConfigEnabled } from './utils/config';
@@ -27,6 +28,7 @@ function App() {
   const { ensureGuestAuth } = useGuestAuth();
   const { refreshList } = useListSync();
   useAutoSync();
+  useAccountLists();
   usePresence(ensureGuestAuth);
   useStatusBarSync();
 

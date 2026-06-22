@@ -24,13 +24,12 @@ export function useAutoSync() {
             const params = new URLSearchParams(window.location.search);
             if (params.get('c') || params.get('code')) return;
 
-            // Real accounts already own lists on the server — they recover them
-            // on login instead of auto-creating an empty one (which would shadow
-            // the account's existing lists). Auto-create only for guest sessions.
-            if ((pb.authStore.record as any)?.account_type === 'account') return;
-
             const s = useShopStore.getState();
             if (s.sync.connected || s.sync.recordId || s.sync.code) return;
+            // Never auto-create the pristine default list (no name, no items) — that
+            // produced empty "shadow" lists, e.g. for an account that already has
+            // lists elsewhere. Only promote a list the user actually started.
+            if (s.items.length === 0 && !s.listName) return;
 
             try {
                 if (!pb.authStore.isValid) await ensureGuestSession();
