@@ -199,19 +199,34 @@ private fun AvatarRow(vm: MainViewModel) {
     val settings by vm.settings.collectAsState()
     val initial = (settings.auth.username ?: settings.auth.email ?: "H").firstOrNull()?.uppercase() ?: "H"
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    // Camera + gallery + circular 1:1 crop in one flow (vanniktech image cropper).
+    val cropper = rememberLauncherForActivityResult(com.canhub.cropper.CropImageContract()) { result ->
+        val uri = if (result.isSuccessful) result.uriContent else null
         if (uri != null) scope.launch {
             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
-            val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
-            val ext = when { mime.contains("png") -> "png"; mime.contains("webp") -> "webp"; else -> "jpg" }
-            vm.uploadAvatar(bytes, "avatar.$ext", mime)
+            vm.uploadAvatar(bytes, "avatar.jpg", "image/jpeg")
         }
     }
+    fun pickAvatar() = cropper.launch(
+        com.canhub.cropper.CropImageContractOptions(
+            uri = null,
+            cropImageOptions = com.canhub.cropper.CropImageOptions(
+                imageSourceIncludeCamera = true,
+                imageSourceIncludeGallery = true,
+                cropShape = com.canhub.cropper.CropImageView.CropShape.OVAL,
+                aspectRatioX = 1,
+                aspectRatioY = 1,
+                fixAspectRatio = true,
+                outputCompressFormat = android.graphics.Bitmap.CompressFormat.JPEG,
+                outputCompressQuality = 85,
+            ),
+        ),
+    )
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(bottom = 8.dp)) {
         AvatarCircle(avatarUrl, avatarColor, initial, 56.dp)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { picker.launch("image/*") }) { Text(t.choosePhoto) }
+            OutlinedButton(onClick = { pickAvatar() }) { Text(t.choosePhoto) }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AVATAR_COLORS.forEach { c ->
                     Box(

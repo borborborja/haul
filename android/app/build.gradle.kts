@@ -11,7 +11,7 @@ plugins {
 
 // Derive versionName/versionCode from a single source so they stay in sync with
 // the web app's semantic version (major*10000 + minor*100 + patch).
-val appVersionName = "1.10.0"
+val appVersionName = "1.10.1"
 val appVersionCode = appVersionName.split(".").let { (maj, min, patch) ->
     maj.toInt() * 10000 + min.toInt() * 100 + patch.toInt()
 }
@@ -117,6 +117,7 @@ dependencies {
 
     implementation(libs.play.services.wearable)
     implementation(libs.coil.compose)
+    implementation(libs.android.image.cropper)
 
     implementation(libs.androidx.datastore.preferences)
 
