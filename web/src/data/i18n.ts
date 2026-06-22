@@ -53,6 +53,7 @@ export interface UIDict {
     members: string; roleOwner: string; roleAdmin: string; roleGuest: string; addAdmin: string; adminByEmail: string; adminLink: string; copyAdminLink: string;
     emailNoAccount: string; adminAdded: string; remove: string; lastActive: string; neverActive: string; guestBanner: string;
     avatar: string; choosePhoto: string; chooseColor: string; addToMyLists: string; recoverLists: string;
+    inviteTitle: string; inviteBody: string; inviteAccept: string; inviteDecline: string;
     cats: Record<CatKey, string>;
 }
 
@@ -81,6 +82,7 @@ const en: UIDict = {
     members: 'Members', roleOwner: 'Owner', roleAdmin: 'Admin', roleGuest: 'Guest', addAdmin: 'Add admin', adminByEmail: 'Add by email', adminLink: 'Admin link', copyAdminLink: 'Copy admin link',
     emailNoAccount: 'No account with that email — share the admin link instead.', adminAdded: 'Admin added', remove: 'Remove', lastActive: 'Last active', neverActive: 'Never', guestBanner: "You're a guest — you don't administer this list.",
     avatar: 'Avatar', choosePhoto: 'Photo', chooseColor: 'Color', addToMyLists: 'Add to my lists', recoverLists: 'Recover my lists',
+    inviteTitle: 'List invitation', inviteBody: '{who} invited you to administer “{list}”.', inviteAccept: 'Accept', inviteDecline: 'Decline',
     cats: { fruit: 'Fruit', veg: 'Vegetables', meat: 'Meat/Fish', dairy: 'Dairy', pantry: 'Pantry/Bread', cleaning: 'Cleaning/Hygiene', home: 'Home', snacks: 'Snacks/Sweets', frozen: 'Frozen', processed: 'Processed', drinks: 'Drinks', spices: 'Spices', other: 'General/Other' },
 };
 
@@ -112,6 +114,7 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         members: 'Miembros', roleOwner: 'Propietario', roleAdmin: 'Administrador', roleGuest: 'Invitado', addAdmin: 'Añadir administrador', adminByEmail: 'Añadir por correo', adminLink: 'Enlace de admin', copyAdminLink: 'Copiar enlace de admin',
         emailNoAccount: 'No hay cuenta con ese correo — comparte el enlace de admin.', adminAdded: 'Administrador añadido', remove: 'Quitar', lastActive: 'Última vez activo', neverActive: 'Nunca', guestBanner: 'Eres invitado — no administras esta lista.',
         avatar: 'Avatar', choosePhoto: 'Foto', chooseColor: 'Color', addToMyLists: 'Añadir a mis listas', recoverLists: 'Recuperar mis listas',
+        inviteTitle: 'Invitación a una lista', inviteBody: '{who} te ha invitado a administrar «{list}».', inviteAccept: 'Aceptar', inviteDecline: 'Rechazar',
         cats: { fruit: 'Fruta', veg: 'Verdura', meat: 'Carne/Pescado', dairy: 'Lácteos', pantry: 'Despensa/Pan', cleaning: 'Higiene/Limpieza', home: 'Hogar', snacks: 'Snacks/Dulces', frozen: 'Congelados', processed: 'Procesados', drinks: 'Bebidas', spices: 'Especias', other: 'General/Otros' },
     },
     ca: {
@@ -139,6 +142,7 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         members: 'Membres', roleOwner: 'Propietari', roleAdmin: 'Administrador', roleGuest: 'Convidat', addAdmin: 'Afegir administrador', adminByEmail: 'Afegir per correu', adminLink: "Enllaç d'admin", copyAdminLink: "Copiar enllaç d'admin",
         emailNoAccount: "No hi ha cap compte amb aquest correu — comparteix l'enllaç d'admin.", adminAdded: 'Administrador afegit', remove: 'Treure', lastActive: 'Última vegada actiu', neverActive: 'Mai', guestBanner: 'Ets convidat — no administres aquesta llista.',
         avatar: 'Avatar', choosePhoto: 'Foto', chooseColor: 'Color', addToMyLists: 'Afegir a les meves llistes', recoverLists: 'Recuperar les meves llistes',
+        inviteTitle: 'Invitació a una llista', inviteBody: "{who} t'ha convidat a administrar «{list}».", inviteAccept: 'Acceptar', inviteDecline: 'Rebutjar',
         cats: { fruit: 'Fruita', veg: 'Verdura', meat: 'Carn/Peix', dairy: 'Làctics', pantry: 'Rebost/Pa', cleaning: 'Higiene/Neteja', home: 'Llar', snacks: 'Snacks/Dolços', frozen: 'Congelats', processed: 'Processats', drinks: 'Begudes', spices: 'Espècies', other: 'General/Altres' },
     },
     zh: {

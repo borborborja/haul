@@ -8,7 +8,7 @@ plugins {
 }
 
 // Keep in sync with :app (same semantic version).
-val appVersionName = "1.11.1"
+val appVersionName = "1.11.2"
 val appVersionCode = appVersionName.split(".").let { (maj, min, patch) ->
     maj.toInt() * 10000 + min.toInt() * 100 + patch.toInt()
 }

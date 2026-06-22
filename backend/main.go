@@ -113,6 +113,11 @@ func registerRoutes(app core.App, publicDir string) {
 			e.Router.GET("/api/shoplist/lists/{id}/members", listMembers).Bind(apis.RequireAuth("users"))
 			e.Router.DELETE("/api/shoplist/lists/{id}/members/{userId}", removeMember).Bind(apis.RequireAuth("users"))
 
+			// Pending admin invitations (accept/decline).
+			e.Router.GET("/api/shoplist/invites", listInvites).Bind(apis.RequireAuth("users"))
+			e.Router.POST("/api/shoplist/invites/{id}/accept", acceptInvite).Bind(apis.RequireAuth("users"))
+			e.Router.POST("/api/shoplist/invites/{id}/decline", declineInvite).Bind(apis.RequireAuth("users"))
+
 				// Admin-only AI catalog translation (superuser session required).
 				e.Router.POST("/api/shoplist/admin/translate", translateHandler).Bind(apis.RequireSuperuserAuth())
 

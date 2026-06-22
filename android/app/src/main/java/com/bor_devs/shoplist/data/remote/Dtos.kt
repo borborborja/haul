@@ -149,6 +149,15 @@ data class DisabledCategoryRecord(
 )
 
 @Serializable
+data class InviteDto(
+    val id: String,
+    val listId: String = "",
+    val listName: String = "",
+    val inviter: String = "",
+    val role: String = "",
+)
+
+@Serializable
 data class CatalogCategoryRecord(
     val id: String,
     val key: String = "",

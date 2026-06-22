@@ -143,26 +143,109 @@ func addAdmin(e *core.RequestEvent) error {
 	if u == nil {
 		return e.JSON(http.StatusOK, map[string]any{"noAccount": true})
 	}
-	existing, _ := e.App.FindFirstRecordByFilter("list_members",
+	// Already a member → nothing to do.
+	if existing, _ := e.App.FindFirstRecordByFilter("list_members",
+		"list = {:l} && user = {:u}", dbx.Params{"l": listId, "u": u.Id}); existing != nil {
+		return e.JSON(http.StatusOK, map[string]any{"alreadyMember": true})
+	}
+	// Create (or refresh) a pending invite — the invitee accepts/declines.
+	inv, _ := e.App.FindFirstRecordByFilter("list_invites",
 		"list = {:l} && user = {:u}", dbx.Params{"l": listId, "u": u.Id})
-	if existing == nil {
+	if inv == nil {
+		col, err := e.App.FindCollectionByNameOrId("list_invites")
+		if err != nil {
+			return err
+		}
+		inv = core.NewRecord(col)
+		inv.Set("list", listId)
+		inv.Set("user", u.Id)
+	}
+	inv.Set("inviter", e.Auth.Id)
+	inv.Set("role", "editor")
+	if err := e.App.Save(inv); err != nil {
+		return apis.NewBadRequestError("Could not send the invitation.", err)
+	}
+	return e.JSON(http.StatusOK, map[string]any{"invited": true})
+}
+
+// listInvites returns the caller's pending list invitations with the list name
+// and inviter's display name, for the accept/decline prompt.
+func listInvites(e *core.RequestEvent) error {
+	invites, _ := e.App.FindRecordsByFilter("list_invites", "user = {:u}", "-created", 0, 0, dbx.Params{"u": e.Auth.Id})
+	type out struct {
+		Id       string `json:"id"`
+		ListId   string `json:"listId"`
+		ListName string `json:"listName"`
+		Inviter  string `json:"inviter"`
+		Role     string `json:"role"`
+	}
+	res := make([]out, 0, len(invites))
+	for _, inv := range invites {
+		o := out{Id: inv.Id, ListId: inv.GetString("list"), Role: inv.GetString("role")}
+		if l, err := e.App.FindRecordById("shopping_lists", inv.GetString("list")); err == nil {
+			o.ListName = l.GetString("name")
+		}
+		if iv := inv.GetString("inviter"); iv != "" {
+			if u, err := e.App.FindRecordById("users", iv); err == nil {
+				if u.GetString("account_type") == "account" && u.GetString("email") != "" {
+					o.Inviter = u.GetString("email")
+				} else {
+					o.Inviter = u.GetString("display_name")
+				}
+			}
+		}
+		res = append(res, o)
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// acceptInvite turns a pending invite into membership (role editor) for the caller.
+func acceptInvite(e *core.RequestEvent) error {
+	inv, err := e.App.FindRecordById("list_invites", e.Request.PathValue("id"))
+	if err != nil {
+		return apis.NewNotFoundError("Invitation not found.", nil)
+	}
+	if inv.GetString("user") != e.Auth.Id {
+		return apis.NewForbiddenError("This invitation is not for you.", nil)
+	}
+	listId := inv.GetString("list")
+	role := inv.GetString("role")
+	if role == "" {
+		role = "editor"
+	}
+	if memberRole(e.App, listId, e.Auth.Id) == "" {
 		col, err := e.App.FindCollectionByNameOrId("list_members")
 		if err != nil {
 			return err
 		}
-		rec := core.NewRecord(col)
-		rec.Set("list", listId)
-		rec.Set("user", u.Id)
-		rec.Set("role", "editor")
-		if err := e.App.Save(rec); err != nil {
-			return apis.NewBadRequestError("Could not add the admin.", err)
+		mrec := core.NewRecord(col)
+		mrec.Set("list", listId)
+		mrec.Set("user", e.Auth.Id)
+		mrec.Set("role", role)
+		if err := e.App.Save(mrec); err != nil {
+			return apis.NewBadRequestError("Could not join the list.", err)
 		}
-	} else if existing.GetString("role") != "owner" {
-		existing.Set("role", "editor")
-		_ = e.App.Save(existing)
 	}
-	dropGuest(e.App, listId, u.Id)
-	return e.JSON(http.StatusOK, map[string]any{"ok": true})
+	dropGuest(e.App, listId, e.Auth.Id)
+	_ = e.App.Delete(inv)
+	name := ""
+	if l, err := e.App.FindRecordById("shopping_lists", listId); err == nil {
+		name = l.GetString("name")
+	}
+	return e.JSON(http.StatusOK, map[string]any{"listId": listId, "name": name})
+}
+
+// declineInvite removes a pending invite for the caller.
+func declineInvite(e *core.RequestEvent) error {
+	inv, err := e.App.FindRecordById("list_invites", e.Request.PathValue("id"))
+	if err != nil {
+		return apis.NewNotFoundError("Invitation not found.", nil)
+	}
+	if inv.GetString("user") != e.Auth.Id {
+		return apis.NewForbiddenError("This invitation is not for you.", nil)
+	}
+	_ = e.App.Delete(inv)
+	return e.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
 
 // adminLink returns (creating if needed) the list's admin invite token. The

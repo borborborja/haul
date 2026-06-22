@@ -160,6 +160,10 @@ data class Strings(
     val chooseColor: String = "Color",
     val deactivate: String = "Hide",
     val reactivate: String = "Show",
+    val inviteTitle: String = "List invitation",
+    val inviteBody: String = "{who} invited you to administer “{list}”.",
+    val inviteAccept: String = "Accept",
+    val inviteDecline: String = "Decline",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -208,6 +212,7 @@ private val ES = Strings(
     shareModeReadSub = "Ver la lista y su progreso", shareModeShopSub = "Verla y marcar productos comprados", shareModePlanSub = "Añadir, quitar y marcar productos",
     copyLink = "Copiar enlace", linkCopied = "Enlace copiado", regenerateLink = "Nuevo enlace", stopSharing = "Dejar de compartir",
     deactivate = "Ocultar", reactivate = "Mostrar",
+    inviteTitle = "Invitación a una lista", inviteBody = "{who} te ha invitado a administrar «{list}».", inviteAccept = "Aceptar", inviteDecline = "Rechazar",
     members = "Miembros", roleOwner = "Propietario", roleAdmin = "Administrador", roleGuest = "Invitado",
     addAdmin = "Añadir administrador", adminByEmail = "Añadir por correo", adminLink = "Enlace de admin", copyAdminLink = "Copiar enlace de admin",
     emailNoAccount = "No hay cuenta con ese correo — comparte el enlace de admin.", adminAdded = "Administrador añadido",
@@ -259,6 +264,7 @@ private val CA = Strings(
     shareModeReadSub = "Veure la llista i el progrés", shareModeShopSub = "Veure-la i marcar productes comprats", shareModePlanSub = "Afegir, treure i marcar productes",
     copyLink = "Copiar enllaç", linkCopied = "Enllaç copiat", regenerateLink = "Nou enllaç", stopSharing = "Deixar de compartir",
     deactivate = "Amaga", reactivate = "Mostra",
+    inviteTitle = "Invitació a una llista", inviteBody = "{who} t'ha convidat a administrar «{list}».", inviteAccept = "Acceptar", inviteDecline = "Rebutjar",
     members = "Membres", roleOwner = "Propietari", roleAdmin = "Administrador", roleGuest = "Convidat",
     addAdmin = "Afegir administrador", adminByEmail = "Afegir per correu", adminLink = "Enllaç d'admin", copyAdminLink = "Copiar enllaç d'admin",
     emailNoAccount = "No hi ha cap compte amb aquest correu — comparteix l'enllaç d'admin.", adminAdded = "Administrador afegit",

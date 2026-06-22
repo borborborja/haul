@@ -105,6 +105,10 @@ class ShopRepository @Inject constructor(
     private val _disabledCategories = MutableStateFlow<Set<String>>(emptySet())
     val disabledCategories: StateFlow<Set<String>> = _disabledCategories
 
+    /** Pending list invitations (added as admin by email) awaiting accept/decline. */
+    private val _invites = MutableStateFlow<List<com.bor_devs.shoplist.data.remote.InviteDto>>(emptyList())
+    val invites: StateFlow<List<com.bor_devs.shoplist.data.remote.InviteDto>> = _invites
+
     private val _sync = MutableStateFlow(SyncState())
     val sync: StateFlow<SyncState> = _sync
 
@@ -247,6 +251,8 @@ class ShopRepository @Inject constructor(
         if (!pb.hasServer) return // local mode
         ensureGuestSession()
         loadCatalog()
+        reconcileAccountLists() // pull lists shared with this account (e.g. invited as admin)
+        refreshInvites() // pending admin invitations awaiting accept/decline
         val active = s.lists.firstOrNull { it.id == s.activeListId }
         val guestToken = if (active != null && active.role == "guest") active.code else null
         when {
@@ -1111,13 +1117,54 @@ class ShopRepository @Inject constructor(
     }.getOrDefault(false)
 
     /** After login, connect to the user's first remembered list (recover). */
+    /**
+     * Pull every list this account is a member of into the local multi-list set,
+     * so a list shared with you (e.g. added as admin by email) shows up without a
+     * manual step. Additive: only ADDS memberships not already saved. Runs on
+     * startup and from the "recover lists" action.
+     */
+    suspend fun reconcileAccountLists() {
+        val uid = sessionUserId ?: return
+        val members = runCatching { pb.getMyListMemberships(uid) }.getOrNull() ?: return
+        if (members.isEmpty()) return
+        val s = prefs.snapshot()
+        val known = s.lists.mapNotNull { it.recordId }.toSet()
+        val additions = members.mapNotNull { m ->
+            val l = m.expand?.list ?: return@mapNotNull null
+            if (known.contains(l.id)) return@mapNotNull null
+            val nm = l.data?.get("listName")?.let { if (it is JsonNull) null else it.jsonPrimitive.contentOrNull } ?: l.name.ifBlank { null }
+            val emoji = l.data?.get("emoji")?.let { if (it is JsonNull) null else it.jsonPrimitive.contentOrNull } ?: "🛒"
+            SavedList(
+                id = "list_${l.id}", name = nm, emoji = emoji,
+                code = l.inviteCode.ifBlank { null }, recordId = l.id, isLocal = false,
+                role = if (m.role == "owner") "owner" else "admin",
+            )
+        }
+        if (additions.isNotEmpty()) prefs.setLists(s.lists + additions)
+    }
+
+    suspend fun refreshInvites() {
+        _invites.value = runCatching { pb.listInvites() }.getOrDefault(emptyList())
+    }
+
+    fun acceptInvite(id: String) = scope.launch {
+        runCatching { pb.acceptInvite(id) }
+        _invites.update { list -> list.filterNot { it.id == id } }
+        reconcileAccountLists()
+    }
+
+    fun declineInvite(id: String) = scope.launch {
+        runCatching { pb.declineInvite(id) }
+        _invites.update { list -> list.filterNot { it.id == id } }
+    }
+
     suspend fun recoverLists(): Int {
         val uid = sessionUserId ?: return 0
         val members = runCatching { pb.getMyListMemberships(uid) }.getOrDefault(emptyList())
+        reconcileAccountLists()
         val first = members.firstOrNull()?.expand?.list ?: return members.size
-        _listName.value = first.name; prefs.setListName(first.name)
-        setConnected(first.inviteCode.ifBlank { null }, first.id)
-        connectToList(first.id)
+        val target = prefs.snapshot().lists.firstOrNull { it.recordId == first.id }
+        if (target != null) switchList(target.id) else connectToList(first.id)
         return members.size
     }
 

@@ -39,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -93,6 +94,17 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     val lists by vm.lists.collectAsState()
     val activeListId by vm.activeListId.collectAsState()
     val listCounts by vm.listCounts.collectAsState()
+    val invites by vm.invites.collectAsState()
+
+    invites.firstOrNull()?.let { inv ->
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text(t.inviteTitle) },
+            text = { Text(t.inviteBody.replace("{who}", inv.inviter.ifBlank { "—" }).replace("{list}", inv.listName.ifBlank { t.myList })) },
+            confirmButton = { TextButton(onClick = { vm.acceptInvite(inv.id) }) { Text(t.inviteAccept) } },
+            dismissButton = { TextButton(onClick = { vm.declineInvite(inv.id) }) { Text(t.inviteDecline) } },
+        )
+    }
 
     val mode = settings.appMode
     fun catIcon(key: String) = categories[key]?.icon ?: ""

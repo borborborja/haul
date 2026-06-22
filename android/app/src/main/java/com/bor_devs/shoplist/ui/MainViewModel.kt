@@ -142,6 +142,9 @@ class MainViewModel @Inject constructor(
     suspend fun adminLink(): String? = repo.adminLink()
     suspend fun listMembers() = repo.listMembers()
     suspend fun removeMember(userId: String) = repo.removeMember(userId)
+    val invites = repo.invites
+    fun acceptInvite(id: String) = repo.acceptInvite(id)
+    fun declineInvite(id: String) = repo.declineInvite(id)
     suspend fun uploadAvatar(bytes: ByteArray, filename: String, mime: String) = repo.uploadAvatar(bytes, filename, mime)
     suspend fun setAvatarColor(color: String) = repo.setAvatarColor(color)
 

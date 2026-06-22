@@ -3,6 +3,7 @@ import { useShopStore } from './store/shopStore';
 import { pb } from './lib/pocketbase';
 import { Capacitor } from '@capacitor/core';
 import AuthGate from './ui/shared/AuthGate';
+import InvitesGate from './ui/shared/InvitesGate';
 import HaulApp from './ui/HaulApp';
 import SettingsModal from './components/modals/SettingsModal';
 import { detectLang } from './data/i18n';
@@ -313,6 +314,7 @@ function App() {
         ) : (
           <>
             <HaulApp openSettings={() => setShowSettings(true)} />
+            <InvitesGate />
 
             {showSettings && <SettingsModal
               onClose={() => setShowSettings(false)}

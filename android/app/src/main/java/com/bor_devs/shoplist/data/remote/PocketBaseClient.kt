@@ -122,6 +122,17 @@ class PocketBaseClient @Inject constructor(
     suspend fun listMembers(listId: String): List<MemberDto> =
         decode(request("GET", "/api/shoplist/lists/$listId/members"))
 
+    suspend fun listInvites(): List<InviteDto> =
+        decode(request("GET", "/api/shoplist/invites"))
+
+    suspend fun acceptInvite(id: String) {
+        request("POST", "/api/shoplist/invites/$id/accept", JsonObject(emptyMap()))
+    }
+
+    suspend fun declineInvite(id: String) {
+        request("POST", "/api/shoplist/invites/$id/decline", JsonObject(emptyMap()))
+    }
+
     suspend fun removeMember(listId: String, userId: String) {
         request("DELETE", "/api/shoplist/lists/$listId/members/$userId")
     }
