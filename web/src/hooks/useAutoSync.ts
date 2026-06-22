@@ -24,6 +24,11 @@ export function useAutoSync() {
             const params = new URLSearchParams(window.location.search);
             if (params.get('c') || params.get('code')) return;
 
+            // Real accounts already own lists on the server — they recover them
+            // on login instead of auto-creating an empty one (which would shadow
+            // the account's existing lists). Auto-create only for guest sessions.
+            if ((pb.authStore.record as any)?.account_type === 'account') return;
+
             const s = useShopStore.getState();
             if (s.sync.connected || s.sync.recordId || s.sync.code) return;
 

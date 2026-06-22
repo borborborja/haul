@@ -117,6 +117,7 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                             {auth.isLoggedIn ? <>
                                 <div style={{ marginBottom: 16 }}><AvatarPicker t={t} /></div>
                                 <div style={{ marginBottom: 16 }}><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{auth.username || 'Haul'}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{auth.email}</div></div>
+                                <button onClick={() => acc.recoverLists()} style={{ ...ghostBtn, width: '100%', marginBottom: 10 }}>{t.recoverLists}</button>
                                 <button onClick={acc.logout} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${alpha(DANGER, 0.3)}`, borderRadius: 11, padding: 11, fontWeight: 600, fontSize: 13.5, color: DANGER, cursor: 'pointer' }}>{t.logout}</button>
                             </> : <>
                                 <div style={{ ...mono, marginBottom: 12 }}>{t.account}</div>

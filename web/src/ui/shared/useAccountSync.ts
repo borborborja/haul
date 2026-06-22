@@ -108,23 +108,42 @@ export function useAccountSync() {
         } finally { setBusy(false); }
     };
 
+    // Pull EVERY list this account is a member of into the local multi-list set,
+    // so the same account shows the same lists on any device. Non-destructive:
+    // merges by recordId, keeps existing local lists, then connects to one.
+    const recoverLists = async (): Promise<number> => {
+        const uid = pb.authStore.record?.id;
+        if (!uid) return 0;
+        const members = await pb.collection('list_members').getFullList({ filter: pb.filter('user = {:id}', { id: uid }), expand: 'list' });
+        const server = members
+            .map((m: any) => ({ recordId: m.expand?.list?.id as string, name: (m.expand?.list?.data?.listName ?? m.expand?.list?.name ?? null) as string | null }))
+            .filter((l) => !!l.recordId);
+        if (!server.length) return 0;
+
+        const st = useShopStore.getState();
+        const known = new Map(st.lists.filter((l) => l.recordId).map((l) => [l.recordId as string, l.id] as const));
+        const additions = server
+            .filter((l) => !known.has(l.recordId))
+            .map((l) => ({ id: `list_${l.recordId}`, name: l.name, emoji: '🛒', code: null, recordId: l.recordId, isLocal: false }));
+        if (additions.length) useShopStore.setState({ lists: [...st.lists, ...additions] });
+
+        // Switch to a recovered list so it connects (unless already on one of them).
+        const activeRecord = st.lists.find((l) => l.id === st.activeListId)?.recordId;
+        if (!activeRecord || !server.some((l) => l.recordId === activeRecord)) {
+            const firstId = known.get(server[0].recordId) ?? `list_${server[0].recordId}`;
+            useShopStore.getState().switchList(firstId);
+        }
+        return server.length;
+    };
+
     const login = async (email: string, password: string) => {
         if (!navigator.onLine) { setError(lang === 'ca' ? 'Sense connexió' : 'Sin conexión'); return; }
         setBusy(true); setError('');
         try {
             await pb.collection('users').authWithPassword(email, password);
             syncAccountState();
-            // auto-connect if the account belongs to exactly one list
-            const id = pb.authStore.record?.id;
-            if (id) {
-                const members = await pb.collection('list_members').getFullList({ filter: pb.filter('user = {:id}', { id }), expand: 'list' });
-                const lists = members.map((m: any) => ({ id: m.expand?.list?.id, name: m.expand?.list?.data?.listName || m.expand?.list?.name })).filter((l: any) => l.id);
-                if (lists.length === 1) {
-                    useShopStore.getState().setSyncState({ connected: true, recordId: lists[0].id, code: null, msg: 'Connected', msgType: 'success' });
-                    if (lists[0].name) useShopStore.getState().setListName(lists[0].name);
-                    useShopStore.getState().loadListCustomData();
-                }
-            }
+            // Bring in all of the account's lists (same account → same lists everywhere).
+            await recoverLists();
         } catch (e: any) {
             setError(e?.response?.message || e?.message || (lang === 'ca' ? 'No s’ha pogut iniciar sessió' : 'No se pudo iniciar sesión'));
         } finally { setBusy(false); }
@@ -146,5 +165,5 @@ export function useAccountSync() {
         }
     };
 
-    return { busy, error, setError, join, createShared, disconnect, claim, login, logout, saveUsername, saveUserAvatar, saveUserColor };
+    return { busy, error, setError, join, createShared, disconnect, claim, login, logout, saveUsername, saveUserAvatar, saveUserColor, recoverLists };
 }

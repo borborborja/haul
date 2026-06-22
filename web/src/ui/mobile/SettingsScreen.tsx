@@ -115,10 +115,11 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                         {auth.isLoggedIn ? (
                             <>
                                 <div style={{ marginBottom: 14 }}><AvatarPicker t={t} /></div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
                                     <input value={auth.email || ''} readOnly style={{ ...inputStyle, flex: 1 }} />
                                     <button onClick={acc.logout} style={{ ...ghostBtn, flex: 'none' }}>{t.logout}</button>
                                 </div>
+                                <button onClick={() => acc.recoverLists()} style={{ ...ghostBtn, width: '100%', marginBottom: 12 }}>{t.recoverLists}</button>
                             </>
                         ) : (
                             <>
