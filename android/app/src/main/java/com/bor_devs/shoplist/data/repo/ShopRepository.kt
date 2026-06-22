@@ -1303,7 +1303,7 @@ class ShopRepository @Inject constructor(
     )
 
     /** This user's display name for public-link attribution ("" → server uses "External"). */
-    private fun myName(): String = settingsCache.auth.username?.takeIf { it.isNotBlank() } ?: ""
+    private fun myName(): String = settingsCache?.auth?.username?.takeIf { it.isNotBlank() } ?: ""
 
     private fun createBody(recordId: String, name: String, category: String, checked: Boolean, note: String, inList: Boolean, externalId: String): JsonObject =
         buildJsonObject {
