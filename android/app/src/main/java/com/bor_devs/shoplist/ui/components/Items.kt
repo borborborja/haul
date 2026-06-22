@@ -138,6 +138,17 @@ fun ItemRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                val attrib = attributionText(item, t)
+                if (attrib.isNotBlank()) {
+                    Text(
+                        text = attrib,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
@@ -191,6 +202,24 @@ fun GridItemCard(
                 textDecoration = if (item.checked) TextDecoration.LineThrough else null,
                 color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
+            val attrib = attributionText(item, LocalStrings.current)
+            if (attrib.isNotBlank()) {
+                Text(
+                    attrib,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
         }
     }
+}
+
+/** "Bought by X" for a checked item, else "Added by Y"; "" when unknown. */
+private fun attributionText(item: ShopItem, t: com.bor_devs.shoplist.ui.i18n.Strings): String = when {
+    item.checked && item.checkedBy.isNotBlank() -> t.boughtByLabel.replace("{x}", item.checkedBy)
+    item.addedBy.isNotBlank() -> t.addedByLabel.replace("{x}", item.addedBy)
+    else -> ""
 }

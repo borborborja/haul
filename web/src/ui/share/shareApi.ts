@@ -10,6 +10,8 @@ export interface ShareItem {
     category: string;
     checked: boolean;
     note: string;
+    addedBy?: string;
+    checkedBy?: string;
 }
 
 export interface ShareCategory {
@@ -38,18 +40,18 @@ async function json<T>(res: Response): Promise<T> {
 export const fetchSnapshot = (token: string) =>
     fetch(base(`/api/shoplist/public/${encodeURIComponent(token)}`)).then(json<ShareSnapshot>);
 
-export const checkItem = (token: string, itemId: string, checked: boolean) =>
+export const checkItem = (token: string, itemId: string, checked: boolean, displayName?: string) =>
     fetch(base(`/api/shoplist/public/${encodeURIComponent(token)}/items/${itemId}/check`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checked }),
+        body: JSON.stringify({ checked, displayName }),
     }).then((r) => json<{ ok: boolean }>(r));
 
-export const addItem = (token: string, name: string, category: string) =>
+export const addItem = (token: string, name: string, category: string, displayName?: string) =>
     fetch(base(`/api/shoplist/public/${encodeURIComponent(token)}/items`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, category }),
+        body: JSON.stringify({ name, category, displayName }),
     }).then((r) => json<{ id: string }>(r));
 
 export const removeItem = (token: string, itemId: string) =>

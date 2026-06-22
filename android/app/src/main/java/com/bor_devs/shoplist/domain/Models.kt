@@ -41,6 +41,9 @@ data class ShopItem(
     val updatedAt: Long = 0,
     /** A write was permanently rejected; resend on next (re)connect. */
     val dirty: Boolean = false,
+    /** Name of who added the item / who bought (checked) it. */
+    val addedBy: String = "",
+    val checkedBy: String = "",
 ) {
     val isLocal: Boolean get() = id.startsWith("local_")
 }

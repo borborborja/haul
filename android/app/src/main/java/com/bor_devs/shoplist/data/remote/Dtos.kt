@@ -70,6 +70,8 @@ data class PublicItemDto(
     val category: String = "other",
     val checked: Boolean = false,
     val note: String = "",
+    val addedBy: String = "",
+    val checkedBy: String = "",
 )
 
 @Serializable
@@ -102,6 +104,8 @@ data class ItemRecord(
     @SerialName("in_list") val inList: Boolean = true,
     val note: String = "",
     @SerialName("external_id") val externalId: String = "",
+    @SerialName("added_by") val addedBy: String = "",
+    @SerialName("checked_by") val checkedBy: String = "",
     val list: String = "",
     val updated: String = "",
     val created: String = "",

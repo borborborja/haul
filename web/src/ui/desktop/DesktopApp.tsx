@@ -6,6 +6,7 @@ import { useHaulModel, localized } from '../shared/model';
 import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
 import Avatar from '../shared/Avatar';
+import { attribution } from '../shared/attribution';
 import { guessCategory } from '../shared/guess';
 import {
     ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor, segActive, colorBar,
@@ -156,6 +157,7 @@ export default function DesktopApp(_props: { openSettings: () => void }) {
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text)' }}>{it.name}</div>
                                                     {it.note && <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{it.note}</div>}
+                                                    {attribution(it, t) && <div style={{ fontSize: 10.5, color: ACCENT, fontWeight: 600 }}>{attribution(it, t)}</div>}
                                                 </div>
                                                 <button onClick={() => removeFromList(it.id)} aria-label="remove" style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 3, display: 'flex', flex: 'none' }}>
                                                     <Trash2 size={14} color="var(--muted)" strokeWidth={2} />
@@ -325,13 +327,17 @@ export default function DesktopApp(_props: { openSettings: () => void }) {
                                             <div>
                                                 <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{it.name}</div>
                                                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{m.groups.find((g) => g.key === it.category)?.label || it.category}</div>
+                                                {attribution(it, t) && <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginTop: 2 }}>{attribution(it, t)}</div>}
                                             </div>
                                         </button>
                                     ))}
                                     {m.completed.map((it) => (
                                         <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface2)', borderRadius: 18, padding: 18, position: 'relative', overflow: 'hidden', height: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', opacity: 0.58, border: 'none' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end' }}><div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={15} color="#fff" strokeWidth={3.4} /></div></div>
-                                            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                                {attribution(it, t) && <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>{attribution(it, t)}</div>}
+                                            </div>
                                         </button>
                                     ))}
                                 </div>
@@ -341,14 +347,20 @@ export default function DesktopApp(_props: { openSettings: () => void }) {
                                         <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface)', borderRadius: viewMode === 'compact' ? 13 : 17, padding: viewMode === 'compact' ? '11px 14px' : '15px 16px', border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 14 }}>
                                             <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
                                             <div style={{ width: 26, height: 26, borderRadius: '50%', border: '2.4px solid var(--muted)', flex: 'none' }} />
-                                            <div style={{ flex: 1, fontWeight: 600, fontSize: viewMode === 'compact' ? 14 : 15.5, color: 'var(--text)' }}>{it.name}</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: viewMode === 'compact' ? 14 : 15.5, color: 'var(--text)' }}>{it.name}</div>
+                                                {attribution(it, t) && <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600 }}>{attribution(it, t)}</div>}
+                                            </div>
                                             <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'var(--muted)' }}>{m.groups.find((g) => g.key === it.category)?.label || it.category}</span>
                                         </button>
                                     ))}
                                     {m.completed.map((it) => (
                                         <button key={it.id} onClick={() => toggleCheck(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface2)', borderRadius: viewMode === 'compact' ? 13 : 17, padding: viewMode === 'compact' ? '11px 14px' : '15px 16px', border: 'none', display: 'flex', alignItems: 'center', gap: 14, opacity: 0.6 }}>
                                             <div style={{ width: 26, height: 26, borderRadius: '50%', background: ACCENT, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={14} color="#fff" strokeWidth={3.4} /></div>
-                                            <div style={{ flex: 1, fontWeight: 600, fontSize: 15.5, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                                {attribution(it, t) && <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{attribution(it, t)}</div>}
+                                            </div>
                                         </button>
                                     ))}
                                 </div>

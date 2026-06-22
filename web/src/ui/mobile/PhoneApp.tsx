@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useShopStore } from '../../store/shopStore';
 import { useHaulModel, localized } from '../shared/model';
+import { attribution } from '../shared/attribution';
 import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
 import {
@@ -212,9 +213,10 @@ export default function PhoneApp(_props: { openSettings: () => void }) {
                                         {g.items.map((it) => (
                                             <div key={it.id} style={{ background: 'var(--surface)', borderRadius: compact ? 13 : 17, padding: compact ? '10px 13px' : '14px 16px', display: 'flex', alignItems: 'center', gap: 13, position: 'relative', overflow: 'hidden', border: '1px solid var(--line)', boxShadow: '0 3px 10px rgba(10,21,18,.04)' }}>
                                                 <div style={colorBar(g.color)} />
-                                                <div style={{ flex: 1 }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontWeight: 600, fontSize: compact ? 14 : 15.5, color: 'var(--text)' }}>{it.name}</div>
                                                     {!compact && it.note && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>{it.note}</div>}
+                                                    {attribution(it, t) && <div style={{ fontSize: 11.5, color: ACCENT, fontWeight: 600, marginTop: 1 }}>{attribution(it, t)}</div>}
                                                 </div>
                                                 <button onClick={() => removeFromList(it.id)} aria-label="remove" style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 6, display: 'flex' }}>
                                                     <Trash2 size={17} color="var(--muted)" strokeWidth={2} />
@@ -307,7 +309,10 @@ function ShopMode({ m, grid, ViewSelector, onToggle, onClear }: any) {
                             <button key={it.id} onClick={() => onToggle(it.id)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface)', borderRadius: 18, padding: 15, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', height: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                 <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
                                 <div style={{ width: 26, height: 26, borderRadius: '50%', border: '2.4px solid var(--muted)' }} />
-                                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{it.name}</div>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{it.name}</div>
+                                    {attribution(it, t) && <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginTop: 2 }}>{attribution(it, t)}</div>}
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -317,7 +322,10 @@ function ShopMode({ m, grid, ViewSelector, onToggle, onClear }: any) {
                             <button key={it.id} onClick={() => onToggle(it.id)} style={{ textAlign: 'left', background: 'var(--surface)', borderRadius: 17, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden', border: '1px solid var(--line)', cursor: 'pointer' }}>
                                 <div style={colorBar(catColor(it.category, m.categories[it.category]?.color))} />
                                 <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.4px solid var(--muted)', flex: 'none' }} />
-                                <div style={{ flex: 1, fontWeight: 600, fontSize: 15.5, color: 'var(--text)' }}>{it.name}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--text)' }}>{it.name}</div>
+                                    {attribution(it, t) && <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600 }}>{attribution(it, t)}</div>}
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -336,7 +344,10 @@ function ShopMode({ m, grid, ViewSelector, onToggle, onClear }: any) {
                                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 4px rgba(16,185,129,.16)' }}>
                                         <Check size={15} color={ACCENT_INK} strokeWidth={3.4} />
                                     </div>
-                                    <div style={{ flex: 1, fontWeight: 600, fontSize: 16, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--muted)', textDecoration: 'line-through' }}>{it.name}</div>
+                                        {attribution(it, t) && <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{attribution(it, t)}</div>}
+                                    </div>
                                 </button>
                             ))}
                         </div>

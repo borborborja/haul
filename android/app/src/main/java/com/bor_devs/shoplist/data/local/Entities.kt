@@ -16,16 +16,20 @@ data class ItemEntity(
     val serverUpdated: Long,
     val updatedAt: Long,
     val dirty: Boolean,
+    val addedBy: String = "",
+    val checkedBy: String = "",
 ) {
     fun toDomain() = ShopItem(
         id = id, name = name, checked = checked, note = note, category = category,
         inList = inList, serverUpdated = serverUpdated, updatedAt = updatedAt, dirty = dirty,
+        addedBy = addedBy, checkedBy = checkedBy,
     )
 
     companion object {
         fun from(i: ShopItem) = ItemEntity(
             id = i.id, name = i.name, checked = i.checked, note = i.note, category = i.category,
             inList = i.inList, serverUpdated = i.serverUpdated, updatedAt = i.updatedAt, dirty = i.dirty,
+            addedBy = i.addedBy, checkedBy = i.checkedBy,
         )
     }
 }

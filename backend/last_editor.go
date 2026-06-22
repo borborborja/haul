@@ -1,8 +1,26 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/pocketbase/pocketbase/core"
 )
+
+// actorName is the human display name for per-item attribution: the caller's
+// display name, else the email local-part, else "Guest"; "External" for
+// anonymous / service callers.
+func actorName(auth *core.Record) string {
+	if auth != nil && auth.Collection() != nil && auth.Collection().Name == "users" {
+		if name := strings.TrimSpace(auth.GetString("display_name")); name != "" {
+			return name
+		}
+		if email := auth.GetString("email"); email != "" {
+			return strings.SplitN(email, "@", 2)[0]
+		}
+		return "Guest"
+	}
+	return "External"
+}
 
 // authUserId returns the requesting users-collection account id, or "" for
 // service accounts / anonymous (public-link) callers.
@@ -73,6 +91,8 @@ func recordHistory(app core.App, auth *core.Record, ip, listId, action, detail s
 // (app users). Public-link edits are logged directly in the share handlers.
 func registerLastEditor(app core.App) {
 	app.OnRecordCreateRequest("shopping_items").BindFunc(func(e *core.RecordRequestEvent) error {
+		// Attribute the item to its creator (set before save).
+		e.Record.Set("added_by", actorName(e.Auth))
 		if err := e.Next(); err != nil {
 			return err
 		}
@@ -80,11 +100,18 @@ func registerLastEditor(app core.App) {
 		return nil
 	})
 	app.OnRecordUpdateRequest("shopping_items").BindFunc(func(e *core.RecordRequestEvent) error {
+		nowChecked := e.Record.GetBool("checked")
+		wasChecked := e.Record.Original().GetBool("checked")
+		if nowChecked && !wasChecked {
+			e.Record.Set("checked_by", actorName(e.Auth)) // who bought it
+		} else if !nowChecked && wasChecked {
+			e.Record.Set("checked_by", "")
+		}
 		if err := e.Next(); err != nil {
 			return err
 		}
 		action := "edit"
-		if e.Record.GetBool("checked") {
+		if nowChecked {
 			action = "check"
 		}
 		recordHistory(e.App, e.Auth, e.RealIP(), e.Record.GetString("list"), action, e.Record.GetString("name"))

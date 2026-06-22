@@ -142,12 +142,12 @@ class PocketBaseClient @Inject constructor(
     suspend fun publicSnapshot(token: String): PublicSnapshot =
         decode(request("GET", "/api/shoplist/public/$token"))
 
-    suspend fun publicCheck(token: String, itemId: String, checked: Boolean) {
-        request("POST", "/api/shoplist/public/$token/items/$itemId/check", buildJsonObject { put("checked", checked) })
+    suspend fun publicCheck(token: String, itemId: String, checked: Boolean, displayName: String = "") {
+        request("POST", "/api/shoplist/public/$token/items/$itemId/check", buildJsonObject { put("checked", checked); put("displayName", displayName) })
     }
 
-    suspend fun publicAdd(token: String, name: String, category: String) {
-        request("POST", "/api/shoplist/public/$token/items", buildJsonObject { put("name", name); put("category", category) })
+    suspend fun publicAdd(token: String, name: String, category: String, displayName: String = "") {
+        request("POST", "/api/shoplist/public/$token/items", buildJsonObject { put("name", name); put("category", category); put("displayName", displayName) })
     }
 
     suspend fun publicRemove(token: String, itemId: String) {

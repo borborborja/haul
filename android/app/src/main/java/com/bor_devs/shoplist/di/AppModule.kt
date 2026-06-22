@@ -33,6 +33,14 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+// v2 -> v3: per-item attribution (who added / who bought). Additive columns.
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN addedBy TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE items ADD COLUMN checkedBy TEXT NOT NULL DEFAULT ''")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -64,7 +72,7 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "shoplist.db")
             // Additive: keep local data on upgrade (adds the disabled_products table).
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
 

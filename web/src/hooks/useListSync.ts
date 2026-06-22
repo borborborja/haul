@@ -17,6 +17,8 @@ const mapItemRecord = (r: any, local?: ShopItem): ShopItem => ({
     note: r.note,
     category: r.category,
     inList: r.in_list,
+    addedBy: r.added_by,
+    checkedBy: r.checked_by,
     serverUpdated: parsePbDate(r.updated),
     updatedAt: local?.updatedAt ?? Date.now()
 });

@@ -4,6 +4,7 @@ import {
     fetchSnapshot, checkItem, addItem, removeItem,
     type ShareSnapshot, type ShareItem, type ShareCategory, type ShareMode,
 } from './shareApi';
+import { attribution } from '../shared/attribution';
 
 // Share-specific labels (the rest reuse the app's UIDict via tt(lang)). Only
 // es/ca/en are spelled out; any other UI language falls back to English.
@@ -37,6 +38,19 @@ export default function ShareView() {
     const [draft, setDraft] = useState('');
     const [draftCat, setDraftCat] = useState('');
     const pending = useRef(0);
+
+    // Public viewers are anonymous — ask their name once so their checks/adds are
+    // attributed ("Comprado por…"). Persisted and reused across links.
+    const [viewerName, setViewerName] = useState<string>(() => {
+        try { return localStorage.getItem('haul-share-name') || ''; } catch { return ''; }
+    });
+    const [nameDraft, setNameDraft] = useState('');
+    const saveName = (n: string) => {
+        const v = n.trim();
+        if (!v) return;
+        setViewerName(v);
+        try { localStorage.setItem('haul-share-name', v); } catch { /* ignore */ }
+    };
 
     const load = async (initial = false) => {
         try {
@@ -104,7 +118,7 @@ export default function ShareView() {
         const next = !it.checked;
         setItems((prev) => prev.map((x) => x.id === it.id ? { ...x, checked: next } : x));
         pending.current++;
-        try { await checkItem(token, it.id, next); } catch { /* will resync on next poll */ } finally { pending.current--; }
+        try { await checkItem(token, it.id, next, viewerName); } catch { /* will resync on next poll */ } finally { pending.current--; }
     };
 
     const remove = async (it: ShareItem) => {
@@ -123,7 +137,7 @@ export default function ShareView() {
         const temp: ShareItem = { id: `tmp_${name}_${items.length}`, name, category: cat, checked: false, note: '' };
         setItems((prev) => [temp, ...prev]);
         pending.current++;
-        try { await addItem(token, name, cat); } catch { /* resync */ } finally { pending.current--; load(false); }
+        try { await addItem(token, name, cat, viewerName); } catch { /* resync */ } finally { pending.current--; load(false); }
     };
 
     if (loading) {
@@ -152,6 +166,15 @@ export default function ShareView() {
     return (
         <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #D6F0E5 0%, #F2F7F4 38%, #FBFAF6 100%)', fontFamily: 'DM Sans, system-ui, sans-serif', color: INK, paddingBottom: canEdit ? 96 : 40 }}>
             <style>{spin}</style>
+            {canCheck && !viewerName && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(6,35,26,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16 }}>
+                    <div style={{ width: '100%', maxWidth: 360, background: '#FBFAF6', borderRadius: 20, padding: 22, boxShadow: '0 20px 60px rgba(6,35,26,0.3)' }}>
+                        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, color: MINT, fontWeight: 600, marginBottom: 10 }}>{t.yourNamePrompt}</div>
+                        <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveName(nameDraft); }} style={{ width: '100%', boxSizing: 'border-box', border: '1px solid rgba(6,35,26,0.16)', borderRadius: 12, padding: '12px 14px', fontSize: 16, fontFamily: 'inherit', color: INK, marginBottom: 12 }} />
+                        <button onClick={() => saveName(nameDraft)} disabled={!nameDraft.trim()} style={{ width: '100%', border: 'none', background: MINT, color: '#fff', borderRadius: 12, padding: 13, fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: nameDraft.trim() ? 1 : 0.5 }}>{t.continueLabel}</button>
+                    </div>
+                </div>
+            )}
             <div style={{ maxWidth: 620, margin: '0 auto', padding: '28px 18px 0' }}>
                 <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
                     <div style={{ minWidth: 0 }}>
@@ -203,6 +226,7 @@ export default function ShareView() {
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 600, fontSize: 15, textDecoration: it.checked ? 'line-through' : 'none' }}>{it.name}</div>
                                                 {it.note && <div style={{ fontSize: 12, opacity: 0.5 }}>{it.note}</div>}
+                                                {attribution(it, t) && <div style={{ fontSize: 12, color: MINT, fontWeight: 600 }}>{attribution(it, t)}</div>}
                                             </div>
                                             {canEdit && (
                                                 <button onClick={(e) => { e.stopPropagation(); remove(it); }} aria-label="remove" style={{ border: 'none', background: 'transparent', color: 'rgba(6,35,26,0.3)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>

@@ -136,11 +136,13 @@ func publicSnapshot(e *core.RequestEvent) error {
 	}
 
 	type outItem struct {
-		Id       string `json:"id"`
-		Name     string `json:"name"`
-		Category string `json:"category"`
-		Checked  bool   `json:"checked"`
-		Note     string `json:"note"`
+		Id        string `json:"id"`
+		Name      string `json:"name"`
+		Category  string `json:"category"`
+		Checked   bool   `json:"checked"`
+		Note      string `json:"note"`
+		AddedBy   string `json:"addedBy,omitempty"`
+		CheckedBy string `json:"checkedBy,omitempty"`
 	}
 	outItems := make([]outItem, 0, len(items))
 	keys := map[string]bool{}
@@ -148,11 +150,13 @@ func publicSnapshot(e *core.RequestEvent) error {
 		cat := it.GetString("category")
 		keys[cat] = true
 		outItems = append(outItems, outItem{
-			Id:       it.Id,
-			Name:     it.GetString("name"),
-			Category: cat,
-			Checked:  it.GetBool("checked"),
-			Note:     it.GetString("note"),
+			Id:        it.Id,
+			Name:      it.GetString("name"),
+			Category:  cat,
+			Checked:   it.GetBool("checked"),
+			Note:      it.GetString("note"),
+			AddedBy:   it.GetString("added_by"),
+			CheckedBy: it.GetString("checked_by"),
 		})
 	}
 
@@ -269,6 +273,19 @@ func orKey(v, key string) string {
 	return v
 }
 
+// publicName cleans an optional viewer-provided name for attribution; falls back
+// to "External" when blank.
+func publicName(s string) string {
+	n := strings.TrimSpace(s)
+	if n == "" {
+		return "External"
+	}
+	if len(n) > 200 {
+		n = n[:200]
+	}
+	return n
+}
+
 // publicCheckItem toggles the checked state of an item via a shared link.
 // Allowed in "shop" and "plan" modes.
 func publicCheckItem(e *core.RequestEvent) error {
@@ -287,12 +304,18 @@ func publicCheckItem(e *core.RequestEvent) error {
 	}
 
 	var body struct {
-		Checked bool `json:"checked"`
+		Checked     bool   `json:"checked"`
+		DisplayName string `json:"displayName"`
 	}
 	if err := e.BindBody(&body); err != nil {
 		return apis.NewBadRequestError("Invalid request.", err)
 	}
 	item.Set("checked", body.Checked)
+	if body.Checked {
+		item.Set("checked_by", publicName(body.DisplayName)) // who bought it
+	} else {
+		item.Set("checked_by", "")
+	}
 	if err := e.App.Save(item); err != nil {
 		return apis.NewBadRequestError("Could not update the item.", err)
 	}
@@ -316,8 +339,9 @@ func publicAddItem(e *core.RequestEvent) error {
 	}
 
 	var body struct {
-		Name     string `json:"name"`
-		Category string `json:"category"`
+		Name        string `json:"name"`
+		Category    string `json:"category"`
+		DisplayName string `json:"displayName"`
 	}
 	if err := e.BindBody(&body); err != nil {
 		return apis.NewBadRequestError("Invalid request.", err)
@@ -341,6 +365,7 @@ func publicAddItem(e *core.RequestEvent) error {
 	item.Set("checked", false)
 	item.Set("in_list", true)
 	item.Set("source", "share")
+	item.Set("added_by", publicName(body.DisplayName)) // who added it
 	if err := e.App.Save(item); err != nil {
 		return apis.NewBadRequestError("Could not add the item.", err)
 	}

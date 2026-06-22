@@ -328,7 +328,7 @@ class ShopRepository @Inject constructor(
         if (trimmed.isEmpty()) return@launch
         val cat = category ?: DefaultCatalog.guessCategory(trimmed)
         guestToken()?.let { token ->
-            if (_shareMode.value == "plan") runCatching { pb.publicAdd(token, trimmed, cat) }
+            if (_shareMode.value == "plan") runCatching { pb.publicAdd(token, trimmed, cat, myName()) }
             return@launch
         }
         val all = itemDao.getAll()
@@ -364,7 +364,7 @@ class ShopRepository @Inject constructor(
             if (_shareMode.value != "shop" && _shareMode.value != "plan") return@launch
             val updated = item.copy(checked = !item.checked, updatedAt = now())
             itemDao.upsert(updated); notifyWidgets()
-            runCatching { pb.publicCheck(token, id, updated.checked) }
+            runCatching { pb.publicCheck(token, id, updated.checked, myName()) }
             return@launch
         }
         val updated = item.copy(checked = !item.checked, updatedAt = now())
@@ -882,7 +882,7 @@ class ShopRepository @Inject constructor(
                     _listName.value = snap.list.name.ifBlank { null }
                     prefs.setListName(snap.list.name.ifBlank { null })
                     itemDao.replaceAll(snap.items.map {
-                        ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false)
+                        ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy)
                     })
                     notifyWidgets()
                 }
@@ -1299,7 +1299,11 @@ class ShopRepository @Inject constructor(
         id = id, name = name, checked = checked, note = note,
         category = category.ifBlank { "other" }, inList = inList,
         serverUpdated = SyncMeta.parsePbDate(updated), updatedAt = local?.updatedAt ?: now(), dirty = false,
+        addedBy = addedBy, checkedBy = checkedBy,
     )
+
+    /** This user's display name for public-link attribution ("" → server uses "External"). */
+    private fun myName(): String = settingsCache.auth.username?.takeIf { it.isNotBlank() } ?: ""
 
     private fun createBody(recordId: String, name: String, category: String, checked: Boolean, note: String, inList: Boolean, externalId: String): JsonObject =
         buildJsonObject {

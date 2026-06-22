@@ -164,6 +164,8 @@ data class Strings(
     val inviteBody: String = "{who} invited you to administer “{list}”.",
     val inviteAccept: String = "Accept",
     val inviteDecline: String = "Decline",
+    val addedByLabel: String = "Added by {x}",
+    val boughtByLabel: String = "Bought by {x}",
 ) {
     fun cat(key: String): String = cats[key] ?: key
 }
@@ -213,6 +215,7 @@ private val ES = Strings(
     copyLink = "Copiar enlace", linkCopied = "Enlace copiado", regenerateLink = "Nuevo enlace", stopSharing = "Dejar de compartir",
     deactivate = "Ocultar", reactivate = "Mostrar",
     inviteTitle = "Invitación a una lista", inviteBody = "{who} te ha invitado a administrar «{list}».", inviteAccept = "Aceptar", inviteDecline = "Rechazar",
+    addedByLabel = "Añadido por {x}", boughtByLabel = "Comprado por {x}",
     members = "Miembros", roleOwner = "Propietario", roleAdmin = "Administrador", roleGuest = "Invitado",
     addAdmin = "Añadir administrador", adminByEmail = "Añadir por correo", adminLink = "Enlace de admin", copyAdminLink = "Copiar enlace de admin",
     emailNoAccount = "No hay cuenta con ese correo — comparte el enlace de admin.", adminAdded = "Administrador añadido",
@@ -265,6 +268,7 @@ private val CA = Strings(
     copyLink = "Copiar enllaç", linkCopied = "Enllaç copiat", regenerateLink = "Nou enllaç", stopSharing = "Deixar de compartir",
     deactivate = "Amaga", reactivate = "Mostra",
     inviteTitle = "Invitació a una llista", inviteBody = "{who} t'ha convidat a administrar «{list}».", inviteAccept = "Acceptar", inviteDecline = "Rebutjar",
+    addedByLabel = "Afegit per {x}", boughtByLabel = "Comprat per {x}",
     members = "Membres", roleOwner = "Propietari", roleAdmin = "Administrador", roleGuest = "Convidat",
     addAdmin = "Afegir administrador", adminByEmail = "Afegir per correu", adminLink = "Enllaç d'admin", copyAdminLink = "Copiar enllaç d'admin",
     emailNoAccount = "No hi ha cap compte amb aquest correu — comparteix l'enllaç d'admin.", adminAdded = "Administrador afegit",

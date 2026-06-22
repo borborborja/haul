@@ -26,6 +26,8 @@ export interface ShopItem {
     inList?: boolean;  // true = en lista activa, false/undefined = en "utilizados anteriormente"
     serverUpdated?: number; // ms timestamp of the last server version applied locally
     dirty?: boolean;        // local edits the server hasn't accepted yet (resync pushes them)
+    addedBy?: string;       // name of who added the item
+    checkedBy?: string;     // name of who bought (checked) it
 }
 
 export type AppMode = 'planning' | 'shopping';
