@@ -3,6 +3,11 @@
     <!-- Base app theme; Compose drives the real colors at runtime. -->
     <style name="Theme.ShoppingList" parent="android:Theme.Material.Light.NoActionBar" />
 
+    <!-- The image cropper screen is an AppCompatActivity and needs an AppCompat
+         theme; the app's own theme is framework Material, so give the cropper its
+         own (set via tools:replace in the manifest). -->
+    <style name="Theme.ShoppingList.Cropper" parent="Theme.AppCompat.Light.NoActionBar" />
+
     <!-- Splash screen theme (androidx core-splashscreen). -->
     <style name="Theme.ShoppingList.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>

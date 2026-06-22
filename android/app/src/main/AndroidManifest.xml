@@ -59,6 +59,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Image cropper (avatar): force an AppCompat theme; the library's
+             activity inherits the app theme otherwise, which is framework Material
+             and crashes an AppCompatActivity. -->
+        <activity
+            android:name="com.canhub.cropper.CropImageActivity"
+            android:theme="@style/Theme.ShoppingList.Cropper"
+            tools:replace="android:theme" />
+
         <!-- FileProvider for the in-app updater (downloaded APK) -->
         <provider
             android:name="androidx.core.content.FileProvider"
