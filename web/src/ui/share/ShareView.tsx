@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { tt, detectLang, type Lang } from '../../data/i18n';
+import { tt, detectLang, LANGS, type Lang } from '../../data/i18n';
 import {
     fetchSnapshot, checkItem, addItem, removeItem,
     type ShareSnapshot, type ShareItem, type ShareCategory, type ShareMode,
@@ -22,7 +22,11 @@ const INK = '#06231A';
 
 export default function ShareView() {
     const token = useMemo(() => decodeURIComponent(window.location.pathname.replace(/^\/s\//, '').replace(/\/$/, '')), []);
-    const lang = useMemo<Lang>(() => detectLang(navigator.language), []);
+    const [lang, setLang] = useState<Lang>(() => {
+        const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('haul-share-lang')) as Lang | null;
+        return saved || detectLang(navigator.language);
+    });
+    const pickLang = (l: Lang) => { setLang(l); try { localStorage.setItem('haul-share-lang', l); } catch { /* ignore */ } };
     const t = tt(lang);
     const L = shareL(lang);
 
@@ -65,8 +69,26 @@ export default function ShareView() {
     const catMeta = useMemo(() => {
         const map = new Map<string, ShareCategory>();
         snap?.categories.forEach((c) => map.set(c.key, c));
+        snap?.allCategories?.forEach((c) => { if (!map.has(c.key)) map.set(c.key, c); });
         return map;
     }, [snap]);
+
+    // Categories offered in the add picker: always the built-in defaults (so any
+    // category is selectable even when the server catalog is empty), merged with
+    // the server's catalog + the list's custom categories.
+    const addCategories = useMemo<ShareCategory[]>(() => {
+        const out: ShareCategory[] = [];
+        const seen = new Set<string>();
+        const push = (key: string, c?: ShareCategory) => {
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            out.push(c ?? { key, icon: '', name: { es: key, ca: key, en: key } });
+        };
+        (Object.keys(t.cats) as string[]).forEach((k) => push(k));
+        (snap?.allCategories ?? []).forEach((c) => push(c.key, c));
+        (snap?.categories ?? []).forEach((c) => push(c.key, c));
+        return out;
+    }, [snap, t]);
 
     // Built-in categories are richer/localized in the app's own dictionary;
     // fall back to the server metadata (custom categories) then the raw key.
@@ -131,9 +153,14 @@ export default function ShareView() {
         <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #D6F0E5 0%, #F2F7F4 38%, #FBFAF6 100%)', fontFamily: 'DM Sans, system-ui, sans-serif', color: INK, paddingBottom: canEdit ? 96 : 40 }}>
             <style>{spin}</style>
             <div style={{ maxWidth: 620, margin: '0 auto', padding: '28px 18px 0' }}>
-                <header style={{ marginBottom: 18 }}>
-                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: MINT, fontWeight: 600 }}>{modeLabel}</div>
-                    <h1 style={{ fontFamily: '"Bricolage Grotesque", sans-serif', fontWeight: 800, fontSize: 30, margin: '4px 0 0', lineHeight: 1.1 }}>{snap.list.name || t.myList}</h1>
+                <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: MINT, fontWeight: 600 }}>{modeLabel}</div>
+                        <h1 style={{ fontFamily: '"Bricolage Grotesque", sans-serif', fontWeight: 800, fontSize: 30, margin: '4px 0 0', lineHeight: 1.1 }}>{snap.list.name || t.myList}</h1>
+                    </div>
+                    <select value={lang} onChange={(e) => pickLang(e.target.value as Lang)} aria-label="language" style={{ flexShrink: 0, marginTop: 2, border: '1px solid rgba(6,35,26,0.15)', background: '#fff', color: INK, borderRadius: 10, padding: '6px 8px', fontSize: 13, cursor: 'pointer' }}>
+                        {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
+                    </select>
                 </header>
 
                 {total > 0 && (
@@ -197,10 +224,10 @@ export default function ShareView() {
                 <form onSubmit={submitAdd} style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'rgba(251,250,246,0.92)', backdropFilter: 'blur(8px)', borderTop: '1px solid rgba(6,35,26,0.08)', padding: '12px 14px' }}>
                     <div style={{ maxWidth: 620, margin: '0 auto', display: 'flex', gap: 8 }}>
                         <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={L.addPh} style={{ flex: 1, border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '11px 14px', fontSize: 15, outline: 'none', background: '#fff', color: INK }} />
-                        {snap.categories.length > 0 && (
-                            <select value={draftCat} onChange={(e) => setDraftCat(e.target.value)} style={{ border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '0 10px', fontSize: 14, background: '#fff', color: INK, maxWidth: 120 }}>
+                        {addCategories.length > 0 && (
+                            <select value={draftCat} onChange={(e) => setDraftCat(e.target.value)} style={{ border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '0 10px', fontSize: 14, background: '#fff', color: INK, maxWidth: 140 }}>
                                 <option value="">—</option>
-                                {snap.categories.map((c) => <option key={c.key} value={c.key}>{labelFor(c.key)}</option>)}
+                                {addCategories.map((c) => <option key={c.key} value={c.key}>{labelFor(c.key)}</option>)}
                             </select>
                         )}
                         <button type="submit" style={{ border: 'none', background: MINT, color: '#fff', borderRadius: 12, padding: '0 18px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>{t.add}</button>

@@ -169,11 +169,61 @@ func publicSnapshot(e *core.RequestEvent) error {
 		cats = append(cats, resolveCategory(e.App, list.Id, key))
 	}
 
+	// Full set of categories to pick from when adding (plan mode): the global
+	// catalog (non-hidden) plus this list's custom categories (which override by
+	// key). Lets a guest file a new product under any category, not only the
+	// ones already present in the list.
+	allCats := make([]cat, 0, 16)
+	seen := map[string]bool{}
+	if cols, _ := e.App.FindRecordsByFilter("catalog_categories", "hidden = false", "order", 0, 0); cols != nil {
+		for _, c := range cols {
+			key := c.GetString("key")
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			allCats = append(allCats, cat{
+				Key:  key,
+				Icon: c.GetString("icon"),
+				Name: map[string]string{
+					"es": orKey(c.GetString("name_es"), key),
+					"ca": orKey(c.GetString("name_ca"), key),
+					"en": orKey(c.GetString("name_en"), key),
+				},
+			})
+		}
+	}
+	if lcs, _ := e.App.FindRecordsByFilter("list_categories", "list = {:l}", "", 0, 0, dbx.Params{"l": list.Id}); lcs != nil {
+		for _, c := range lcs {
+			key := c.GetString("key")
+			if key == "" {
+				continue
+			}
+			name := c.GetString("name")
+			nm := map[string]string{"es": orKey(name, key), "ca": orKey(name, key), "en": orKey(name, key)}
+			if seen[key] {
+				for i := range allCats {
+					if allCats[i].Key == key {
+						allCats[i].Name = nm
+						if ic := c.GetString("icon"); ic != "" {
+							allCats[i].Icon = ic
+						}
+						break
+					}
+				}
+			} else {
+				seen[key] = true
+				allCats = append(allCats, cat{Key: key, Icon: c.GetString("icon"), Name: nm})
+			}
+		}
+	}
+
 	return e.JSON(http.StatusOK, map[string]any{
-		"list":       map[string]string{"name": list.GetString("name")},
-		"mode":       list.GetString("share_mode"),
-		"items":      outItems,
-		"categories": cats,
+		"list":          map[string]string{"name": list.GetString("name")},
+		"mode":          list.GetString("share_mode"),
+		"items":         outItems,
+		"categories":    cats,
+		"allCategories": allCats,
 	})
 }
 

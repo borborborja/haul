@@ -23,6 +23,8 @@ export interface ShareSnapshot {
     mode: ShareMode;
     items: ShareItem[];
     categories: ShareCategory[];
+    // Full set of categories to choose from when adding (catalog + list custom).
+    allCategories?: ShareCategory[];
 }
 
 // Same origin in the browser; the public page is always served by the backend.
