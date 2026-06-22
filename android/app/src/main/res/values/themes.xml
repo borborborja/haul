@@ -5,8 +5,13 @@
 
     <!-- The image cropper screen is an AppCompatActivity and needs an AppCompat
          theme; the app's own theme is framework Material, so give the cropper its
-         own (set via tools:replace in the manifest). -->
-    <style name="Theme.ShoppingList.Cropper" parent="Theme.AppCompat.Light.NoActionBar" />
+         own (set via tools:replace in the manifest). It MUST keep an action bar —
+         the cropper's confirm (✓) action lives in the toolbar menu. -->
+    <style name="Theme.ShoppingList.Cropper" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">#06231A</item>
+        <item name="colorPrimaryDark">#06231A</item>
+        <item name="colorAccent">#10B981</item>
+    </style>
 
     <!-- Splash screen theme (androidx core-splashscreen). -->
     <style name="Theme.ShoppingList.Starting" parent="Theme.SplashScreen">
