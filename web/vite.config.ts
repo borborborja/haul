@@ -4,7 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  // Absolute base so assets resolve at any route depth (e.g. /s/<token>);
+  // relative './' broke deep routes — the browser requested /s/assets/... .
+  base: '/',
   plugins: [
     react(),
     VitePWA({
