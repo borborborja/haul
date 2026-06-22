@@ -76,6 +76,23 @@ export default function ShareView() {
         document.documentElement.style.background = '#F2F7F4';
     }, []);
 
+    // Offer "install as app" (PWA) when the browser allows it — discreet, only
+    // shown if installable (not already installed / supported browser).
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
+    useEffect(() => {
+        const onPrompt = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
+        const onInstalled = () => setInstallPrompt(null);
+        window.addEventListener('beforeinstallprompt', onPrompt);
+        window.addEventListener('appinstalled', onInstalled);
+        return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled); };
+    }, []);
+    const installApp = async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        try { await installPrompt.userChoice; } catch { /* ignore */ }
+        setInstallPrompt(null);
+    };
+
     const mode: ShareMode = snap?.mode ?? 'read';
     const canCheck = mode === 'shop' || mode === 'plan';
     const canEdit = mode === 'plan';
@@ -239,8 +256,15 @@ export default function ShareView() {
                     })
                 )}
 
-                <footer style={{ textAlign: 'center', marginTop: 30, fontSize: 12, opacity: 0.4 }}>
-                    <a href="/" style={{ color: 'inherit', textDecoration: 'none' }}>{L.madeWith}</a>
+                <footer style={{ textAlign: 'center', marginTop: 30, fontSize: 12, opacity: 0.55 }}>
+                    {installPrompt && (
+                        <div style={{ marginBottom: 12 }}>
+                            <button onClick={installApp} style={{ border: `1px solid ${MINT}`, background: 'transparent', color: MINT, borderRadius: 999, padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                ⬇ {t.installApp}
+                            </button>
+                        </div>
+                    )}
+                    <a href="/" style={{ color: 'inherit', textDecoration: 'none', opacity: 0.75 }}>{L.madeWith}</a>
                 </footer>
             </div>
 

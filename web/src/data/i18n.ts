@@ -55,6 +55,7 @@ export interface UIDict {
     avatar: string; choosePhoto: string; chooseColor: string; addToMyLists: string; recoverLists: string;
     inviteTitle: string; inviteBody: string; inviteAccept: string; inviteDecline: string;
     addedByLabel: string; boughtByLabel: string; yourNamePrompt: string; continueLabel: string;
+    installApp: string;
     cats: Record<CatKey, string>;
 }
 
@@ -85,6 +86,7 @@ const en: UIDict = {
     avatar: 'Avatar', choosePhoto: 'Photo', chooseColor: 'Color', addToMyLists: 'Add to my lists', recoverLists: 'Recover my lists',
     inviteTitle: 'List invitation', inviteBody: '{who} invited you to administer “{list}”.', inviteAccept: 'Accept', inviteDecline: 'Decline',
     addedByLabel: 'Added by {x}', boughtByLabel: 'Bought by {x}', yourNamePrompt: 'What’s your name?', continueLabel: 'Continue',
+    installApp: 'Install app',
     cats: { fruit: 'Fruit', veg: 'Vegetables', meat: 'Meat/Fish', dairy: 'Dairy', pantry: 'Pantry/Bread', cleaning: 'Cleaning/Hygiene', home: 'Home', snacks: 'Snacks/Sweets', frozen: 'Frozen', processed: 'Processed', drinks: 'Drinks', spices: 'Spices', other: 'General/Other' },
 };
 
@@ -118,6 +120,7 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         avatar: 'Avatar', choosePhoto: 'Foto', chooseColor: 'Color', addToMyLists: 'Añadir a mis listas', recoverLists: 'Recuperar mis listas',
         inviteTitle: 'Invitación a una lista', inviteBody: '{who} te ha invitado a administrar «{list}».', inviteAccept: 'Aceptar', inviteDecline: 'Rechazar',
         addedByLabel: 'Añadido por {x}', boughtByLabel: 'Comprado por {x}', yourNamePrompt: '¿Cómo te llamas?', continueLabel: 'Continuar',
+        installApp: 'Instalar app',
         cats: { fruit: 'Fruta', veg: 'Verdura', meat: 'Carne/Pescado', dairy: 'Lácteos', pantry: 'Despensa/Pan', cleaning: 'Higiene/Limpieza', home: 'Hogar', snacks: 'Snacks/Dulces', frozen: 'Congelados', processed: 'Procesados', drinks: 'Bebidas', spices: 'Especias', other: 'General/Otros' },
     },
     ca: {
@@ -147,6 +150,7 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         avatar: 'Avatar', choosePhoto: 'Foto', chooseColor: 'Color', addToMyLists: 'Afegir a les meves llistes', recoverLists: 'Recuperar les meves llistes',
         inviteTitle: 'Invitació a una llista', inviteBody: "{who} t'ha convidat a administrar «{list}».", inviteAccept: 'Acceptar', inviteDecline: 'Rebutjar',
         addedByLabel: 'Afegit per {x}', boughtByLabel: 'Comprat per {x}', yourNamePrompt: 'Com et dius?', continueLabel: 'Continuar',
+        installApp: 'Instal·lar app',
         cats: { fruit: 'Fruita', veg: 'Verdura', meat: 'Carn/Peix', dairy: 'Làctics', pantry: 'Rebost/Pa', cleaning: 'Higiene/Neteja', home: 'Llar', snacks: 'Snacks/Dolços', frozen: 'Congelats', processed: 'Processats', drinks: 'Begudes', spices: 'Espècies', other: 'General/Altres' },
     },
     zh: {
