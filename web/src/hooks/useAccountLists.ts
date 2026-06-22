@@ -13,10 +13,22 @@ export function useAccountLists() {
         let running = false;
         const run = async () => {
             if (running || !navigator.onLine) return;
-            const rec = pb.authStore.record as any;
+            let rec = pb.authStore.record as any;
             if (!rec || rec.account_type !== 'account') return;
             running = true;
             try {
+                // Refresh the profile so a photo/color set on another device shows here.
+                try {
+                    const fresh = await pb.collection('users').authRefresh();
+                    rec = fresh.record as any;
+                    const base = (pb as any).baseURL || (pb as any).baseUrl || window.location.origin;
+                    useShopStore.getState().setAuth({
+                        username: rec.display_name ?? null,
+                        avatarUrl: rec.avatar ? `${base}/api/files/users/${rec.id}/${rec.avatar}` : null,
+                        avatarColor: rec.avatar_color ?? null,
+                    });
+                } catch { /* keep cached profile */ }
+
                 const members = await pb.collection('list_members').getFullList({
                     filter: pb.filter('user = {:id}', { id: rec.id }),
                     expand: 'list',

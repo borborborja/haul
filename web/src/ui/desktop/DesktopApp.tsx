@@ -5,6 +5,7 @@ import DesktopSettings from './DesktopSettings';
 import { useHaulModel, localized } from '../shared/model';
 import { useAutoClean } from '../shared/useAutoClean';
 import ProgressRing from '../shared/ProgressRing';
+import Avatar from '../shared/Avatar';
 import { guessCategory } from '../shared/guess';
 import {
     ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor, segActive, colorBar,
@@ -100,9 +101,7 @@ export default function DesktopApp(_props: { openSettings: () => void }) {
                         {themeBtn('dark', Moon, t.dark)}
                     </div>
                     <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 13, padding: '12px 13px', display: 'flex', alignItems: 'center', gap: 11 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', color: ACCENT_INK, fontWeight: 700, fontSize: 13 }}>
-                            {(auth.username || 'H').charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar name={auth.username || auth.email} url={auth.avatarUrl} color={auth.avatarColor} size={30} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)' }}>{auth.username || 'Haul'}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--muted)' }}>
