@@ -297,6 +297,11 @@ func publicCheckItem(e *core.RequestEvent) error {
 		return apis.NewBadRequestError("Could not update the item.", err)
 	}
 	touchGuest(e, list.Id)
+	action := "uncheck"
+	if body.Checked {
+		action = "check"
+	}
+	recordHistory(e.App, e.Auth, e.RealIP(), list.Id, action, item.GetString("name"))
 	return e.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -340,6 +345,7 @@ func publicAddItem(e *core.RequestEvent) error {
 		return apis.NewBadRequestError("Could not add the item.", err)
 	}
 	touchGuest(e, list.Id)
+	recordHistory(e.App, e.Auth, e.RealIP(), list.Id, "add", name)
 	return e.JSON(http.StatusCreated, map[string]string{"id": item.Id})
 }
 
@@ -365,5 +371,6 @@ func publicRemoveItem(e *core.RequestEvent) error {
 		return apis.NewBadRequestError("Could not remove the item.", err)
 	}
 	touchGuest(e, list.Id)
+	recordHistory(e.App, e.Auth, e.RealIP(), list.Id, "remove", item.GetString("name"))
 	return e.JSON(http.StatusOK, map[string]bool{"ok": true})
 }

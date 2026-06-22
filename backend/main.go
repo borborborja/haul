@@ -41,6 +41,7 @@ func main() {
 	purgeOrphanGuests(app)
 	syncEnvAdmin(app)
 	syncEnvConfig(app)
+	registerLastEditor(app)
 	registerRoutes(app, publicDir)
 
 	if err := app.Start(); err != nil {

@@ -9,11 +9,14 @@ interface UserRecord {
     display_name: string;
     account_type: string;
     last_active_at: string;
+    last_ip?: string;
 }
+
+type ListRef = { id: string; name: string; guest?: boolean };
 
 const UsersManager = ({ onOpenList }: { onOpenList?: (listId: string) => void }) => {
     const [users, setUsers] = useState<UserRecord[]>([]);
-    const [listsByUser, setListsByUser] = useState<Record<string, { id: string; name: string }[]>>({});
+    const [listsByUser, setListsByUser] = useState<Record<string, ListRef[]>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => { loadAll(); }, []);
@@ -21,15 +24,22 @@ const UsersManager = ({ onOpenList }: { onOpenList?: (listId: string) => void })
     const loadAll = async () => {
         setLoading(true);
         try {
-            const [u, members] = await Promise.all([
+            const [u, members, guests] = await Promise.all([
                 pb.collection('users').getFullList<UserRecord>({ sort: '-last_active_at' }),
                 pb.collection('list_members').getFullList({ expand: 'list' }),
+                pb.collection('list_guests').getFullList({ expand: 'list' }).catch(() => []),
             ]);
-            const map: Record<string, { id: string; name: string }[]> = {};
+            const map: Record<string, ListRef[]> = {};
             members.forEach((m: any) => {
                 const l = m.expand?.list;
                 if (!l) return;
                 (map[m.user] ||= []).push({ id: l.id, name: l.data?.listName || l.name || l.invite_code });
+            });
+            // Guests who opened a shared list in the app (read/link access).
+            (guests as any[]).forEach((g: any) => {
+                const l = g.expand?.list;
+                if (!l) return;
+                (map[g.user] ||= []).push({ id: l.id, name: l.data?.listName || l.name || l.invite_code, guest: true });
             });
             setUsers(u);
             setListsByUser(map);
@@ -130,10 +140,10 @@ const UsersManager = ({ onOpenList }: { onOpenList?: (listId: string) => void })
                                         <td className="p-4">
                                             {lists.length ? (
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {lists.map(l => (
-                                                        <button key={l.id} onClick={() => onOpenList?.(l.id)} title="Ver en Listas"
-                                                            className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-bold hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">
-                                                            {l.name}
+                                                    {lists.map((l, idx) => (
+                                                        <button key={`${l.id}-${idx}`} onClick={() => onOpenList?.(l.id)} title={l.guest ? 'Acceso por enlace compartido' : 'Miembro · Ver en Listas'}
+                                                            className={`px-2 py-0.5 rounded-md text-xs font-bold transition-colors ${l.guest ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50'}`}>
+                                                            {l.guest && '🔗 '}{l.name}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -143,6 +153,7 @@ const UsersManager = ({ onOpenList }: { onOpenList?: (listId: string) => void })
                                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                                                 <Clock size={14} className="opacity-50" /><span className="text-sm">{formatTime(user.last_active_at)}</span>
                                             </div>
+                                            {user.last_ip && <div className="text-[11px] text-slate-400 font-mono mt-1 pl-6">{user.last_ip}</div>}
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-1">

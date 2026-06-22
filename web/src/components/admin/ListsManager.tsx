@@ -29,15 +29,22 @@ interface ShoppingListRecord {
     updated: string;
     created: string;
     data: ShoppingListData;
+    last_editor?: string;
+    last_edited_by?: string;
     expand?: {
         'shopping_items(list)'?: ShopItem[];
+        last_edited_by?: { display_name?: string; email?: string };
     };
 }
+
+interface HistoryRow { id: string; actor: string; ip: string; action: string; detail: string; created: string }
 
 // Default category keys from the system
 const DEFAULT_CATEGORY_KEYS = ['fruit', 'veg', 'meat', 'dairy', 'pantry', 'cleaning', 'home', 'snacks', 'frozen', 'processed', 'drinks', 'other'];
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const createInviteCode = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), value => INVITE_ALPHABET[value % INVITE_ALPHABET.length]).join('');
+
+const actionLabel = (a: string): string => (({ add: '+ Añadido', remove: '− Quitado', check: '✓ Comprado', uncheck: 'Desmarcado', edit: 'Editado' } as Record<string, string>)[a] || a);
 
 const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
     const [lists, setLists] = useState<ShoppingListRecord[]>([]);
@@ -45,6 +52,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [history, setHistory] = useState<Record<string, HistoryRow[]>>({});
 
     // Import Logic State
     const [importData, setImportData] = useState<any>(null);
@@ -66,7 +74,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
         try {
             const result = await pb.collection('shopping_lists').getFullList<ShoppingListRecord>({
                 sort: '-updated',
-                expand: 'shopping_items(list)'
+                expand: 'shopping_items(list),last_edited_by'
             });
             setLists(result);
             setSelectedIds(new Set());
@@ -98,7 +106,16 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
 
     const toggleExpand = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        setExpandedId(expandedId === id ? null : id);
+        const next = expandedId === id ? null : id;
+        setExpandedId(next);
+        if (next && !history[next]) loadHistory(next);
+    };
+
+    const loadHistory = async (listId: string) => {
+        try {
+            const res = await pb.collection('list_history').getList<HistoryRow>(1, 80, { filter: `list="${listId}"`, sort: '-created' });
+            setHistory(h => ({ ...h, [listId]: res.items }));
+        } catch { setHistory(h => ({ ...h, [listId]: [] })); }
     };
 
     const handleDelete = async () => {
@@ -545,6 +562,10 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
                                                 <Clock size={14} className="opacity-50" />
                                                 <span className="text-sm font-medium">{formatTime(list.updated)}</span>
                                             </div>
+                                            {(() => {
+                                                const ed = list.last_editor || list.expand?.last_edited_by?.email || list.expand?.last_edited_by?.display_name;
+                                                return ed ? <div className="text-xs text-slate-400 mt-1 pl-6 truncate max-w-[180px]" title={ed}>{ed}</div> : null;
+                                            })()}
                                         </td>
                                         <td className="p-4">
                                             <button
@@ -586,6 +607,28 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
                                                             {actionLoading === list.id ? <Loader className="animate-spin" size={14} /> : <Download size={14} />}
                                                             Exportar JSON (Completo)
                                                         </button>
+                                                    </div>
+
+                                                    {/* Change history */}
+                                                    <div>
+                                                        <h4 className="text-xs font-black uppercase text-slate-500 mb-3 flex items-center gap-2">
+                                                            <Clock size={14} /> Historial de cambios
+                                                        </h4>
+                                                        {history[list.id]?.length ? (
+                                                            <div className="space-y-1 max-h-64 overflow-auto">
+                                                                {history[list.id].map(h => (
+                                                                    <div key={h.id} className="flex items-center gap-3 text-xs bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                                        <span className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap w-24">{actionLabel(h.action)}</span>
+                                                                        <span className="flex-1 truncate text-slate-500">{h.detail}</span>
+                                                                        <span className="text-slate-600 dark:text-slate-300 whitespace-nowrap" title={h.actor}>{h.actor}</span>
+                                                                        {h.ip && <span className="text-slate-400 font-mono whitespace-nowrap">{h.ip}</span>}
+                                                                        <span className="text-slate-400 whitespace-nowrap">{formatTime(h.created)}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-400 text-xs">{history[list.id] ? 'Sin cambios registrados' : 'Cargando…'}</span>
+                                                        )}
                                                     </div>
 
                                                     <div className="grid md:grid-cols-2 gap-6">
