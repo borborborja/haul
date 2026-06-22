@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.DensitySmall
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -114,6 +116,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     var noteFor by remember { mutableStateOf<ShopItem?>(null) }
     var renaming by remember { mutableStateOf(false) }
     var completedExpanded by remember { mutableStateOf(true) }
+    var previouslyExpanded by remember { mutableStateOf(true) }
     var showSwitcher by remember { mutableStateOf(false) }
     var catalogOpen by remember { mutableStateOf(false) }
 
@@ -289,12 +292,18 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
 
                 if (!shopping && previouslyUsed.isNotEmpty()) {
                     item {
-                        SectionHeader(title = "${t.previouslyUsed} (${previouslyUsed.size})", actionLabel = t.clearComp, onAction = { vm.clearPreviouslyUsed(true) })
+                        SectionHeader(
+                            title = "${t.previouslyUsed} (${previouslyUsed.size})", actionLabel = t.clearComp,
+                            onAction = { vm.clearPreviouslyUsed(true) },
+                            expanded = previouslyExpanded, onToggleExpand = { previouslyExpanded = !previouslyExpanded },
+                        )
                     }
-                    items(previouslyUsed.sortedBy { it.name.lowercase() }, key = { "p_${it.id}" }) { item ->
-                        ItemRow(item = item, mode = mode, categoryIcon = "", compact = true,
-                            onToggle = { vm.addBackToList(item.id) }, onDelete = { vm.deleteItem(item.id) },
-                            onEditNote = { noteFor = item }, onRemoveFromList = { vm.removeFromList(item.id) }, onAddBack = { vm.addBackToList(item.id) })
+                    if (previouslyExpanded) {
+                        items(previouslyUsed.sortedBy { it.name.lowercase() }, key = { "p_${it.id}" }) { item ->
+                            ItemRow(item = item, mode = mode, categoryIcon = "", compact = true,
+                                onToggle = { vm.addBackToList(item.id) }, onDelete = { vm.deleteItem(item.id) },
+                                onEditNote = { noteFor = item }, onRemoveFromList = { vm.removeFromList(item.id) }, onAddBack = { vm.addBackToList(item.id) })
+                        }
                     }
                 }
             }
@@ -427,7 +436,11 @@ private fun CompletedSectionHeader(
 ) {
     Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.clickable { onToggleExpand() })
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onToggleExpand() }) {
+                Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall)
+            }
             TextButton(onClick = onClear) {
                 Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(clearLabel)
             }
@@ -452,9 +465,13 @@ private fun CompletedSectionHeader(
 }
 
 @Composable
-private fun SectionHeader(title: String, actionLabel: String, onAction: () -> Unit) {
+private fun SectionHeader(title: String, actionLabel: String, onAction: () -> Unit, expanded: Boolean, onToggleExpand: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onToggleExpand() }) {
+            Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(title, style = MaterialTheme.typography.titleSmall)
+        }
         TextButton(onClick = onAction) { Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(actionLabel) }
     }
 }
