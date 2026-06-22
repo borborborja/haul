@@ -162,7 +162,12 @@ class ShopRepository @Inject constructor(
     private var realtimeJob: Job? = null
     private var presenceJob: Job? = null
     private var guestJob: Job? = null
+    private var memberPollJob: Job? = null
     private var sessionUserId: String? = null
+
+    /** Pull-to-refresh / manual-refresh in-progress indicator. */
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing
 
     // ---- Write queue (ported from itemWriteQueue.ts) ----
 
@@ -672,7 +677,7 @@ class ShopRepository @Inject constructor(
     /** Stop realtime/presence and mark the active list local (optionally keeping linkage for re-join). */
     private fun goLocal(code: String? = null, recordId: String? = null) {
         stopGuest()
-        realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
+        realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel(); memberPollJob?.cancel()
         _activeUsers.value = emptyList()
         scope.launch { disabledDao.clear() } // disabled set is per-list; local lists start empty
         _disabledCategories.value = emptySet()
@@ -869,7 +874,7 @@ class ShopRepository @Inject constructor(
     /** Drive a guest list from the public token endpoints: poll the snapshot and
      *  map items read-only; writes go through the gated public endpoints. */
     private fun connectAsGuest(token: String, recordId: String?) {
-        realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
+        realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel(); memberPollJob?.cancel()
         _activeUsers.value = emptyList()
         _sync.update { it.copy(connected = false, code = token, recordId = recordId, msg = "", msgType = MsgType.INFO) }
         _isGuest.value = true
@@ -893,7 +898,7 @@ class ShopRepository @Inject constructor(
 
     fun disconnect() = scope.launch {
         stopGuest()
-        realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel()
+        realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel(); memberPollJob?.cancel()
         _activeUsers.value = emptyList()
         _sync.update { it.copy(connected = false, code = null, recordId = null, msg = "", msgType = MsgType.INFO) }
         prefs.setSync(null, null)
@@ -924,6 +929,38 @@ class ShopRepository @Inject constructor(
         realtimeJob?.cancel()
         realtime.start(listOf("shopping_items/*", "list_categories/*", "list_items/*", "list_disabled_products/*", "list_disabled_categories/*", "shopping_lists/$recordId"))
         realtimeJob = scope.launch { realtime.events.collect { handleRealtime(recordId, it) } }
+        // Poll fallback: realtime is primary (instant), but mobile SSE can drop
+        // silently — re-merge periodically so the list still syncs on its own.
+        memberPollJob?.cancel()
+        memberPollJob = scope.launch {
+            while (true) {
+                delay(25_000)
+                runCatching { fetchAndMerge(recordId) }
+            }
+        }
+    }
+
+    /** Manual / pull-to-refresh: re-pull the active list now. */
+    fun refresh() = scope.launch {
+        val token = guestToken()
+        if (token != null) {
+            _refreshing.value = true
+            runCatching {
+                val snap = pb.publicSnapshot(token)
+                _shareMode.value = snap.mode
+                _listName.value = snap.list.name.ifBlank { null }
+                itemDao.replaceAll(snap.items.map {
+                    ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy)
+                })
+                notifyWidgets()
+            }
+            _refreshing.value = false
+            return@launch
+        }
+        val recordId = _sync.value.recordId ?: return@launch
+        _refreshing.value = true
+        runCatching { fetchAndMerge(recordId) }
+        _refreshing.value = false
     }
 
     private suspend fun fetchAndMerge(recordId: String) {

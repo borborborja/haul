@@ -43,6 +43,7 @@ class MainViewModel @Inject constructor(
     val lists = repo.lists
     val activeListId = repo.activeListId
     val listCounts = repo.listCounts
+    val refreshing = repo.refreshing
     val activeUsers = repo.activeUsers
     val isGuest = repo.isGuest
     val shareMode = repo.shareMode
@@ -61,7 +62,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch { repo.initialize() }
     }
 
-    fun onResume() = repo.checkAndAutoClear()
+    fun onResume() {
+        repo.checkAndAutoClear()
+        repo.refresh() // catch edits missed while backgrounded (realtime may have dropped)
+    }
+
+    fun refresh() = repo.refresh()
 
     // ---- Deep links ----
     fun onDeepLink(uriString: String?) {

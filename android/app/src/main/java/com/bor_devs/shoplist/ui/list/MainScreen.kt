@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -95,6 +96,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     val activeListId by vm.activeListId.collectAsState()
     val listCounts by vm.listCounts.collectAsState()
     val invites by vm.invites.collectAsState()
+    val refreshing by vm.refreshing.collectAsState()
 
     invites.firstOrNull()?.let { inv ->
         AlertDialog(
@@ -188,6 +190,11 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                 ShoppingProgressHero(total = total, checkedCount = checkedCount, autoclean = settings.autoClearEnabled, countdown = autoClearTimeLeft, t = t)
             }
 
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = { vm.refresh() },
+                modifier = Modifier.fillMaxSize(),
+            ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 24.dp),
@@ -290,6 +297,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                             onEditNote = { noteFor = item }, onRemoveFromList = { vm.removeFromList(item.id) }, onAddBack = { vm.addBackToList(item.id) })
                     }
                 }
+            }
             }
         }
     }
