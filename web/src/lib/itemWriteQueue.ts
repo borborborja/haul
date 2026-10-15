@@ -10,7 +10,7 @@ const statusOf = (error: unknown): number => (error as { status?: number })?.sta
 // next (re)connect pushes it again instead of silently losing the edit.
 export const itemQueue = createWriteQueue({
     execute: async (op: WriteOp) => {
-        beginWrite(op.recordId);
+        const token = beginWrite(op.recordId);
         try {
             if (op.kind === 'update') {
                 return await pb.collection(op.collection).update(op.recordId, op.body || {});
@@ -22,7 +22,7 @@ export const itemQueue = createWriteQueue({
             if (op.kind === 'delete' && statusOf(error) === 404) return null;
             throw error;
         } finally {
-            endWrite(op.recordId);
+            endWrite(op.recordId, token);
         }
     },
     // Client errors (validation, permissions, record gone) won't fix
@@ -32,27 +32,39 @@ export const itemQueue = createWriteQueue({
         return status === 0 || status >= 500;
     },
     onApplied: (op, result) => {
-        if (op.collection !== 'shopping_items' || op.kind !== 'update' || !result) return;
+        if (op.collection !== 'shopping_items') return;
+        if (op.kind === 'delete') {
+            useShopStore.setState(state => ({
+                deletedItemIds: state.deletedItemIds.filter(id => id !== op.recordId),
+                listCaches: Object.fromEntries(Object.entries(state.listCaches).map(([id, cache]) =>
+                    [id, { ...cache, deletedItemIds: cache.deletedItemIds?.filter(itemId => itemId !== op.recordId) }])),
+            }));
+            return;
+        }
+        if (!result) return;
         const record = result as { id: string; updated?: string };
-        const { items } = useShopStore.getState();
-        useShopStore.setState({
-            items: items.map(i => i.id === record.id
-                ? { ...i, serverUpdated: parsePbDate(record.updated), dirty: false }
-                : i)
-        });
+        const acknowledge = (items: import('../types').ShopItem[]) => items.map(i => i.id === record.id
+            ? { ...i, serverUpdated: parsePbDate(record.updated), dirty: itemQueue.has(op.collection, op.recordId) }
+            : i);
+        useShopStore.setState(state => ({
+            items: acknowledge(state.items),
+            listCaches: Object.fromEntries(Object.entries(state.listCaches).map(([id, cache]) =>
+                [id, { ...cache, items: acknowledge(cache.items) }])),
+        }));
     },
     onGaveUp: (op, error) => {
         if (op.collection !== 'shopping_items') return;
-        const { items } = useShopStore.getState();
+        const { items, listCaches } = useShopStore.getState();
         if (statusOf(error) === 404) {
             // The record was deleted remotely; drop it locally too.
-            useShopStore.setState({ items: items.filter(i => i.id !== op.recordId) });
+            useShopStore.setState({ items: items.filter(i => i.id !== op.recordId), listCaches: Object.fromEntries(Object.entries(listCaches).map(([id, cache]) => [id, { ...cache, items: cache.items.filter(i => i.id !== op.recordId) }])) });
             return;
         }
         if (op.kind === 'update') {
             console.error('Item write gave up, marking dirty for resync', op.recordId, error);
             useShopStore.setState({
-                items: items.map(i => i.id === op.recordId ? { ...i, dirty: true } : i)
+                items: items.map(i => i.id === op.recordId ? { ...i, dirty: true } : i),
+                listCaches: Object.fromEntries(Object.entries(listCaches).map(([id, cache]) => [id, { ...cache, items: cache.items.map(i => i.id === op.recordId ? { ...i, dirty: true } : i) }]))
             });
         }
     }

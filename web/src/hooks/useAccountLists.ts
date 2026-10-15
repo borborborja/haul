@@ -11,16 +11,21 @@ import { useShopStore } from '../store/shopStore';
 export function useAccountLists() {
     useEffect(() => {
         let running = false;
+        let cancelled = false;
         const run = async () => {
-            if (running || !navigator.onLine) return;
+            if (cancelled || running || !navigator.onLine) return;
             let rec = pb.authStore.record as any;
             if (!rec || rec.account_type !== 'account') return;
             running = true;
+            const userId = rec.id;
+            const client = pb;
+            const isCurrent = () => !cancelled && pb === client && pb.authStore.record?.id === userId;
             try {
                 // Refresh the profile so a photo/color set on another device shows here.
                 try {
                     const fresh = await pb.collection('users').authRefresh();
                     rec = fresh.record as any;
+                    if (!isCurrent()) return;
                     const base = (pb as any).baseURL || (pb as any).baseUrl || window.location.origin;
                     useShopStore.getState().setAuth({
                         username: rec.display_name ?? null,
@@ -29,6 +34,7 @@ export function useAccountLists() {
                     });
                 } catch { /* keep cached profile */ }
 
+                if (!isCurrent()) return;
                 const members = await pb.collection('list_members').getFullList({
                     filter: pb.filter('user = {:id}', { id: rec.id }),
                     expand: 'list',
@@ -36,7 +42,7 @@ export function useAccountLists() {
                 const server = members
                     .map((m: any) => ({ recordId: m.expand?.list?.id as string, name: (m.expand?.list?.data?.listName ?? m.expand?.list?.name ?? null) as string | null, emoji: (m.expand?.list?.data?.emoji ?? '🛒') as string }))
                     .filter((l) => !!l.recordId);
-                if (!server.length) return;
+                if (!isCurrent() || !server.length) return;
 
                 const st = useShopStore.getState();
                 const known = new Set(st.lists.filter((l) => l.recordId).map((l) => l.recordId as string));
@@ -63,6 +69,6 @@ export function useAccountLists() {
         const onFocus = () => run();
         window.addEventListener('focus', onFocus);
         const unsub = pb.authStore.onChange(() => run());
-        return () => { window.removeEventListener('focus', onFocus); unsub(); };
+        return () => { cancelled = true; window.removeEventListener('focus', onFocus); unsub(); };
     }, []);
 }

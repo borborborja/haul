@@ -51,6 +51,11 @@ func main() {
 
 func configureSettings(app core.App) {
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
+		// Bootstrap loads persisted settings. Apply runtime/environment overrides
+		// afterwards so they aren't discarded by ReloadSettings.
+		if err := e.Next(); err != nil {
+			return err
+		}
 		settings := e.App.Settings()
 		settings.RateLimits.Enabled = true
 		settings.Meta.AppName = envOr("APP_NAME", "ShoppingList")
@@ -75,7 +80,7 @@ func configureSettings(app core.App) {
 			settings.Meta.SenderAddress = os.Getenv("SMTP_SENDER_ADDRESS")
 		}
 
-		return e.Next()
+		return nil
 	})
 }
 
@@ -118,8 +123,8 @@ func registerRoutes(app core.App, publicDir string) {
 			e.Router.POST("/api/shoplist/invites/{id}/accept", acceptInvite).Bind(apis.RequireAuth("users"))
 			e.Router.POST("/api/shoplist/invites/{id}/decline", declineInvite).Bind(apis.RequireAuth("users"))
 
-				// Admin-only AI catalog translation (superuser session required).
-				e.Router.POST("/api/shoplist/admin/translate", translateHandler).Bind(apis.RequireSuperuserAuth())
+			// Admin-only AI catalog translation (superuser session required).
+			e.Router.POST("/api/shoplist/admin/translate", translateHandler).Bind(apis.RequireSuperuserAuth())
 
 			if !e.Router.HasRoute(http.MethodGet, "/{path...}") {
 				e.Router.GET("/{path...}", apis.Static(os.DirFS(publicDir), true))
@@ -291,8 +296,8 @@ func syncEnvAdmin(app core.App) {
 // so it cannot be used to escalate privileges once the instance is configured.
 func runSetup(e *core.RequestEvent) error {
 	var body struct {
-		Email              string `json:"email"`
-		Password           string `json:"password"`
+		Email           string `json:"email"`
+		Password        string `json:"password"`
 		ServerName      string `json:"serverName"`
 		EnableWebApp    bool   `json:"enableWebApp"`
 		EnableUsernames bool   `json:"enableUsernames"`
@@ -644,7 +649,7 @@ func envOr(key, fallback string) string {
 
 func defaultPublicDir() string {
 	if osutils.IsProbablyGoRun() {
-		return "./web/dist"
+		return filepath.Join("..", "web", "dist")
 	}
 	return filepath.Join(filepath.Dir(os.Args[0]), "pb_public")
 }

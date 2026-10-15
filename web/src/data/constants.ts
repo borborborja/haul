@@ -22,7 +22,7 @@ export const defaultCategories: Categories = {
             { es: 'Plátanos', ca: 'Plàtans', en: 'Bananas' },
             { es: 'Naranjas', ca: 'Taronges', en: 'Oranges' },
             { es: 'Peras', ca: 'Peres', en: 'Pears' },
-            { es: 'Fresas', ca: 'Sindries', en: 'Strawberries' },
+            { es: 'Fresas', ca: 'Maduixes', en: 'Strawberries' },
             { es: 'Uvas', ca: 'Raïm', en: 'Grapes' },
             { es: 'Limones', ca: 'Llimones', en: 'Lemons' },
             { es: 'Mandarinas', ca: 'Mandarines', en: 'Tangerines' },

@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
 import { pb } from '../../lib/pocketbase';
 import { Trash2, Loader, RefreshCw, CheckSquare, Square, Ghost, Clock, AlertTriangle, ChevronDown, ChevronUp, Tag, Package, StickyNote, RotateCcw, X, Download, Upload, FileJson } from 'lucide-react';
-import { defaultCategories } from '../../data/constants';
+import { exportListBackup, importListBackup, parseListBackup, resetListCustomData, resetListItems } from './listBackup';
+import type { BackupCategory, BackupProduct, ListBackup } from './listBackup';
 
 interface ShopItem {
     id: string;
     name: string;
     checked: boolean;
+    in_list?: boolean;
     note: string;
     category: string;
 }
 
 interface CategoryItem {
     icon: string;
-    items: any[];
+    items: unknown[];
     color?: string;
 }
 
@@ -21,14 +23,19 @@ interface ShoppingListData {
     items?: ShopItem[];
     categories?: { [key: string]: CategoryItem };
     listName?: string;
+    [key: string]: unknown;
 }
 
 interface ShoppingListRecord {
     id: string;
+    name: string;
     invite_code: string;
     updated: string;
     created: string;
     data: ShoppingListData;
+    atomicItems?: ShopItem[];
+    customCategories?: BackupCategory[];
+    customItems?: BackupProduct[];
     last_editor?: string;
     last_edited_by?: string;
     expand?: {
@@ -39,8 +46,6 @@ interface ShoppingListRecord {
 
 interface HistoryRow { id: string; actor: string; ip: string; action: string; detail: string; created: string }
 
-// Default category keys from the system
-const DEFAULT_CATEGORY_KEYS = ['fruit', 'veg', 'meat', 'dairy', 'pantry', 'cleaning', 'home', 'snacks', 'frozen', 'processed', 'drinks', 'other'];
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const createInviteCode = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), value => INVITE_ALPHABET[value % INVITE_ALPHABET.length]).join('');
 
@@ -55,7 +60,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
     const [history, setHistory] = useState<Record<string, HistoryRow[]>>({});
 
     // Import Logic State
-    const [importData, setImportData] = useState<any>(null);
+    const [importData, setImportData] = useState<ListBackup | null>(null);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importConflict, setImportConflict] = useState<ShoppingListRecord | null>(null);
     const [isImporting, setIsImporting] = useState(false);
@@ -72,11 +77,18 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
     const loadLists = async () => {
         setLoading(true);
         try {
-            const result = await pb.collection('shopping_lists').getFullList<ShoppingListRecord>({
-                sort: '-updated',
-                expand: 'shopping_items(list),last_edited_by'
-            });
-            setLists(result);
+            const [result, items, categories, products] = await Promise.all([
+                pb.collection('shopping_lists').getFullList<ShoppingListRecord>({ sort: '-updated', expand: 'last_edited_by' }),
+                pb.collection('shopping_items').getFullList<ShopItem & { list: string }>(),
+                pb.collection('list_categories').getFullList<BackupCategory & { list: string }>(),
+                pb.collection('list_items').getFullList<BackupProduct & { list: string }>(),
+            ]);
+            setLists(result.map(list => ({
+                ...list, data: list.data || {},
+                atomicItems: items.filter(item => item.list === list.id),
+                customCategories: categories.filter(category => category.list === list.id),
+                customItems: products.filter(product => product.list === list.id),
+            })));
             setSelectedIds(new Set());
         } catch (e) {
             console.error(e);
@@ -113,7 +125,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
 
     const loadHistory = async (listId: string) => {
         try {
-            const res = await pb.collection('list_history').getList<HistoryRow>(1, 80, { filter: `list="${listId}"`, sort: '-created' });
+            const res = await pb.collection('list_history').getList<HistoryRow>(1, 80, { filter: pb.filter('list = {:list}', { list: listId }), sort: '-created' });
             setHistory(h => ({ ...h, [listId]: res.items }));
         } catch { setHistory(h => ({ ...h, [listId]: [] })); }
     };
@@ -140,9 +152,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
 
         setActionLoading(list.id);
         try {
-            await pb.collection('shopping_lists').update(list.id, {
-                data: { ...list.data, items: [] }
-            });
+            await resetListItems(pb, list);
             await loadLists();
         } catch (e) {
             console.error(e);
@@ -157,22 +167,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
 
         setActionLoading(list.id);
         try {
-            const currentCategories = list.data.categories || {};
-            const defaultCategories: { [key: string]: CategoryItem } = {};
-
-            // Keep only default categories, remove custom items within them
-            for (const key of DEFAULT_CATEGORY_KEYS) {
-                if (currentCategories[key]) {
-                    defaultCategories[key] = {
-                        ...currentCategories[key],
-                        items: [] // Clear custom items
-                    };
-                }
-            }
-
-            await pb.collection('shopping_lists').update(list.id, {
-                data: { ...list.data, categories: defaultCategories }
-            });
+            await resetListCustomData(pb, list);
             await loadLists();
         } catch (e) {
             console.error(e);
@@ -185,30 +180,15 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
     const handleExport = async (list: ShoppingListRecord) => {
         setActionLoading(list.id);
         try {
-            // Fetch atomic items
-            const items = await pb.collection('shopping_items').getFullList({
-                filter: `list="${list.id}"`
-            });
-
-            // Construct Clean Data
-            const exportObj = {
-                code: list.invite_code,
-                listName: list.data.listName,
-                categories: list.data.categories,
-                items: items.map(i => ({
-                    name: i.name,
-                    checked: i.checked,
-                    category: i.category,
-                    note: i.note
-                })),
-                exportDate: new Date().toISOString()
-            };
+            const exportObj = await exportListBackup(pb, list);
 
             const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
             const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
+            link.href = url;
             link.download = `ShopList_${list.invite_code}_${new Date().toISOString().slice(0, 10)}.json`;
             link.click();
+            URL.revokeObjectURL(url);
 
         } catch (e) {
             console.error(e);
@@ -228,18 +208,25 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
             const reader = new FileReader();
             reader.onload = async (ev) => {
                 try {
-                    const json = JSON.parse(ev.target?.result as string);
-                    if (!json.items || !Array.isArray(json.items)) throw new Error("Formato inválido");
+                    const [categories, products] = await Promise.all([
+                        pb.collection('catalog_categories').getFullList(),
+                        pb.collection('catalog_items').getFullList(),
+                    ]);
+                    const json = parseListBackup(JSON.parse(ev.target?.result as string), {
+                        categoryKeys: categories.map(category => category.key),
+                        itemNames: products.flatMap(item => [item.name_es, item.name_ca, item.name_en]),
+                    });
 
                     setImportData(json);
 
                     // Check Conflict
                     if (json.code) {
                         try {
-                            const existing = await pb.collection('shopping_lists').getFirstListItem(`invite_code="${json.code}"`) as unknown as ShoppingListRecord;
+                            const existing = await pb.collection('shopping_lists').getFirstListItem(pb.filter('invite_code = {:code}', { code: json.code })) as unknown as ShoppingListRecord;
                             setImportConflict(existing);
-                        } catch {
-                            setImportConflict(null); // No conflict
+                        } catch (error) {
+                            if (!(error && typeof error === 'object' && 'status' in error && error.status === 404)) throw error;
+                            setImportConflict(null);
                         }
                     } else {
                         setImportConflict(null);
@@ -259,85 +246,13 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
         if (!importData) return;
         setIsImporting(true);
         try {
-            let targetListId = importConflict?.id;
-            let listCode = importData.code;
-
-            // Strategy: NEW CODE (Ignore conflict, create new)
-            if (strategy === 'new_code' || !listCode) {
-                listCode = createInviteCode();
-                targetListId = undefined;
-            }
-
-            // Define Data Payload
-            const listDataPayload: any = {
-                listName: importData.listName,
-                categories: importData.categories // Overwrite categories for simplicity in 'merge' too? User asked to "Combine".
-                // If Merge, we should merge categories.
-            };
-
-            // Adjust payload for Merge strategy
-            if (strategy === 'merge' && importConflict) {
-                const mergedCats = { ...(importConflict.data.categories || {}), ...(importData.categories || {}) };
-                listDataPayload.categories = mergedCats;
-                // listName? Keep existing or overwrite? Usually overwrite if importing.
-            }
-
-            // 1. Create or Update List Record
-            if (targetListId && strategy !== 'new_code') {
-                // UPDATE
-                await pb.collection('shopping_lists').update(targetListId, {
-                    data: listDataPayload
-                });
-
-                // If OVERWRITE, delete existing items first
-                if (strategy === 'overwrite') {
-                    const existingItems = await pb.collection('shopping_items').getFullList({ filter: `list="${targetListId}"` });
-                    await Promise.all(existingItems.map(i => pb.collection('shopping_items').delete(i.id)));
-                }
-
-            } else {
-                // CREATE
-                const owner = await pb.collection('users').getFirstListItem("account_type = 'account'");
-                const record = await pb.collection('shopping_lists').create({
-                    invite_code: listCode,
-                    owner: owner.id,
-                    name: importData.listName || 'Imported list',
-                    data: listDataPayload
-                });
-                targetListId = record.id;
-                await pb.collection('list_members').create({ list: record.id, user: owner.id, role: 'owner' });
-            }
-
-            // 2. Add Items
-            // In Merge, we might duplicate items if we don't check.
-            // Simple check: don't add if name+category exists? 
-            // For now, simple add for Import.
-            const itemsToAdd = importData.items;
-
-            // Optimistic simple loop (can be slow for huge lists, but fine for admin)
-            for (const item of itemsToAdd) {
-                // If MERGE, check existence
-                if (strategy === 'merge') {
-                    // Check strictly? Or simple check
-                    // Skipping complex check for now to ensure speed, trusting user.
-                    // Actually, let's just add.
-                }
-
-                await pb.collection('shopping_items').create({
-                    list: targetListId,
-                    name: item.name,
-                    category: item.category,
-                    checked: item.checked,
-                    note: item.note,
-                    in_list: !item.checked
-                });
-            }
+            const result = await importListBackup(pb, importData, strategy, createInviteCode(), importConflict || undefined);
 
             setShowImportModal(false);
             setImportData(null);
             setImportConflict(null);
             await loadLists();
-            alert(`Lista importada correctamente con código: ${listCode}`);
+            alert(`Lista importada correctamente con código: ${result.code}`);
 
         } catch (e) {
             console.error(e);
@@ -352,7 +267,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
     };
 
     const getListItems = (list: ShoppingListRecord): ShopItem[] => {
-        return list.expand?.['shopping_items(list)'] || list.data?.items || [];
+        return list.atomicItems ?? list.expand?.['shopping_items(list)'] ?? list.data?.items ?? [];
     };
 
     const isPhantom = (list: ShoppingListRecord) => {
@@ -375,40 +290,21 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
         return null;
     };
 
-    const getCustomCategories = (list: ShoppingListRecord) => {
-        const categories = list.data?.categories || {};
-        return Object.entries(categories).filter(([key]) => !DEFAULT_CATEGORY_KEYS.includes(key));
+    const getCustomCategories = (list: ShoppingListRecord): [string, CategoryItem][] => {
+        const products = list.customItems || [];
+        return (list.customCategories || []).map(category => [category.key, {
+            icon: category.icon, items: products.filter(item => item.category_key === category.key).map(item => item.name),
+        }]);
     };
 
     const getCustomProducts = (list: ShoppingListRecord) => {
-        const categories = list.data?.categories || {};
-        const customProducts: { category: string; items: any[] }[] = [];
-
-        for (const [key, cat] of Object.entries(categories)) {
-            if (cat.items && cat.items.length > 0) {
-                // Get default items for this category (if it's a default category)
-                const defaultItems = defaultCategories[key as keyof typeof defaultCategories]?.items || [];
-
-                // Filter out items that exist in the default catalog
-                const customOnly = cat.items.filter(item => {
-                    const itemName = typeof item === 'string'
-                        ? item.toLowerCase()
-                        : (item.es || item.ca || item.en || '').toLowerCase();
-
-                    // Check if this item exists in defaults
-                    return !defaultItems.some(defItem =>
-                        defItem.es.toLowerCase() === itemName ||
-                        defItem.ca.toLowerCase() === itemName ||
-                        defItem.en.toLowerCase() === itemName
-                    );
-                });
-
-                if (customOnly.length > 0) {
-                    customProducts.push({ category: key, items: customOnly });
-                }
-            }
+        const grouped = new Map<string, string[]>();
+        for (const product of list.customItems || []) {
+            const names = grouped.get(product.category_key) || [];
+            names.push(product.name);
+            grouped.set(product.category_key, names);
         }
-        return customProducts;
+        return [...grouped].map(([category, items]) => ({ category, items }));
     };
 
     const getItemsWithNotes = (list: ShoppingListRecord) => {
@@ -524,7 +420,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
                                                         {list.invite_code}
                                                     </span>
                                                     <span className="text-sm font-medium text-emerald-600 dark:text-blue-400">
-                                                        {list.data.listName || 'Mi Lista'}
+                                                        {list.name || list.data.listName || 'Mi Lista'}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400 font-medium mt-1">#{list.id}</span>
                                                 </div>
@@ -667,7 +563,7 @@ const ListsManager = ({ focusListId }: { focusListId?: string | null }) => {
                                                                             <div className="flex flex-wrap gap-1">
                                                                                 {items.map((item: any, idx) => (
                                                                                     <span key={idx} className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded">
-                                                                                        {typeof item === 'string' ? item : (item.es || item.ca || item.en || JSON.stringify(item))}
+                                                                                        {item}
                                                                                     </span>
                                                                                 ))}
                                                                             </div>

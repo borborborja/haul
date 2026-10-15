@@ -14,6 +14,7 @@ export interface WriteQueue {
     enqueueUpdate(collection: string, recordId: string, body: Record<string, unknown>): void;
     enqueueDelete(collection: string, recordId: string): void;
     flush(): void;
+    clear(): void;
     size(): number;
     has(collection: string, recordId: string): boolean;
 }
@@ -34,6 +35,7 @@ export function createWriteQueue(opts: {
     const ops = new Map<string, WriteOp>();
     const timers = new Map<string, ReturnType<typeof setTimeout>>();
     const running = new Set<string>();
+    let generation = 0;
 
     const keyOf = (collection: string, recordId: string) => `${collection}:${recordId}`;
 
@@ -53,27 +55,27 @@ export function createWriteQueue(opts: {
         if (!op) return;
         if (!isOnline()) return; // flush() re-schedules on reconnect
 
+        const startedGeneration = generation;
         running.add(key);
         // Claim the op: anything enqueued while the request is in flight
         // lands in the map as fresh work instead of mutating this op.
         ops.delete(key);
         try {
             const result = await opts.execute(op);
-            opts.onApplied?.(op, result);
+            if (generation === startedGeneration) opts.onApplied?.(op, result);
         } catch (error) {
+            if (generation !== startedGeneration) return;
             const retriable = opts.shouldRetry ? opts.shouldRetry(error, op) : true;
+            const requeued = ops.get(key);
+            // Preserve all unsaved fields even when this attempt exhausted its
+            // retries. A newer partial update must not silently drop them.
+            if (requeued && op.kind === 'update' && requeued.kind === 'update') {
+                requeued.body = { ...op.body, ...requeued.body };
+            }
             if (retriable && op.attempts < retryDelays.length) {
-                const requeued = ops.get(key);
-                if (requeued) {
-                    // Newer intent was queued meanwhile; keep its fields on top.
-                    if (op.kind === 'update' && requeued.kind === 'update') {
-                        requeued.body = { ...op.body, ...requeued.body };
-                    }
-                } else {
-                    ops.set(key, { ...op, attempts: op.attempts + 1 });
-                }
+                if (!requeued) ops.set(key, { ...op, attempts: op.attempts + 1 });
                 schedule(key, retryDelays[Math.min(op.attempts, retryDelays.length - 1)]);
-            } else if (!ops.has(key)) {
+            } else if (!requeued) {
                 opts.onGaveUp?.(op, error);
             }
         } finally {
@@ -106,6 +108,12 @@ export function createWriteQueue(opts: {
                 op.attempts = 0;
                 schedule(key, 0);
             }
+        },
+        clear() {
+            generation++;
+            for (const timer of timers.values()) clearTimeout(timer);
+            timers.clear();
+            ops.clear();
         },
         size: () => ops.size,
         has: (collection, recordId) => ops.has(keyOf(collection, recordId))

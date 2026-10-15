@@ -1,6 +1,8 @@
 services:
   shoplist:
-    build: .
+    build:
+      context: ..
+      dockerfile: Dockerfile
     container_name: shoplist
     restart: unless-stopped
     ports:

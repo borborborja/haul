@@ -11,11 +11,16 @@ export function useAutoSync() {
     const connected = useShopStore((s) => s.sync.connected);
     const recordId = useShopStore((s) => s.sync.recordId);
     const code = useShopStore((s) => s.sync.code);
+    const activeListId = useShopStore((s) => s.activeListId);
+    const started = useShopStore((s) => s.items.length > 0 || !!s.listName);
+    const serverUrl = useShopStore((s) => s.serverUrl);
+    const autoSync = useShopStore(s => s.lists.find(l => l.id === s.activeListId)?.autoSync !== false);
 
     useEffect(() => {
         let cancelled = false;
+        let running = false;
         const run = async () => {
-            if (!navigator.onLine) return;
+            if (cancelled || running || !navigator.onLine) return;
             // Web is always served by its origin; native needs an explicit server.
             const serverAvailable = Capacitor.getPlatform() === 'web' || !!useShopStore.getState().serverUrl;
             if (!serverAvailable) return;
@@ -25,14 +30,16 @@ export function useAutoSync() {
             if (params.get('c') || params.get('code')) return;
 
             const s = useShopStore.getState();
+            if (s.lists.find(l => l.id === s.activeListId)?.autoSync === false) return;
             if (s.sync.connected || s.sync.recordId || s.sync.code) return;
             // Never auto-create the pristine default list (no name, no items) — that
             // produced empty "shadow" lists, e.g. for an account that already has
             // lists elsewhere. Only promote a list the user actually started.
             if (s.items.length === 0 && !s.listName) return;
 
+            running = true;
             try {
-                if (!pb.authStore.isValid) await ensureGuestSession();
+                if (!await ensureGuestSession()) return;
                 if (cancelled) return;
                 const { listName } = useShopStore.getState();
                 const rec = await pb.send<{ id: string; inviteCode: string }>('/api/shoplist/lists', {
@@ -42,7 +49,7 @@ export function useAutoSync() {
                 if (cancelled) return;
                 const st = useShopStore.getState();
                 // A real connect may have landed while we were creating; don't double up.
-                if (st.sync.connected || st.sync.recordId) return;
+                if (st.activeListId !== activeListId || st.sync.connected || st.sync.recordId || st.sync.code) return;
                 st.setSyncState({ connected: true, code: rec.inviteCode, recordId: rec.id, msg: '', msgType: 'success' });
                 st.registerActiveListSync({ code: rec.inviteCode, recordId: rec.id });
                 st.addToSyncHistory(rec.inviteCode);
@@ -50,9 +57,13 @@ export function useAutoSync() {
                 st.loadListCustomData();
             } catch {
                 /* stays local; retried on next mount/state change */
+            } finally {
+                running = false;
             }
         };
         run();
-        return () => { cancelled = true; };
-    }, [connected, recordId, code]);
+        const onOnline = () => { void run(); };
+        window.addEventListener('online', onOnline);
+        return () => { cancelled = true; window.removeEventListener('online', onOnline); };
+    }, [connected, recordId, code, activeListId, started, serverUrl, autoSync]);
 }

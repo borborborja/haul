@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import { pb, ensureGuestSession } from '../../lib/pocketbase';
 import { useShopStore } from '../../store/shopStore';
+import { captureConnectionScope, disconnectList, fetchListData, finishListConnection, isConnectionCurrent } from './listConnection';
+import { isAccountSession } from '../../utils/auth';
 
 export function useAccountSync() {
     const [busy, setBusy] = useState(false);
@@ -16,7 +18,7 @@ export function useAccountSync() {
     const syncAccountState = () => {
         const rec = pb.authStore.record as any;
         useShopStore.getState().setAuth({
-            isLoggedIn: pb.authStore.isValid,
+            isLoggedIn: isAccountSession(pb.authStore),
             email: rec?.email ?? null,
             userId: rec?.id ?? null,
             username: rec?.display_name ?? null,
@@ -44,31 +46,20 @@ export function useAccountSync() {
         }
     };
 
-    const finishConnection = (recordId: string, code: string | null, data: { items: any[]; categories: any; listName?: string | null }) => {
-        const s = useShopStore.getState();
-        s.syncFromRemote({ items: data.items || [], categories: data.categories || undefined, listName: data.listName });
-        s.setSyncState({ connected: true, code, recordId, msg: 'Connected', msgType: 'success' });
-        if (code) s.addToSyncHistory(code);
-        if (code) localStorage.setItem('shopListSyncCode', code);
-        pb.collection('shopping_lists').update(recordId, { data: { items: data.items, categories: data.categories, listName: data.listName } }).catch(() => {});
-        s.loadListCustomData();
-    };
-
     // Join a shared list by invite code. On local+remote items, merge by id.
     const join = async (codeInput: string) => {
         const code = codeInput.trim().toUpperCase();
         if (!code) return;
         if (!navigator.onLine) { setError(lang === 'ca' ? 'Sense connexió' : 'Sin conexión'); return; }
+        const scope = captureConnectionScope();
         setBusy(true); setError('');
         try {
-            const { items, categories, listName } = useShopStore.getState();
-            const rec = await pb.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists/join', { method: 'POST', body: { code } });
-            const listRecord = await pb.collection('shopping_lists').getOne(rec.id);
-            const remote = listRecord.data || { items: [], categories: undefined };
-            const remoteItems = remote.items || [];
-            const localIds = new Set(items.map((i: any) => i.id));
-            const mergedItems = [...items, ...remoteItems.filter((i: any) => !localIds.has(i.id))];
-            finishConnection(rec.id, code, { items: mergedItems, categories: remote.categories || categories, listName: remote.listName || listName });
+            if (!pb.authStore.isValid && !await ensureGuestSession()) throw new Error('Connection failed');
+            if (!isConnectionCurrent(scope)) return;
+            const rec = await scope.client.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists/join', { method: 'POST', body: { code } });
+            if (!isConnectionCurrent(scope)) return;
+            const data = await fetchListData(rec.id, scope.client);
+            finishListConnection(rec.id, code, data, scope, true);
         } catch (e: any) {
             setError(e?.status === 404 ? (lang === 'ca' ? 'Codi no trobat' : 'Código no encontrado') : (lang === 'ca' ? 'Error de connexió' : 'Error de conexión'));
         } finally { setBusy(false); }
@@ -77,29 +68,33 @@ export function useAccountSync() {
     // Create a new shared list (gets an invite code).
     const createShared = async () => {
         if (!navigator.onLine) { setError(lang === 'ca' ? 'Sense connexió' : 'Sin conexión'); return; }
+        const scope = captureConnectionScope();
         setBusy(true); setError('');
         try {
             if (!pb.authStore.isValid) { await ensureGuestSession(); syncAccountState(); }
-            const { items, categories, listName } = useShopStore.getState();
-            const rec = await pb.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists', { method: 'POST', body: { name: listName || 'Shopping list' } });
-            finishConnection(rec.id, rec.inviteCode, { items, categories, listName });
+            if (!isConnectionCurrent(scope)) return;
+            const { listName } = useShopStore.getState();
+            const rec = await scope.client.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists', { method: 'POST', body: { name: listName || 'Shopping list' } });
+            finishListConnection(rec.id, rec.inviteCode, { items: [], listName }, scope, true);
         } catch (e: any) {
             setError(e?.response?.message || e?.message || (lang === 'ca' ? 'No s’ha pogut crear la llista' : 'No se pudo crear la lista'));
         } finally { setBusy(false); }
     };
 
     const disconnect = () => {
-        pb.collection('shopping_lists').unsubscribe('*').catch(() => {});
-        useShopStore.getState().setSyncState({ connected: false, code: null, recordId: null, msg: '' });
-        localStorage.removeItem('shopListSyncCode');
+        disconnectList();
     };
 
     const claim = async (email: string, password: string) => {
+        const client = pb;
         setBusy(true); setError('');
         try {
-            if (!pb.authStore.isValid) await ensureGuestSession();
-            const res = await pb.send<{ token: string; record: any }>('/api/shoplist/account/claim', { method: 'POST', body: { email, password } });
-            pb.authStore.save(res.token, res.record);
+            if (!client.authStore.isValid && !await ensureGuestSession()) throw new Error('Connection failed');
+            if (pb !== client) return;
+            const token = client.authStore.token;
+            const res = await client.send<{ token: string; record: any }>('/api/shoplist/account/claim', { method: 'POST', body: { email, password } });
+            if (pb !== client || client.authStore.token !== token) return;
+            client.authStore.save(res.token, res.record);
             syncAccountState();
         } catch (e: any) {
             setError(e?.status === 409
@@ -112,9 +107,12 @@ export function useAccountSync() {
     // so the same account shows the same lists on any device. Non-destructive:
     // merges by recordId, keeps existing local lists, then connects to one.
     const recoverLists = async (): Promise<number> => {
+        const client = pb;
+        const token = client.authStore.token;
         const uid = pb.authStore.record?.id;
         if (!uid) return 0;
         const members = await pb.collection('list_members').getFullList({ filter: pb.filter('user = {:id}', { id: uid }), expand: 'list' });
+        if (pb !== client || pb.authStore.token !== token) return 0;
         const server = members
             .map((m: any) => ({ recordId: m.expand?.list?.id as string, name: (m.expand?.list?.data?.listName ?? m.expand?.list?.name ?? null) as string | null, emoji: (m.expand?.list?.data?.emoji ?? '🛒') as string }))
             .filter((l) => !!l.recordId);

@@ -7,7 +7,14 @@ export function usePresence(ensureGuestAuth: () => Promise<void>) {
     const { sync, auth, setActiveUsers, logout } = useShopStore();
 
     useEffect(() => {
-        let heartbeatInterval: any;
+        let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+        let cancelled = false;
+        const client = pb;
+        const userId = pb.authStore.record?.id;
+        const isCurrent = () => {
+            const state = useShopStore.getState();
+            return !cancelled && pb === client && state.sync.connected && state.sync.recordId === sync.recordId && pb.authStore.record?.id === userId;
+        };
 
         const updatePresence = async () => {
             if (sync.connected && auth.username) {
@@ -22,7 +29,7 @@ export function usePresence(ensureGuestAuth: () => Promise<void>) {
                 } catch (e: any) {
                     console.error('Failed to update presence:', e);
                     // Self-healing: If user is 404 (deleted) or 401 (unauthorized)
-                    if (e.status === 404 || e.status === 401) {
+                    if (isCurrent() && (e.status === 404 || e.status === 401)) {
                         console.warn('User record missing or invalid, resetting auth...');
                         pb.authStore.clear();
                         localStorage.removeItem('shopList_guest');
@@ -43,6 +50,7 @@ export function usePresence(ensureGuestAuth: () => Promise<void>) {
                         `/api/shoplist/lists/${sync.recordId}/presence`,
                         { method: 'GET' }
                     );
+                    if (!isCurrent()) return;
                     setActiveUsers((active || []).map(u => ({
                         id: u.id,
                         username: u.username || 'Usuario',
@@ -74,6 +82,7 @@ export function usePresence(ensureGuestAuth: () => Promise<void>) {
         }
 
         return () => {
+            cancelled = true;
             clearInterval(heartbeatInterval);
             document.removeEventListener('visibilitychange', handleVisibility);
         };

@@ -8,6 +8,7 @@ import com.bor_devs.shoplist.data.local.AppDatabase
 import com.bor_devs.shoplist.data.local.CategoryDao
 import com.bor_devs.shoplist.data.local.DisabledDao
 import com.bor_devs.shoplist.data.local.ItemDao
+import com.bor_devs.shoplist.data.local.PendingItemDeleteDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,6 +39,12 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE items ADD COLUMN addedBy TEXT NOT NULL DEFAULT ''")
         db.execSQL("ALTER TABLE items ADD COLUMN checkedBy TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `pending_item_deletes` (`id` TEXT NOT NULL, `listId` TEXT NOT NULL, PRIMARY KEY(`id`))")
     }
 }
 
@@ -72,7 +79,7 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "shoplist.db")
             // Additive: keep local data on upgrade (adds the disabled_products table).
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -84,4 +91,7 @@ object AppModule {
 
     @Provides
     fun provideDisabledDao(db: AppDatabase): DisabledDao = db.disabledDao()
+
+    @Provides
+    fun providePendingItemDeleteDao(db: AppDatabase): PendingItemDeleteDao = db.pendingItemDeleteDao()
 }

@@ -209,6 +209,9 @@ func bulkTranslate(app core.App, cfg *aiConfig, collection string) (int, int, er
 		}
 		current := map[string]string{}
 		_ = rec.UnmarshalJSONField("i18n", &current)
+		if current == nil {
+			current = map[string]string{}
+		}
 		// seed the three base names
 		seedIfEmpty(current, "es", rec.GetString("name_es"))
 		seedIfEmpty(current, "ca", rec.GetString("name_ca"))
@@ -230,9 +233,10 @@ func bulkTranslate(app core.App, cfg *aiConfig, collection string) (int, int, er
 			}
 		}
 		rec.Set("i18n", current)
-		if err := app.Save(rec); err == nil {
-			updated++
+		if err := app.Save(rec); err != nil {
+			return updated, len(records), fmt.Errorf("could not save translations for %s: %w", rec.Id, err)
 		}
+		updated++
 	}
 	return updated, len(records), nil
 }

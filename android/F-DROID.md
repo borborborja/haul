@@ -21,7 +21,7 @@ local secrets. Follow the checklist below to submit.
 - [x] No hard-coded secrets in committed files.
 - [x] `applicationId` (`com.bor_devs.shoplist`) is unique and stable.
 - [x] Repo URL, issue tracker and changelog are public.
-- [ ] Tag a release on GitHub as `v1.3.3` (so the F-Droid recipe can `commit: v1.3.3`).
+- [ ] Tag a release on GitHub as `v1.12.3` (so the F-Droid recipe can `commit: v1.12.3`).
 - [ ] Add 2–8 phone screenshots under
       `fastlane/metadata/android/en-US/images/phoneScreenshots/`
       (PNG, 1080×1920 or similar, named `01_*.png`, `02_*.png`, …).
@@ -30,12 +30,13 @@ local secrets. Follow the checklist below to submit.
 
 ## How F-Droid will build it
 
-1. F-Droid clones the repo at the tag `v1.3.3`.
-2. Removes `app/keystore.properties` (so the `if (keystorePropsFile.exists())`
+1. F-Droid clones the repo at the tag `v1.12.3` and builds from `android/`.
+2. Removes `android/app/keystore.properties` (so the `if (keystorePropsFile.exists())`
    branch in `build.gradle.kts` is skipped — no signing config is added,
    F-Droid signs the APK with its own key).
 3. Runs `./gradlew assembleRelease`.
-4. Signs the resulting APK with the F-Droid release key.
+4. Selects the phone APK from `app/build/outputs/apk/release/` and signs it with the
+   F-Droid release key.
 
 ## Submit
 

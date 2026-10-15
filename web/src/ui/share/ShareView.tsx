@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { tt, detectLang, LANGS, type Lang } from '../../data/i18n';
 import {
-    fetchSnapshot, checkItem, addItem, removeItem,
+    fetchSnapshot, checkItem, addItem, removeItem, ShareApiError,
     type ShareSnapshot, type ShareItem, type ShareCategory, type ShareMode,
 } from './shareApi';
 import { attribution } from '../shared/attribution';
@@ -24,8 +24,11 @@ const INK = '#06231A';
 export default function ShareView() {
     const token = useMemo(() => decodeURIComponent(window.location.pathname.replace(/^\/s\//, '').replace(/\/$/, '')), []);
     const [lang, setLang] = useState<Lang>(() => {
-        const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('haul-share-lang')) as Lang | null;
-        return saved || detectLang(navigator.language);
+        try {
+            const saved = localStorage.getItem('haul-share-lang');
+            if (LANGS.some(l => l.code === saved)) return saved as Lang;
+        } catch { /* storage can be unavailable in private browsing */ }
+        return detectLang(navigator.language);
     });
     const pickLang = (l: Lang) => { setLang(l); try { localStorage.setItem('haul-share-lang', l); } catch { /* ignore */ } };
     const t = tt(lang);
@@ -38,6 +41,11 @@ export default function ShareView() {
     const [draft, setDraft] = useState('');
     const [draftCat, setDraftCat] = useState('');
     const pending = useRef(0);
+    const revision = useRef(0);
+    const latestLoad = useRef(0);
+    const activeLoad = useRef<number | null>(null);
+    const pendingIds = useRef(new Set<string>());
+    const [busyItems, setBusyItems] = useState<Set<string>>(new Set());
 
     // Public viewers are anonymous — ask their name once so their checks/adds are
     // attributed ("Comprado por…"). Persisted and reused across links.
@@ -53,23 +61,34 @@ export default function ShareView() {
     };
 
     const load = async (initial = false) => {
+        if (activeLoad.current !== null || pending.current > 0) return;
+        const request = ++latestLoad.current;
+        activeLoad.current = request;
+        const startedAt = revision.current;
         try {
             const s = await fetchSnapshot(token);
+            if (request !== latestLoad.current || startedAt !== revision.current || pending.current > 0) return;
             setSnap(s);
-            // Don't clobber optimistic edits the server hasn't echoed yet.
-            if (pending.current === 0) setItems(s.items);
+            setItems(s.items);
             setError(false);
-        } catch {
-            if (initial) setError(true);
+        } catch (err) {
+            if (request !== latestLoad.current) return;
+            if (initial || (err instanceof ShareApiError && [403, 404].includes(err.status))) setError(true);
         } finally {
-            if (initial) setLoading(false);
+            if (activeLoad.current === request) activeLoad.current = null;
+            if (request === latestLoad.current) {
+                if (initial) setLoading(false);
+                // A write may have completed while this older snapshot was in
+                // flight. Fetch its result without waiting for the next poll.
+                if (startedAt !== revision.current && pending.current === 0) void load(false);
+            }
         }
     };
 
     useEffect(() => {
         load(true);
         const id = setInterval(() => load(false), 5000);
-        return () => clearInterval(id);
+        return () => { clearInterval(id); latestLoad.current++; activeLoad.current = null; };
     }, [token]);
 
     useEffect(() => {
@@ -130,19 +149,35 @@ export default function ShareView() {
         return meta ? catName(meta, lang) : key;
     };
 
-    const toggle = async (it: ShareItem) => {
-        if (!canCheck) return;
-        const next = !it.checked;
-        setItems((prev) => prev.map((x) => x.id === it.id ? { ...x, checked: next } : x));
+    const toggle = async (id: string, checked: boolean) => {
+        if (!canCheck || pendingIds.current.has(id)) return;
+        pendingIds.current.add(id);
+        setBusyItems(new Set(pendingIds.current));
+        const next = !checked;
+        revision.current++;
+        setItems((prev) => prev.map((x) => x.id === id ? { ...x, checked: next } : x));
         pending.current++;
-        try { await checkItem(token, it.id, next, viewerName); } catch { /* will resync on next poll */ } finally { pending.current--; }
+        try { await checkItem(token, id, next, viewerName); } catch { /* refetch the authoritative value */ } finally {
+            pending.current--;
+            pendingIds.current.delete(id);
+            setBusyItems(new Set(pendingIds.current));
+            load(false);
+        }
     };
 
-    const remove = async (it: ShareItem) => {
-        if (!canEdit) return;
-        setItems((prev) => prev.filter((x) => x.id !== it.id));
+    const remove = async (id: string) => {
+        if (!canEdit || pendingIds.current.has(id)) return;
+        pendingIds.current.add(id);
+        setBusyItems(new Set(pendingIds.current));
+        revision.current++;
+        setItems((prev) => prev.filter((x) => x.id !== id));
         pending.current++;
-        try { await removeItem(token, it.id); } catch { /* resync */ } finally { pending.current--; }
+        try { await removeItem(token, id); } catch { /* refetch */ } finally {
+            pending.current--;
+            pendingIds.current.delete(id);
+            setBusyItems(new Set(pendingIds.current));
+            load(false);
+        }
     };
 
     const submitAdd = async (e: React.FormEvent) => {
@@ -151,10 +186,24 @@ export default function ShareView() {
         if (!name || !canEdit) return;
         setDraft('');
         const cat = draftCat;
-        const temp: ShareItem = { id: `tmp_${name}_${items.length}`, name, category: cat, checked: false, note: '' };
+        const temp: ShareItem = { id: `tmp_${crypto.randomUUID()}`, name, category: cat, checked: false, note: '' };
+        pendingIds.current.add(temp.id);
+        setBusyItems(new Set(pendingIds.current));
+        revision.current++;
         setItems((prev) => [temp, ...prev]);
         pending.current++;
-        try { await addItem(token, name, cat, viewerName); } catch { /* resync */ } finally { pending.current--; load(false); }
+        try {
+            const record = await addItem(token, name, cat, viewerName);
+            setItems(prev => prev.map(i => i.id === temp.id ? { ...i, id: record.id } : i));
+        } catch {
+            setItems(prev => prev.filter(i => i.id !== temp.id));
+            setDraft(current => current || name);
+        } finally {
+            pending.current--;
+            pendingIds.current.delete(temp.id);
+            setBusyItems(new Set(pendingIds.current));
+            load(false);
+        }
     };
 
     if (loading) {
@@ -229,26 +278,8 @@ export default function ShareView() {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     {g.items.map((it) => (
-                                        <div key={it.id} onClick={() => toggle(it)} style={{
-                                            display: 'flex', alignItems: 'center', gap: 12, background: '#fff', borderRadius: 16,
-                                            padding: '13px 15px', boxShadow: '0 0 16px rgba(6,35,26,0.06)', cursor: canCheck ? 'pointer' : 'default',
-                                            opacity: it.checked ? 0.55 : 1, transition: 'opacity 0.2s',
-                                        }}>
-                                            <span style={{
-                                                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                                                border: it.checked ? `none` : `2px solid rgba(6,35,26,0.2)`,
-                                                background: it.checked ? MINT : 'transparent', color: '#fff',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
-                                            }}>{it.checked ? '✓' : ''}</span>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 600, fontSize: 15, textDecoration: it.checked ? 'line-through' : 'none' }}>{it.name}</div>
-                                                {it.note && <div style={{ fontSize: 12, opacity: 0.5 }}>{it.note}</div>}
-                                                {attribution(it, t) && <div style={{ fontSize: 12, color: MINT, fontWeight: 600 }}>{attribution(it, t)}</div>}
-                                            </div>
-                                            {canEdit && (
-                                                <button onClick={(e) => { e.stopPropagation(); remove(it); }} aria-label="remove" style={{ border: 'none', background: 'transparent', color: 'rgba(6,35,26,0.3)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
-                                            )}
-                                        </div>
+                                        <ShareItemRow key={it.id} it={it} canCheck={canCheck} canEdit={canEdit}
+                                            busy={busyItems.has(it.id)} onToggle={toggle} onRemove={remove} t={t} />
                                     ))}
                                 </div>
                             </section>
@@ -281,6 +312,37 @@ export default function ShareView() {
                         <button type="submit" style={{ border: 'none', background: MINT, color: '#fff', borderRadius: 12, padding: '0 18px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>{t.add}</button>
                     </div>
                 </form>
+            )}
+        </div>
+    );
+}
+
+
+function ShareItemRow({ it, canCheck, canEdit, busy, onToggle, onRemove, t }: {
+    it: ShareItem; canCheck: boolean; canEdit: boolean; busy: boolean;
+    onToggle: (id: string, checked: boolean) => Promise<void>;
+    onRemove: (id: string) => Promise<void>;
+    t: ReturnType<typeof tt>;
+}) {
+    return (
+        <div onClick={() => onToggle(it.id, it.checked)} style={{
+            display: 'flex', alignItems: 'center', gap: 12, background: '#fff', borderRadius: 16,
+            padding: '13px 15px', boxShadow: '0 0 16px rgba(6,35,26,0.06)', cursor: canCheck && !busy ? 'pointer' : 'default',
+            opacity: it.checked ? 0.55 : 1, transition: 'opacity 0.2s',
+        }}>
+            <span style={{
+                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                border: it.checked ? `none` : `2px solid rgba(6,35,26,0.2)`,
+                background: it.checked ? MINT : 'transparent', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
+            }}>{it.checked ? '✓' : ''}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 15, textDecoration: it.checked ? 'line-through' : 'none' }}>{it.name}</div>
+                {it.note && <div style={{ fontSize: 12, opacity: 0.5 }}>{it.note}</div>}
+                {attribution(it, t) && <div style={{ fontSize: 12, color: MINT, fontWeight: 600 }}>{attribution(it, t)}</div>}
+            </div>
+            {canEdit && (
+                <button disabled={busy} onClick={(e) => { e.stopPropagation(); onRemove(it.id); }} aria-label="remove" style={{ border: 'none', background: 'transparent', color: 'rgba(6,35,26,0.3)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
             )}
         </div>
     );

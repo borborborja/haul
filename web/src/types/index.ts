@@ -36,6 +36,7 @@ export type { Lang } from '../data/i18n';
 export type SettingsTab = 'account' | 'catalog' | 'other' | 'about';
 
 export interface AuthState {
+    // A permanent user account; a guest API token does not count as sign-in.
     isLoggedIn: boolean;
     email: string | null;
     userId: string | null;

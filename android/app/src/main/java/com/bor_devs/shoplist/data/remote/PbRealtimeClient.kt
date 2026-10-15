@@ -52,11 +52,13 @@ class PbRealtimeClient @Inject constructor(
     private var reconnectJob: Job? = null
     private var attempt = 0
     private var clientId: String? = null
+    @Volatile private var generation = 0L
 
     @Volatile private var subscriptions: List<String> = emptyList()
     @Volatile private var running = false
 
     fun start(subs: List<String>) {
+        reconnectJob?.cancel()
         subscriptions = subs
         running = true
         connect()
@@ -64,6 +66,7 @@ class PbRealtimeClient @Inject constructor(
 
     fun stop() {
         running = false
+        generation++
         reconnectJob?.cancel()
         eventSource?.cancel()
         eventSource = null
@@ -72,13 +75,14 @@ class PbRealtimeClient @Inject constructor(
 
     private fun connect() {
         if (!running || !client.hasServer) return
+        val connection = ++generation
         eventSource?.cancel()
         val req = Request.Builder()
             .url(client.baseUrl + "/api/realtime")
             .header("Accept", "text/event-stream")
             .apply { client.token?.let { header("Authorization", it) } }
             .build()
-        eventSource = EventSources.createFactory(sseHttp).newEventSource(req, listener)
+        eventSource = EventSources.createFactory(sseHttp).newEventSource(req, listener(connection))
     }
 
     private fun scheduleReconnect() {
@@ -104,12 +108,14 @@ class PbRealtimeClient @Inject constructor(
         }
     }
 
-    private val listener = object : EventSourceListener() {
+    private fun listener(connection: Long) = object : EventSourceListener() {
         override fun onOpen(eventSource: EventSource, response: okhttp3.Response) {
+            if (connection != generation || !running) return
             attempt = 0
         }
 
         override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+            if (connection != generation || !running) return
             if (data.isBlank()) return
             try {
                 if (type == "PB_CONNECT") {
@@ -128,11 +134,11 @@ class PbRealtimeClient @Inject constructor(
         }
 
         override fun onClosed(eventSource: EventSource) {
-            if (running) scheduleReconnect()
+            if (running && connection == generation) scheduleReconnect()
         }
 
         override fun onFailure(eventSource: EventSource, t: Throwable?, response: okhttp3.Response?) {
-            if (running) scheduleReconnect()
+            if (running && connection == generation) scheduleReconnect()
         }
     }
 

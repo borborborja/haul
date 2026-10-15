@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { beginWrite, endWrite, hasPendingWrite, parsePbDate, shouldSkipRemoteUpdate } from '../syncMeta';
+import { beginWrite, endWrite, hasPendingWrite, parsePbDate, shouldSkipRemoteUpdate, resetSyncMeta } from '../syncMeta';
 
 describe('pending write tracking', () => {
     it('counts nested writes per record', () => {
@@ -10,6 +10,16 @@ describe('pending write tracking', () => {
         expect(hasPendingWrite('a')).toBe(true);
         endWrite('a');
         expect(hasPendingWrite('a')).toBe(false);
+    });
+
+    it('does not let an old server completion clear a new server write with the same id', () => {
+        const old = beginWrite('same-id');
+        resetSyncMeta();
+        const current = beginWrite('same-id');
+        endWrite('same-id', old);
+        expect(hasPendingWrite('same-id')).toBe(true);
+        endWrite('same-id', current);
+        expect(hasPendingWrite('same-id')).toBe(false);
     });
 
     it('tolerates unbalanced endWrite', () => {

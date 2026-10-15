@@ -36,6 +36,7 @@ data class ItemEntity(
 
 /** Per-list custom category (icon). Default catalog categories live in code. */
 @Entity(tableName = "custom_categories")
+@kotlinx.serialization.Serializable
 data class CustomCategoryEntity(
     @PrimaryKey val key: String,
     val icon: String,
@@ -43,6 +44,7 @@ data class CustomCategoryEntity(
 
 /** A custom suggestion item the user added to a category. */
 @Entity(tableName = "custom_items")
+@kotlinx.serialization.Serializable
 data class CustomItemEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val categoryKey: String,
@@ -51,6 +53,14 @@ data class CustomItemEntity(
 
 /** A catalog product deactivated for the active list (canonical lowercase key). */
 @Entity(tableName = "disabled_products")
+@kotlinx.serialization.Serializable
 data class DisabledProductEntity(
     @PrimaryKey val name: String,
+)
+
+/** Durable tombstone: an offline deletion must survive process death/list switches. */
+@Entity(tableName = "pending_item_deletes")
+data class PendingItemDeleteEntity(
+    @PrimaryKey val id: String,
+    val listId: String,
 )

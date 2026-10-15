@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useShopStore } from '../store/shopStore';
-import { pb } from '../lib/pocketbase';
+import { pb, ensureGuestSession } from '../lib/pocketbase';
 import { triggerHaptic } from '../utils/haptics';
 import { hasPendingWrite, pendingCreates, parsePbDate, shouldSkipRemoteUpdate } from '../lib/syncMeta';
-import { enqueueItemUpdate } from '../lib/itemWriteQueue';
+import { enqueueItemUpdate, enqueueItemDelete } from '../lib/itemWriteQueue';
+import { itemWriteBody, mergeRemoteItems, type ItemRecord } from '../lib/itemSync';
 import type { ShopItem } from '../types';
 
 // How often refreshList may trigger a full refetch while connected. Focus,
@@ -20,7 +21,7 @@ const mapItemRecord = (r: any, local?: ShopItem): ShopItem => ({
     addedBy: r.added_by,
     checkedBy: r.checked_by,
     serverUpdated: parsePbDate(r.updated),
-    updatedAt: local?.updatedAt ?? Date.now()
+    updatedAt: parsePbDate(r.updated) || local?.updatedAt || Date.now()
 });
 
 export function useListSync() {
@@ -38,31 +39,39 @@ export function useListSync() {
     // clobbering local state the server hasn't accepted yet (offline creates,
     // dirty items, writes in flight). Used on connect and on resume.
     const fetchAndMerge = async (currentRecordId: string) => {
+        const ownerListId = useShopStore.getState().activeListId;
+        const client = pb;
+        const isCurrent = () => {
+            const state = useShopStore.getState();
+            return pb === client && state.activeListId === ownerListId && state.sync.recordId === currentRecordId && state.sync.connected;
+        };
+        if (!isCurrent()) return;
         lastResyncRef.current = Date.now();
+        const snapshotIds = new Set(useShopStore.getState().items.map(item => item.id));
 
-        const records = await pb.collection('shopping_items').getFullList({
+        const records = await client.collection('shopping_items').getFullList({
             filter: `list = "${currentRecordId}"`,
             sort: '-created'
         });
-        const listRecord = await pb.collection('shopping_lists').getOne(currentRecordId);
+        const listRecord = await client.collection('shopping_lists').getOne(currentRecordId);
+        if (!isCurrent()) return;
         listDataRef.current = listRecord.data || {};
 
-        const { items: localItems } = useShopStore.getState();
+        const { items: localItems, deletedItemIds } = useShopStore.getState();
         const localById = new Map(localItems.map(i => [i.id, i] as const));
-        const offlineItems = localItems.filter(i => i.id.startsWith('local_'));
-
-        const mergedItems = records.map((r: any) => {
-            const local = localById.get(r.id);
-            // Keep the local copy while we still owe the server a write for it.
-            if (local && (local.dirty || hasPendingWrite(r.id))) return local;
-            return mapItemRecord(r, local);
-        });
+        for (const record of records) {
+            if (record.external_id && (localById.has(record.external_id) || deletedItemIds.includes(record.external_id))) {
+                useShopStore.getState().confirmItemCreated(record.external_id, record as unknown as ItemRecord);
+            }
+        }
+        const reconciled = useShopStore.getState().items;
+        const mergedItems = mergeRemoteItems(reconciled, records as unknown as ItemRecord[], useShopStore.getState().deletedItemIds, hasPendingWrite, snapshotIds);
 
         const remoteListName = listRecord.data?.listName;
         lastRemoteListNameRef.current = remoteListName ?? null;
 
         useShopStore.setState({
-            items: [...offlineItems, ...mergedItems],
+            items: mergedItems,
             ...(remoteListName !== undefined ? { listName: remoteListName ?? null } : {})
         });
 
@@ -81,17 +90,13 @@ export function useListSync() {
     // Push items the server doesn't have yet: offline creates (local_ ids)
     // and dirty items whose last write was rejected.
     const pushPendingItems = async (currentRecordId: string) => {
-        const { items } = useShopStore.getState();
-
+        const client = pb;
+        const { items, deletedItemIds, sync: currentSync } = useShopStore.getState();
+        if (!currentSync.connected || currentSync.recordId !== currentRecordId) return;
+        deletedItemIds.filter(id => !id.startsWith('local_')).forEach(id => enqueueItemDelete(id));
         for (const item of items) {
             if (item.dirty && !item.id.startsWith('local_')) {
-                enqueueItemUpdate(item.id, {
-                    name: item.name,
-                    category: item.category,
-                    checked: item.checked,
-                    note: item.note,
-                    in_list: item.inList !== false
-                });
+                enqueueItemUpdate(item.id, itemWriteBody(item));
             }
         }
 
@@ -109,18 +114,8 @@ export function useListSync() {
             external_id: item.id
         });
 
-        const swapTempId = (tempId: string, record: any) => {
-            useShopStore.setState((state) => {
-                const realExists = state.items.find(i => i.id === record.id);
-                if (realExists) {
-                    return { items: state.items.filter(i => i.id !== tempId) };
-                }
-                return {
-                    items: state.items.map(i => i.id === tempId
-                        ? { ...i, id: record.id, serverUpdated: parsePbDate(record.updated), dirty: false }
-                        : i)
-                };
-            });
+        const swapTempId = (tempId: string, record: ItemRecord) => {
+            if (pb === client) useShopStore.getState().confirmItemCreated(tempId, record);
         };
 
         try {
@@ -133,16 +128,17 @@ export function useListSync() {
                 });
             } else {
                 const record = await pb.collection('shopping_items').create(createBody(offline[0]));
-                swapTempId(offline[0].id, record);
+                swapTempId(offline[0].id, record as unknown as ItemRecord);
             }
         } catch (e) {
             // Batch may be unavailable (older server) or fail wholesale; fall
             // back to sequential creates so one bad item can't block the rest.
             console.error("Batch offline push failed, falling back to sequential", e);
             for (const item of offline) {
+                if (pb !== client) break;
                 try {
                     const record = await pb.collection('shopping_items').create(createBody(item));
-                    swapTempId(item.id, record);
+                    swapTempId(item.id, record as unknown as ItemRecord);
                 } catch (err) {
                     console.error("Failed to sync offline item:", item.name, err);
                 }
@@ -154,6 +150,9 @@ export function useListSync() {
 
     // 1. Auto-reconnect and URL parameter sync
     useEffect(() => {
+        let cancelled = false;
+        const ownerListId = useShopStore.getState().activeListId;
+        const isCurrent = () => !cancelled && useShopStore.getState().activeListId === ownerListId;
         const handleSyncParam = async () => {
             const params = new URLSearchParams(window.location.search);
             const urlCode = (params.get('c') || params.get('code'))?.trim().toUpperCase();
@@ -170,12 +169,14 @@ export function useListSync() {
                 if (!navigator.onLine) return;
 
                 try {
+                    if (!await ensureGuestSession() || !isCurrent()) return;
                     // Validate code
                     const record = await pb.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists/join', {
                         method: 'POST',
                         body: { code: urlCode }
                     });
 
+                    if (!isCurrent()) return;
                     // Confirm if needed
                     const { items: currentItems } = useShopStore.getState();
                     const hasSignificantData = currentItems.length > 0 || (sync.connected && sync.code !== urlCode);
@@ -193,6 +194,7 @@ export function useListSync() {
                     }
 
                     // Connect
+                    useShopStore.setState({ items: [], deletedItemIds: [], disabledProducts: [], disabledCategories: [] });
                     setSyncState({ msg: 'Connecting...', msgType: 'info' });
                     // Initial sync might be empty for items if using atomic, but we need metadata
                     // We will let the atomic sync hook handle the items fetch.
@@ -200,6 +202,7 @@ export function useListSync() {
                     addToSyncHistory(urlCode);
                     localStorage.setItem('shopListSyncCode', urlCode);
                 } catch (e) {
+                    if (!isCurrent()) return;
                     console.error('URL Sync failed:', e);
                     setSyncState({ msg: 'Invalid or missing code', msgType: 'error' });
                 }
@@ -212,6 +215,7 @@ export function useListSync() {
 
             // Case B: Auto-reconnect
             if (!sync.connected && navigator.onLine) {
+                if (!await ensureGuestSession() || !isCurrent()) return;
                 if (sync.code) {
                     // Prefer the code path: it (re)ensures membership for the current identity.
                     try {
@@ -219,6 +223,7 @@ export function useListSync() {
                             method: 'POST',
                             body: { code: sync.code }
                         });
+                        if (!isCurrent()) return;
                         setSyncState({ connected: true, recordId: record.id, msg: 'Reconnected', msgType: 'success' });
                         // We don't need to syncFromRemote here because the Atomic Effect will do it.
                     } catch (e) {
@@ -231,21 +236,30 @@ export function useListSync() {
                 }
             }
         };
-        handleSyncParam();
-    }, [sync.code, sync.connected]);
+        void handleSyncParam();
+        return () => { cancelled = true; };
+    }, [sync.code, sync.connected, sync.recordId, lang, setSyncState, addToSyncHistory]);
 
     // 2. Initial Fetch & Subscribe (items + list metadata + custom categories)
     useEffect(() => {
         if (!sync.connected || !sync.recordId) return;
         const currentRecordId = sync.recordId;
-
+        const ownerListId = useShopStore.getState().activeListId;
+        const client = pb;
+        lastRemoteListNameRef.current = undefined;
+        listDataRef.current = {};
+        lastResyncRef.current = 0;
         let cancelled = false;
+        const isCurrent = () => {
+            const state = useShopStore.getState();
+            return !cancelled && pb === client && state.activeListId === ownerListId && state.sync.recordId === currentRecordId && state.sync.connected;
+        };
         const unsubscribers: (() => void)[] = [];
 
         const subscribeAll = async () => {
             // ITEMS
-            const unsubItems = await pb.collection('shopping_items').subscribe('*', (e) => {
-                if (e.record.list !== currentRecordId) return;
+            const unsubItems = await client.collection('shopping_items').subscribe('*', (e) => {
+                if (!isCurrent() || e.record.list !== currentRecordId) return;
 
                 const { items } = useShopStore.getState();
 
@@ -253,14 +267,11 @@ export function useListSync() {
                     // Our own optimistic/offline create coming back: swap the temp id
                     // instead of inserting a duplicate.
                     const externalId = e.record.external_id;
-                    if (externalId && items.find(i => i.id === externalId)) {
-                        useShopStore.setState({
-                            items: items.map(i => i.id === externalId
-                                ? { ...i, id: e.record.id, serverUpdated: parsePbDate(e.record.updated), dirty: false }
-                                : i)
-                        });
+                    if (externalId && (items.find(i => i.id === externalId) || useShopStore.getState().deletedItemIds.includes(externalId))) {
+                        useShopStore.getState().confirmItemCreated(externalId, e.record as unknown as ItemRecord);
                         return;
                     }
+                    if (useShopStore.getState().deletedItemIds.includes(e.record.id)) return;
                     if (!items.find(i => i.id === e.record.id)) {
                         const newItem = mapItemRecord(e.record);
                         useShopStore.setState({ items: [newItem, ...items] });
@@ -271,7 +282,7 @@ export function useListSync() {
                     const current = items.find(i => i.id === e.record.id);
                     if (!current) return;
                     // Don't let echoes or stale events clobber newer local state.
-                    if (shouldSkipRemoteUpdate(e.record.id, e.record.updated, current.serverUpdated)) return;
+                    if (current.dirty || shouldSkipRemoteUpdate(e.record.id, e.record.updated, current.serverUpdated)) return;
                     const updated = mapItemRecord(e.record, current);
                     useShopStore.setState({
                         items: items.map(i => i.id === e.record.id ? updated : i)
@@ -290,8 +301,8 @@ export function useListSync() {
             unsubscribers.push(unsubItems);
 
             // LIST (metadata: we only own data.listName)
-            const unsubList = await pb.collection('shopping_lists').subscribe(currentRecordId, (e) => {
-                if (e.action !== 'update') return;
+            const unsubList = await client.collection('shopping_lists').subscribe(currentRecordId, (e) => {
+                if (!isCurrent() || e.action !== 'update') return;
                 const data = e.record.data;
                 if (!data) return;
                 listDataRef.current = data;
@@ -304,8 +315,8 @@ export function useListSync() {
             unsubscribers.push(unsubList);
 
             // CUSTOM CATEGORIES (row-level: concurrent edits can't clobber each other)
-            const unsubCats = await pb.collection('list_categories').subscribe('*', (e) => {
-                if (e.record.list !== currentRecordId) return;
+            const unsubCats = await client.collection('list_categories').subscribe('*', (e) => {
+                if (!isCurrent() || e.record.list !== currentRecordId) return;
                 const { categories } = useShopStore.getState();
                 if (e.action === 'create') {
                     if (!categories[e.record.key]) {
@@ -325,8 +336,8 @@ export function useListSync() {
             unsubscribers.push(unsubCats);
 
             // CUSTOM CATEGORY ITEMS
-            const unsubCatItems = await pb.collection('list_items').subscribe('*', (e) => {
-                if (e.record.list !== currentRecordId) return;
+            const unsubCatItems = await client.collection('list_items').subscribe('*', (e) => {
+                if (!isCurrent() || e.record.list !== currentRecordId) return;
                 const { categories } = useShopStore.getState();
                 const cat = categories[e.record.category_key];
                 if (!cat) return;
@@ -349,8 +360,8 @@ export function useListSync() {
             unsubscribers.push(unsubCatItems);
 
             // Deactivated products (translucent in settings; filtered from the add UI)
-            const unsubDisabled = await pb.collection('list_disabled_products').subscribe('*', (e) => {
-                if (e.record.list !== currentRecordId) return;
+            const unsubDisabled = await client.collection('list_disabled_products').subscribe('*', (e) => {
+                if (!isCurrent() || e.record.list !== currentRecordId) return;
                 const { disabledProducts } = useShopStore.getState();
                 const name = e.record.name as string;
                 if (e.action === 'create') {
@@ -363,8 +374,8 @@ export function useListSync() {
             unsubscribers.push(unsubDisabled);
 
             // Deactivated default categories (hidden from the planner for this list)
-            const unsubDisabledCats = await pb.collection('list_disabled_categories').subscribe('*', (e) => {
-                if (e.record.list !== currentRecordId) return;
+            const unsubDisabledCats = await client.collection('list_disabled_categories').subscribe('*', (e) => {
+                if (!isCurrent() || e.record.list !== currentRecordId) return;
                 const { disabledCategories } = useShopStore.getState();
                 const key = e.record.key as string;
                 if (e.action === 'create') {
@@ -379,14 +390,13 @@ export function useListSync() {
 
         const init = async () => {
             try {
-                await fetchAndMerge(currentRecordId);
-                if (cancelled) return;
-
-                pushPendingItems(currentRecordId);
-
                 await subscribeAll();
+                if (!isCurrent()) return;
+                await fetchAndMerge(currentRecordId);
+                if (!isCurrent()) return;
+                await pushPendingItems(currentRecordId);
             } catch (e) {
-                if (cancelled) return;
+                if (!isCurrent()) return;
                 console.error("Sync init failed", e);
                 setSyncState({ msg: 'Sync Error', msgType: 'error' });
             }
@@ -408,6 +418,7 @@ export function useListSync() {
 
         const t = setTimeout(async () => {
             const state = useShopStore.getState();
+            if (!state.sync.connected || state.sync.recordId !== currentRecordId) return;
             // Don't push before the first fetch resolved the remote value
             if (lastRemoteListNameRef.current === undefined) return;
             if ((state.listName ?? null) === lastRemoteListNameRef.current) return;
@@ -415,6 +426,7 @@ export function useListSync() {
             try {
                 const data = { ...listDataRef.current, listName: state.listName };
                 await pb.collection('shopping_lists').update(currentRecordId, { data });
+                if (useShopStore.getState().sync.recordId !== currentRecordId) return;
                 listDataRef.current = data;
                 lastRemoteListNameRef.current = state.listName ?? null;
             } catch (e) { console.error("List name sync failed", e); }
@@ -448,6 +460,7 @@ export function useListSync() {
                         method: 'POST',
                         body: { code: state.sync.code }
                     });
+                    if (useShopStore.getState().activeListId !== state.activeListId || useShopStore.getState().sync.code !== state.sync.code) return;
                     setSyncState({ connected: true, recordId: record.id, msg: 'Reconnected', msgType: 'success' });
                     // Effect 2 will handle the rest (atomic sync)
                 } catch (e) {

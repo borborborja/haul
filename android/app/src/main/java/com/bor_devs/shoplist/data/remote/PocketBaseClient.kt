@@ -321,8 +321,19 @@ class PocketBaseClient @Inject constructor(
             sort?.let { add("sort=" + enc(it)) }
             expand?.let { add("expand=" + enc(it)) }
         }.joinToString("&")
-        val body = request("GET", "/api/collections/$collection/records?$params")
-        return json.decodeFromString(body)
+        val items = mutableListOf<T>()
+        var page = 1
+        var first: PageResult<T>? = null
+        do {
+            val body = request("GET", "/api/collections/$collection/records?$params&page=$page")
+            val result = json.decodeFromString<PageResult<T>>(body)
+            if (first == null) first = result
+            items.addAll(result.items)
+            page++
+            // With skipTotal, PocketBase omits a useful totalPages. A short page
+            // (including an empty page after an exact multiple) ends the scan.
+        } while (result.items.size >= perPage)
+        return first!!.copy(items = items)
     }
 
     // ---- HTTP plumbing ----

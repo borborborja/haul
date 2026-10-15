@@ -45,7 +45,7 @@ jobs:
 
       # Optional release signing: set KEYSTORE_BASE64, KEYSTORE_PASSWORD,
       # KEY_ALIAS, KEY_PASSWORD as repo secrets to produce a signed release APK.
-      # Without them, an installable debug-signed APK is published instead.
+      # Without them, debug APKs are compiled for verification and never published.
       - name: Configure signing
         id: signing
         env:

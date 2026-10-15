@@ -105,6 +105,7 @@ export default function DesktopSettings({ onClose }: { onClose: () => void }) {
                                         <MembersButton recordId={sync.recordId} t={t} trigger={(o) => (
                                             <button onClick={o} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, padding: '11px 16px', fontWeight: 600, fontSize: 13.5, color: '#EAF2EC', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}><Users size={15} />{t.members}</button>
                                         )} />
+                                        <button onClick={acc.disconnect} style={{ ...ghostBtn, background: 'transparent', color: '#EAF2EC' }}>{t.disconnect}</button>
                                     </> : (
                                         <button disabled={acc.busy} onClick={acc.createShared} style={greenBtn}>{t.createList}</button>
                                     )}

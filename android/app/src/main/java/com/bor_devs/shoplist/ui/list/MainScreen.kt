@@ -136,7 +136,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     val inListNames = remember(items) { items.filter { it.inList && !it.checked }.map { it.name.lowercase() }.toSet() }
     fun toggleCatalog(name: String, cat: String) {
         val existing = items.find { it.name.equals(name, ignoreCase = true) }
-        if (existing != null && existing.inList) vm.removeFromList(existing.id) else vm.addItem(name, cat)
+        if (existing != null && existing.inList && !existing.checked) vm.removeFromList(existing.id) else vm.addItem(name, cat)
     }
     fun addCustom(name: String) {
         val match = categories.values.firstOrNull { c -> c.items.any { it.forLang(appLang).equals(name, ignoreCase = true) } }

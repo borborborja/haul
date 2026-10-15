@@ -7,6 +7,7 @@ import ImportModal from './ImportModal';
 import type { ImportOptions } from './ImportModal';
 import { isConfigEnabled } from '../../utils/config';
 import { translate } from '../../lib/translate';
+import { validateCatalogBackup } from './catalogBackup';
 
 // Sensible defaults per AI provider (endpoints are OpenAI-compatible).
 const AI_PROVIDERS: Record<string, { base_url: string; model: string }> = {
@@ -246,11 +247,11 @@ const AdminSettings = () => {
         setStatus('Borrando usuarios...');
 
         try {
-            const users = await pb.collection('users').getFullList();
+            const users = await pb.collection('users').getFullList({ filter: "account_type = 'guest'" });
             for (const user of users) {
                 await pb.collection('users').delete(user.id);
             }
-            setStatus('Todos los usuarios borrados.');
+            setStatus('Usuarios invitados borrados.');
         } catch (e: any) {
             setStatus(`Error: ${e.message}`);
         } finally {
@@ -281,6 +282,8 @@ const AdminSettings = () => {
                     name_es: c.name_es,
                     name_ca: c.name_ca,
                     name_en: c.name_en,
+                    i18n: c.i18n || {},
+                    order: c.order,
                     hidden: c.hidden || false
                 })),
                 items: items.map(i => ({
@@ -288,6 +291,7 @@ const AdminSettings = () => {
                     name_es: i.name_es,
                     name_ca: i.name_ca,
                     name_en: i.name_en,
+                    i18n: i.i18n || {},
                     hidden: i.hidden || false
                 }))
             };
@@ -318,7 +322,7 @@ const AdminSettings = () => {
         reader.onload = (event) => {
             try {
                 const data = JSON.parse(event.target?.result as string);
-                if (!data.categories || !data.items) throw new Error('Formato de backup inválido');
+                validateCatalogBackup(data);
                 setImportingFile({ name: file.name, data });
             } catch (err: any) {
                 alert(`Error al leer el archivo: ${err.message}`);
@@ -336,6 +340,7 @@ const AdminSettings = () => {
         setStatus('Iniciando importación del backup...');
 
         try {
+            validateCatalogBackup(data);
             if (opts.mode === 'substitute') {
                 setStatus('Limpiando base de datos actual...');
                 const [oldItems, oldCats] = await Promise.all([
@@ -363,6 +368,8 @@ const AdminSettings = () => {
                     name_es: cat.name_es,
                     name_ca: cat.name_ca,
                     name_en: cat.name_en,
+                    i18n: { ...(existing?.i18n || {}), ...(cat.i18n || {}), es: cat.name_es || '', ca: cat.name_ca || '', en: cat.name_en || '' },
+                    order: cat.order ?? 0,
                     hidden: opts.applyHidden ? (cat.hidden || false) : false
                 };
 
@@ -389,6 +396,7 @@ const AdminSettings = () => {
                     name_es: item.name_es,
                     name_ca: item.name_ca,
                     name_en: item.name_en,
+                    i18n: item.i18n || {},
                     hidden: opts.applyHidden ? (item.hidden || false) : false
                 };
 
@@ -398,7 +406,10 @@ const AdminSettings = () => {
                 );
 
                 if (existing) {
-                    await pb.collection('catalog_items').update(existing.id, itemData);
+                    await pb.collection('catalog_items').update(existing.id, {
+                        ...itemData,
+                        i18n: { ...(existing.i18n || {}), ...itemData.i18n, es: item.name_es, ca: item.name_ca, en: item.name_en },
+                    });
                 } else {
                     await pb.collection('catalog_items').create(itemData);
                 }

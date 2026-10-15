@@ -14,26 +14,31 @@ const INK = '#06231A';
 // the list name + who invited you, and Accept/Decline. Accepting joins the list.
 export default function InvitesGate() {
     const lang = useShopStore((s) => s.lang);
+    const serverUrl = useShopStore((s) => s.serverUrl);
     const t = tt(lang);
     const acc = useAccountSync();
     const [invites, setInvites] = useState<Invite[]>([]);
     const [busy, setBusy] = useState(false);
 
     useEffect(() => {
+        const client = pb;
         let cancelled = false;
+        let latestRequest = 0;
         const load = () => {
-            const rec = pb.authStore.record as any;
+            const request = ++latestRequest;
+            const token = client.authStore.token;
+            const rec = client.authStore.record as any;
             if (!rec || rec.account_type !== 'account') { setInvites([]); return; }
-            pb.send<Invite[]>('/api/shoplist/invites', { method: 'GET' })
-                .then((r) => { if (!cancelled) setInvites(r || []); })
+            client.send<Invite[]>('/api/shoplist/invites', { method: 'GET' })
+                .then((r) => { if (!cancelled && pb === client && request === latestRequest && token === client.authStore.token) setInvites(r || []); })
                 .catch(() => { });
         };
         load();
         const onFocus = () => load();
         window.addEventListener('focus', onFocus);
-        const unsub = pb.authStore.onChange(load);
+        const unsub = client.authStore.onChange(load);
         return () => { cancelled = true; window.removeEventListener('focus', onFocus); unsub(); };
-    }, []);
+    }, [serverUrl]);
 
     if (!invites.length) return null;
     const inv = invites[0];

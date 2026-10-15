@@ -87,7 +87,7 @@ const CategoryManager = () => {
     const handleEdit = (cat: CatalogCategory) => {
         setEditingId(cat.id);
         // Seed the uniform language map from the base fields so all 15 show together.
-        setFormData({ ...cat, i18n: { es: cat.name_es, ca: cat.name_ca, en: cat.name_en, ...(cat.i18n || {}) } });
+        setFormData({ ...cat, i18n: { ...(cat.i18n || {}), es: cat.name_es, ca: cat.name_ca, en: cat.name_en } });
         setIsCreating(false);
     };
 

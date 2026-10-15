@@ -280,8 +280,8 @@ func publicName(s string) string {
 	if n == "" {
 		return "External"
 	}
-	if len(n) > 200 {
-		n = n[:200]
+	if chars := []rune(n); len(chars) > 200 {
+		n = string(chars[:200])
 	}
 	return n
 }
@@ -299,7 +299,7 @@ func publicCheckItem(e *core.RequestEvent) error {
 	}
 
 	item, err := e.App.FindRecordById("shopping_items", e.Request.PathValue("itemId"))
-	if err != nil || item.GetString("list") != list.Id {
+	if err != nil || item.GetString("list") != list.Id || !item.GetBool("in_list") {
 		return apis.NewNotFoundError("Item not found.", nil)
 	}
 
@@ -350,8 +350,8 @@ func publicAddItem(e *core.RequestEvent) error {
 	if name == "" {
 		return apis.NewBadRequestError("A name is required.", nil)
 	}
-	if len(name) > 200 {
-		name = name[:200]
+	if chars := []rune(name); len(chars) > 200 {
+		name = string(chars[:200])
 	}
 
 	collection, err := e.App.FindCollectionByNameOrId("shopping_items")
@@ -387,11 +387,12 @@ func publicRemoveItem(e *core.RequestEvent) error {
 	}
 
 	item, err := e.App.FindRecordById("shopping_items", e.Request.PathValue("itemId"))
-	if err != nil || item.GetString("list") != list.Id {
+	if err != nil || item.GetString("list") != list.Id || !item.GetBool("in_list") {
 		return apis.NewNotFoundError("Item not found.", nil)
 	}
 	item.Set("in_list", false)
 	item.Set("checked", false)
+	item.Set("checked_by", "")
 	if err := e.App.Save(item); err != nil {
 		return apis.NewBadRequestError("Could not remove the item.", err)
 	}

@@ -38,7 +38,11 @@ function ago(iso: string, neverLabel: string) {
     return `${Math.floor(h / 24)}d`;
 }
 
-export default function MembersButton({ recordId, t, trigger }: Props) {
+export default function MembersButton(props: Props) {
+    return <MembersControls key={props.recordId} {...props} />;
+}
+
+function MembersControls({ recordId, t, trigger }: Props) {
     const [open, setOpen] = useState(false);
     const [members, setMembers] = useState<Member[]>([]);
     const [email, setEmail] = useState('');

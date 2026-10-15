@@ -8,7 +8,7 @@ plugins {
 }
 
 // Keep in sync with :app (same semantic version).
-val appVersionName = "1.12.2"
+val appVersionName = "1.12.3"
 val appVersionCode = appVersionName.split(".").let { (maj, min, patch) ->
     maj.toInt() * 10000 + min.toInt() * 100 + patch.toInt()
 }
@@ -34,8 +34,9 @@ android {
     signingConfigs {
         if (keystorePropsFile.exists()) {
             create("release") {
-                // The keystore lives in the app module (CI writes app/release.jks).
-                storeFile = rootProject.file("app/${keystoreProps.getProperty("storeFile")}")
+                // Match :app: relative CI paths resolve in app/, while an
+                // absolute local keystore path must remain absolute.
+                storeFile = rootProject.file("app").resolve(keystoreProps.getProperty("storeFile"))
                 storePassword = keystoreProps.getProperty("storePassword")
                 keyAlias = keystoreProps.getProperty("keyAlias")
                 keyPassword = keystoreProps.getProperty("keyPassword")

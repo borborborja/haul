@@ -60,6 +60,7 @@ object WidgetData {
                     id = it.id, name = it.name, checked = it.checked, note = it.note,
                     category = it.category, inList = it.inList, serverUpdated = it.serverUpdated,
                     updatedAt = it.updatedAt, dirty = it.dirty,
+                    addedBy = it.addedBy, checkedBy = it.checkedBy,
                 )
             }
         }

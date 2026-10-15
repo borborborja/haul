@@ -1,11 +1,15 @@
 package com.bor_devs.shoplist.data.sync
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 
 enum class WriteKind { UPDATE, DELETE }
 
@@ -36,6 +40,7 @@ class WriteQueue(
     private val ops = LinkedHashMap<String, WriteOp>()
     private val timers = HashMap<String, Job>()
     private val running = HashSet<String>()
+    private val workers = HashMap<String, Job>()
 
     private fun keyOf(collection: String, recordId: String) = "$collection:$recordId"
 
@@ -78,6 +83,14 @@ class WriteQueue(
 
     suspend fun size(): Int = lock.withLock { ops.size }
 
+    /** Discard writes when changing servers; record ids belong to one backend. */
+    suspend fun clear() = lock.withLock {
+        timers.values.forEach { it.cancel() }
+        workers.values.forEach { it.cancel() }
+        timers.clear()
+        ops.clear()
+    }
+
     // must be called holding [lock]
     private fun schedule(key: String, delayMs: Long) {
         timers[key]?.cancel()
@@ -94,6 +107,7 @@ class WriteQueue(
             val current = ops[key] ?: return
             if (!isOnline()) return // flush() re-schedules on reconnect
             running.add(key)
+            coroutineContext[Job]?.let { workers[key] = it }
             ops.remove(key) // claim
             current
         }
@@ -102,6 +116,7 @@ class WriteQueue(
             val result = execute(op)
             onApplied(op, result)
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             val retriable = shouldRetry(error, op)
             lock.withLock {
                 if (retriable && op.attempts < retryDelaysMs.size) {
@@ -120,9 +135,12 @@ class WriteQueue(
                 }
             }
         } finally {
-            lock.withLock {
-                running.remove(key)
-                if (ops.containsKey(key) && !timers.containsKey(key)) schedule(key, 0)
+            withContext(NonCancellable) {
+                lock.withLock {
+                    running.remove(key)
+                    workers.remove(key)
+                    if (ops.containsKey(key) && !timers.containsKey(key)) schedule(key, 0)
+                }
             }
         }
     }

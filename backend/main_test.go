@@ -74,11 +74,8 @@ func TestBackfillListCustomDataExtractsOnlyCustomEntries(t *testing.T) {
 	}
 
 	// Seed a catalog category + item that must be skipped by the backfill.
-	catCol, _ := app.FindCollectionByNameOrId("catalog_categories")
-	catalogCat := core.NewRecord(catCol)
-	catalogCat.Set("key", "fruit")
-	catalogCat.Set("icon", "🍎")
-	if err := app.Save(catalogCat); err != nil {
+	catalogCat, err := app.FindFirstRecordByFilter("catalog_categories", "key = 'fruit'")
+	if err != nil {
 		t.Fatal(err)
 	}
 	itemCol, _ := app.FindCollectionByNameOrId("catalog_items")

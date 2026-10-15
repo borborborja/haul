@@ -1,6 +1,9 @@
 package com.bor_devs.shoplist.data.prefs
 
 import android.content.Context
+import com.bor_devs.shoplist.data.local.CustomCategoryEntity
+import com.bor_devs.shoplist.data.local.CustomItemEntity
+import com.bor_devs.shoplist.data.local.DisabledProductEntity
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -51,6 +54,7 @@ class SettingsDataStore @Inject constructor(
         val ACTIVE_LIST_ID = stringPreferencesKey("active_list_id")
         val LISTS = stringPreferencesKey("lists_json")
         val LIST_CACHES = stringPreferencesKey("list_caches_json")
+        val LIST_EXTRAS = stringPreferencesKey("list_extras_json")
 
         val AUTH_TOKEN = stringPreferencesKey("auth_token")
         val AUTH_MODEL = stringPreferencesKey("auth_model")
@@ -97,6 +101,9 @@ class SettingsDataStore @Inject constructor(
             listCaches = p[Keys.LIST_CACHES]?.let {
                 runCatching { json.decodeFromString<Map<String, List<CachedItem>>>(it) }.getOrNull()
             } ?: emptyMap(),
+            listExtras = p[Keys.LIST_EXTRAS]?.let {
+                runCatching { json.decodeFromString<Map<String, CachedListExtras>>(it) }.getOrNull()
+            } ?: emptyMap(),
         )
     }
 
@@ -133,6 +140,9 @@ class SettingsDataStore @Inject constructor(
     suspend fun setLists(lists: List<SavedList>) = edit { it[Keys.LISTS] = json.encodeToString(lists) }
     suspend fun setListCaches(caches: Map<String, List<CachedItem>>) = edit {
         it[Keys.LIST_CACHES] = json.encodeToString(caches)
+    }
+    suspend fun setListExtras(extras: Map<String, CachedListExtras>) = edit {
+        it[Keys.LIST_EXTRAS] = json.encodeToString(extras)
     }
 
     suspend fun setAuth(token: String?, id: String?, email: String?, displayName: String?, accountType: String?, collectionName: String?) =
@@ -183,4 +193,14 @@ data class Settings(
     val activeListId: String = "default",
     val lists: List<SavedList> = emptyList(),
     val listCaches: Map<String, List<CachedItem>> = emptyMap(),
+    val listExtras: Map<String, CachedListExtras> = emptyMap(),
+)
+
+/** The active list's extras live in Room; inactive lists retain their own copy. */
+@kotlinx.serialization.Serializable
+data class CachedListExtras(
+    val categories: List<CustomCategoryEntity> = emptyList(),
+    val items: List<CustomItemEntity> = emptyList(),
+    val disabledProducts: List<DisabledProductEntity> = emptyList(),
+    val disabledCategories: Set<String> = emptySet(),
 )

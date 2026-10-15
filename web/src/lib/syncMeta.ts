@@ -1,17 +1,29 @@
 // Module-level sync coordination state. Deliberately NOT persisted: it only
 // describes network operations in flight during the current page session.
 
-// itemId -> number of writes in flight for that record.
-const pendingWrites = new Map<string, number>();
+// Tokens let an old server's finally block finish harmlessly after a reset.
+const pendingWrites = new Map<string, Set<number>>();
+let nextWriteToken = 0;
 
-export function beginWrite(id: string) {
-    pendingWrites.set(id, (pendingWrites.get(id) || 0) + 1);
+export function beginWrite(id: string): number {
+    const token = ++nextWriteToken;
+    const tokens = pendingWrites.get(id) ?? new Set<number>();
+    tokens.add(token);
+    pendingWrites.set(id, tokens);
+    return token;
 }
 
-export function endWrite(id: string) {
-    const count = pendingWrites.get(id) || 0;
-    if (count <= 1) pendingWrites.delete(id);
-    else pendingWrites.set(id, count - 1);
+export function endWrite(id: string, token?: number) {
+    const tokens = pendingWrites.get(id);
+    if (!tokens) return;
+    const completed = token ?? tokens.values().next().value;
+    if (completed !== undefined) tokens.delete(completed);
+    if (tokens.size === 0) pendingWrites.delete(id);
+}
+
+export function resetSyncMeta() {
+    pendingWrites.clear();
+    pendingCreates.clear();
 }
 
 export function hasPendingWrite(id: string): boolean {

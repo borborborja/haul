@@ -114,7 +114,8 @@ const ProductManager = () => {
 
     const handleSave = async () => {
         try {
-            const { expand, ...rest } = formData as any;
+            const rest = { ...formData };
+            delete rest.expand;
             const i18n = { ...(formData.i18n || {}) };
             const payload = { ...rest, name_es: i18n.es || '', name_ca: i18n.ca || '', name_en: i18n.en || '', i18n };
             if (isCreating) {
@@ -283,7 +284,7 @@ const ProductManager = () => {
                                         </td>
                                         <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
                                             <div className="flex justify-end gap-1">
-                                                <button onClick={() => { setEditingId(item.id); setFormData({ ...item, i18n: { es: item.name_es, ca: item.name_ca, en: item.name_en, ...(item.i18n || {}) } }); setIsCreating(false); }} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit size={18} /></button>
+                                                <button onClick={() => { setEditingId(item.id); setFormData({ ...item, i18n: { ...(item.i18n || {}), es: item.name_es, ca: item.name_ca, en: item.name_en } }); setIsCreating(false); }} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit size={18} /></button>
                                                 <button onClick={() => handleDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={18} /></button>
                                             </div>
                                         </td>

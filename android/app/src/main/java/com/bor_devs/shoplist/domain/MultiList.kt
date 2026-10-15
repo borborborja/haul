@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * v2 multi-list ("Les meves llistes"). Each saved list is local-only until it
- * gains a sync [code]/[recordId]. Categories/catalog stay global, so only the
- * per-list item slice is cached (see [CachedItem]). The active list's items live
+ * gains a sync [code]/[recordId]. The shared server catalog stays global; custom
+ * categories/products and disabled entries are cached per list. The active list's items live
  * in the Room `items` table; switching swaps them through the DataStore cache.
  */
 @Serializable
@@ -32,4 +32,6 @@ data class CachedItem(
     val serverUpdated: Long,
     val updatedAt: Long,
     val dirty: Boolean,
+    val addedBy: String = "",
+    val checkedBy: String = "",
 )

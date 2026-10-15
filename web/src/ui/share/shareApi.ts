@@ -33,8 +33,13 @@ export interface ShareSnapshot {
 const base = (path: string) => `${window.location.origin}${path}`;
 
 async function json<T>(res: Response): Promise<T> {
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new ShareApiError(res.status);
     return res.json() as Promise<T>;
+}
+
+export class ShareApiError extends Error {
+    readonly status: number;
+    constructor(status: number) { super(`HTTP ${status}`); this.status = status; }
 }
 
 export const fetchSnapshot = (token: string) =>

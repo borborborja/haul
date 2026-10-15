@@ -28,9 +28,10 @@ interface ShoppingItem extends RecordModel {
 interface SyncSnapshot {
     bringActive: string[];
     pocketbaseNames: string[];
+    pocketbaseActive?: string[];
 }
 
-const normalize = (value: string) => value.trim().toLocaleLowerCase();
+const normalize = (value: string) => value.trim().toLowerCase();
 const uniqueNames = (values: string[]) => [...new Set(values.map(normalize).filter(Boolean))].sort();
 const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -76,66 +77,78 @@ export async function syncLink(pb: PocketBase, bring: BringAdapter, link: BringL
     const previous = link.snapshot ?? { bringActive: [], pocketbaseNames: [] };
     const previousBring = new Set(previous.bringActive);
     const previousPocketBase = new Set(previous.pocketbaseNames);
+    const previousActive = previous.pocketbaseActive ? new Set(previous.pocketbaseActive) : undefined;
 
-    for (const [name, item] of bringActive) {
-        const local = pbByName.get(name);
-        if (!local) {
-            await pb.collection('shopping_items').create({
-                list: link.list,
-                name: item.name,
-                note: item.specification,
-                category: 'other',
-                checked: false,
-                in_list: true,
-                source: 'bring'
-            });
-        } else if (local.checked || !local.in_list) {
-            await bring.complete(link.bring_list_uuid, item.name);
-        }
-    }
+    for (const name of new Set([...bringActive.keys(), ...bringRecent.keys(), ...pbByName.keys()])) {
+        let local = pbByName.get(name);
+        const active = bringActive.get(name);
+        const recent = bringRecent.get(name);
 
-    for (const [name, item] of bringRecent) {
-        const local = pbByName.get(name);
-        if (!local) {
-            await pb.collection('shopping_items').create({
-                list: link.list,
-                name: item.name,
-                note: item.specification,
-                category: 'other',
-                checked: true,
-                in_list: false,
-                source: 'bring'
-            });
-        } else if (!local.checked || local.in_list) {
-            await pb.collection('shopping_items').update(local.id, { checked: true, in_list: false });
-        }
-    }
-
-    for (const [name, item] of pbByName) {
-        if (item.checked || !item.in_list) {
-            if (bringActive.has(name)) {
-                await bring.complete(link.bring_list_uuid, item.name);
+        // Process local deletions before importing remote items, otherwise a
+        // deleted product is immediately recreated from the stale Bring copy.
+        if (!local && previousPocketBase.has(name)) {
+            if (active || recent) {
+                await bring.remove(link.bring_list_uuid, (active ?? recent)!.name);
+                bringActive.delete(name);
+                bringRecent.delete(name);
             }
             continue;
         }
-        if (!bringActive.has(name) && !bringRecent.has(name)) {
-            if (previousBring.has(name)) {
-                await pb.collection('shopping_items').update(item.id, { in_list: false });
-            } else {
-                await bring.add(link.bring_list_uuid, item.name, item.note ?? '');
+
+        if (!local) {
+            const remote = active ?? recent;
+            if (!remote) continue;
+            const created = await pb.collection('shopping_items').create<ShoppingItem>({
+                list: link.list,
+                name: remote.name,
+                note: remote.specification,
+                category: 'other',
+                checked: !active,
+                in_list: !!active,
+                source: 'bring'
+            });
+            pbByName.set(name, { ...created, name: remote.name, checked: !active, in_list: !!active });
+            continue;
+        }
+
+        const localActive = local.in_list && !local.checked;
+        const localChanged = previousActive !== undefined && previousActive.has(name) !== localActive;
+        const remoteChanged = link.snapshot !== undefined && previousBring.has(name) !== !!active;
+
+        // The previous active state identifies which side changed. In
+        // particular, a newly re-added item must not be completed again just
+        // because the other service still has it in its purchased history.
+        if (localChanged) {
+            if (localActive && !active) {
+                await bring.add(link.bring_list_uuid, local.name, local.note ?? '');
+                bringActive.set(name, { name: local.name, specification: local.note ?? '' });
+                bringRecent.delete(name);
+            } else if (!localActive && active) {
+                await bring.complete(link.bring_list_uuid, active.name);
+                bringActive.delete(name);
+                bringRecent.set(name, active);
             }
+        } else if (remoteChanged) {
+            const changes = { checked: !!recent, in_list: !!active };
+            await pb.collection('shopping_items').update(local.id, changes);
+            pbByName.set(name, { ...local, ...changes });
+        } else if (localActive && !active) {
+            await bring.add(link.bring_list_uuid, local.name, local.note ?? '');
+            bringActive.set(name, { name: local.name, specification: local.note ?? '' });
+            bringRecent.delete(name);
+        } else if (!localActive && active) {
+            const changes = { checked: false, in_list: true };
+            await pb.collection('shopping_items').update(local.id, changes);
+            pbByName.set(name, { ...local, ...changes });
         }
     }
 
-    for (const deletedName of previousPocketBase) {
-        if (!pbByName.has(deletedName) && bringActive.has(deletedName)) {
-            await bring.remove(link.bring_list_uuid, bringActive.get(deletedName)?.name ?? deletedName);
-        }
-    }
-
+    // Persist the resulting state, including records created in this cycle, so
+    // the next cycle can detect deletions and changes in either direction.
     const snapshot: SyncSnapshot = {
         bringActive: uniqueNames([...bringActive.keys()]),
-        pocketbaseNames: uniqueNames([...pbByName.keys()])
+        pocketbaseNames: uniqueNames([...pbByName.keys()]),
+        pocketbaseActive: uniqueNames([...pbByName.values()].filter((item) => item.in_list && !item.checked).map((item) => item.name))
     };
     await pb.collection('bring_links').update(link.id, { status: 'ok', last_error: '', snapshot });
 }

@@ -50,7 +50,7 @@ object AppUpdater {
                 val body = resp.body?.string() ?: return@withContext null
                 val rel = json.decodeFromString(GhRelease.serializer(), body)
                 if (rel.tag_name.isBlank() || !isNewer(rel.tag_name, currentVersion)) return@withContext null
-                val apk = rel.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }?.browser_download_url
+                val apk = rel.assets.firstOrNull { isPhoneApk(it.name) }?.browser_download_url
                 ReleaseInfo(rel.tag_name, rel.name.ifBlank { rel.tag_name }, rel.body, apk)
             }
         } catch (e: Exception) {
@@ -108,4 +108,8 @@ object AppUpdater {
         }
         return false
     }
+
+    internal fun isPhoneApk(name: String): Boolean =
+        name.endsWith(".apk", ignoreCase = true) &&
+            !name.contains("wear", ignoreCase = true) && !name.contains("unsigned", ignoreCase = true)
 }

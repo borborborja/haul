@@ -1,0 +1,3 @@
+- More reliable synchronization on reconnect and protection for pending edits.
+- Fixes for guest access, shared lists, and backups.
+- Improvements to widgets, Wear OS connectivity, and update detection.

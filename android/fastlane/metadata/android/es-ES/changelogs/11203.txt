@@ -1,0 +1,3 @@
+- Sincronización más fiable al reconectar y protección de las ediciones pendientes.
+- Correcciones en el acceso de invitados, las listas compartidas y las copias de seguridad.
+- Mejoras en los widgets, la conexión con Wear OS y la detección de actualizaciones.

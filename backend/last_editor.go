@@ -72,9 +72,7 @@ func recordHistory(app core.App, auth *core.Record, ip, listId, action, detail s
 	}
 
 	if list, err := app.FindRecordById("shopping_lists", listId); err == nil {
-		if userId != "" {
-			list.Set("last_edited_by", userId)
-		}
+		list.Set("last_edited_by", userId)
 		list.Set("last_editor", label)
 		_ = app.Save(list) // bumps `updated`
 	}

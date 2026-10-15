@@ -3,6 +3,7 @@ package com.bor_devs.shoplist.ui.widget
 import android.content.Context
 import com.bor_devs.shoplist.data.local.AppDatabase
 import com.bor_devs.shoplist.data.prefs.SettingsDataStore
+import com.bor_devs.shoplist.data.repo.ShopRepository
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -22,6 +23,7 @@ import dagger.hilt.components.SingletonComponent
 interface WidgetEntryPoint {
     fun appDatabase(): AppDatabase
     fun settingsDataStore(): SettingsDataStore
+    fun shopRepository(): ShopRepository
 }
 
 private fun entryPoint(context: Context): WidgetEntryPoint =
@@ -30,6 +32,7 @@ private fun entryPoint(context: Context): WidgetEntryPoint =
 object WidgetDatabase {
     fun get(context: Context): AppDatabase = entryPoint(context).appDatabase()
     fun settings(context: Context): SettingsDataStore = entryPoint(context).settingsDataStore()
+    fun repository(context: Context): ShopRepository = entryPoint(context).shopRepository()
 }
 
 /** Read the list name from the app's shared DataStore. */

@@ -3,7 +3,7 @@
 // Ported from components/modals/SettingsModal.tsx so the new tabbed settings
 // keep every feature.
 import { useState } from 'react';
-import PocketBase from 'pocketbase';
+import PocketBase, { BaseAuthStore } from 'pocketbase';
 import { pb, reinitializePocketBase, ensureGuestSession } from '../../lib/pocketbase';
 import { useShopStore } from '../../store/shopStore';
 
@@ -18,7 +18,7 @@ export function useSettingsExtras() {
         if (!u) { setStatus('error'); return false; }
         setStatus('testing');
         try {
-            await new PocketBase(u).health.check();
+            await new PocketBase(u, new BaseAuthStore()).health.check();
             useShopStore.getState().setServerUrl(u);
             reinitializePocketBase(u);
             await ensureGuestSession();

@@ -10,9 +10,9 @@ Categories:
 
 License: MIT
 AuthorName: bor_devs
-SourceCode: https://github.com/bor_devs/shoppinglist-android
-IssueTracker: https://github.com/bor_devs/shoppinglist-android/issues
-Changelog: https://github.com/bor_devs/shoppinglist-android/releases
+SourceCode: https://github.com/borborborja/haul
+IssueTracker: https://github.com/borborborja/haul/issues
+Changelog: https://github.com/borborborja/haul/releases
 
 AutoName: ShoppingList
 Summary: Collaborative shopping list with offline-first sync
@@ -27,19 +27,20 @@ Description: |
     no tracking, no third-party SDKs.
 
 RepoType: git
-Repo: https://github.com/bor_devs/shoppinglist-android.git
+Repo: https://github.com/borborborja/haul.git
 
 Builds:
-  - versionName: 1.3.3
-    versionCode: 10303
-    commit: v1.3.3
-    subdir: app
+  - versionName: 1.12.3
+    versionCode: 11203
+    commit: v1.12.3
+    subdir: android
     gradle:
       - yes
     rm:
-      - app/keystore.properties
+      - android/app/keystore.properties
+    output: app/build/outputs/apk/release/app-release-unsigned.apk
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.3.3
-CurrentVersionCode: 10303
+CurrentVersion: 1.12.3
+CurrentVersionCode: 11203

@@ -106,6 +106,48 @@ describe('createWriteQueue', () => {
         expect(q.size()).toBe(0);
     });
 
+    it('invalidates in-flight callbacks and retries when switching servers', async () => {
+        let reject!: (error: unknown) => void;
+        const execute = vi.fn(() => new Promise((_resolve, fail) => { reject = fail; }));
+        const applied = vi.fn();
+        const gaveUp = vi.fn();
+        const q = createWriteQueue({ execute, onApplied: applied, onGaveUp: gaveUp, isOnline: () => true });
+        q.enqueueUpdate('shopping_items', 'a', { checked: true });
+        await vi.advanceTimersByTimeAsync(10);
+        q.clear();
+        reject(new Error('old server disconnected'));
+        await vi.advanceTimersByTimeAsync(10000);
+        expect(execute).toHaveBeenCalledTimes(1);
+        expect(applied).not.toHaveBeenCalled();
+        expect(gaveUp).not.toHaveBeenCalled();
+        expect(q.size()).toBe(0);
+    });
+    it('ignores a successful old-server response after clearing the queue', async () => {
+        let resolve!: (value: unknown) => void;
+        const execute = vi.fn(() => new Promise(done => { resolve = done; }));
+        const applied = vi.fn();
+        const q = createWriteQueue({ execute, onApplied: applied, isOnline: () => true });
+        q.enqueueUpdate('shopping_items', 'a', { checked: true });
+        await vi.advanceTimersByTimeAsync(10);
+        q.clear();
+        resolve({ id: 'a' });
+        await vi.advanceTimersByTimeAsync(10);
+        expect(applied).not.toHaveBeenCalled();
+    });
+    it('keeps unsaved fields when an exhausted attempt has a newer partial update', async () => {
+        let rejectFirst!: (error: unknown) => void;
+        const execute = vi.fn()
+            .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }))
+            .mockResolvedValue({ ok: true });
+        const q = createWriteQueue({ execute, isOnline: () => true, retryDelays: [] });
+        q.enqueueUpdate('shopping_items', 'a', { checked: true });
+        await vi.advanceTimersByTimeAsync(10);
+        q.enqueueUpdate('shopping_items', 'a', { note: 'Two' });
+        rejectFirst(new Error('connection lost'));
+        await vi.advanceTimersByTimeAsync(10);
+        expect(execute.mock.calls[1][0].body).toEqual({ checked: true, note: 'Two' });
+    });
+
     it('applies an update enqueued while another is in flight', async () => {
         let resolveFirst!: (v: unknown) => void;
         const execute = vi.fn()

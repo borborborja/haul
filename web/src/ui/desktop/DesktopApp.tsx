@@ -35,7 +35,7 @@ export default function DesktopApp(_props: { openSettings: () => void }) {
     };
     const toggleCatalogItem = (name: string, catKey: string) => {
         const existing = useShopStore.getState().items.find((i) => i.name.toLowerCase() === name.toLowerCase());
-        if (existing && existing.inList !== false) removeFromList(existing.id);
+        if (existing && existing.inList !== false && !existing.checked) removeFromList(existing.id);
         else addItem(name, catKey);
     };
     const newList = () => {

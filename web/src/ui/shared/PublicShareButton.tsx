@@ -17,7 +17,11 @@ interface Props {
 const MINT = '#10B981';
 const INK = '#06231A';
 
-export default function PublicShareButton({ recordId, t, trigger }: Props) {
+export default function PublicShareButton(props: Props) {
+    return <PublicShareControls key={props.recordId} {...props} />;
+}
+
+function PublicShareControls({ recordId, t, trigger }: Props) {
     const [open, setOpen] = useState(false);
     const [state, setState] = useState<ShareState>({ token: '', mode: '' });
     const [busy, setBusy] = useState(false);
@@ -25,9 +29,14 @@ export default function PublicShareButton({ recordId, t, trigger }: Props) {
 
     useEffect(() => {
         if (!open || !recordId) return;
+        let cancelled = false;
+        setBusy(true);
+        setCopied(false);
         pb.send<ShareState>(`/api/shoplist/lists/${recordId}/share`, { method: 'GET' })
-            .then(setState)
-            .catch(() => setState({ token: '', mode: '' }));
+            .then(value => { if (!cancelled) setState(value); })
+            .catch(() => { if (!cancelled) setState({ token: '', mode: '' }); })
+            .finally(() => { if (!cancelled) setBusy(false); });
+        return () => { cancelled = true; };
     }, [open, recordId]);
 
     const setMode = async (mode: ShareMode, rotate = false) => {

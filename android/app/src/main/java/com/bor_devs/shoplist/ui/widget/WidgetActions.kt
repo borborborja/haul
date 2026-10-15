@@ -28,14 +28,10 @@ class ToggleCheckAction : ActionCallback {
         parameters: ActionParameters,
     ) {
         val itemId = parameters[Key] ?: return
-        val db = WidgetDatabase.get(context)
         withContext(Dispatchers.IO) {
-            val entity = db.itemDao().getById(itemId) ?: return@withContext
-            val updated = entity.copy(
-                checked = !entity.checked,
-                updatedAt = System.currentTimeMillis()
-            )
-            db.itemDao().upsert(updated)
+            val repo = WidgetDatabase.repository(context)
+            repo.initialize()
+            repo.toggleCheck(itemId).join()
         }
         // Refresh every instance of both widget types after the state change.
         // The triggering glanceId only belongs to one widget type, so updating

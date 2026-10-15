@@ -11,7 +11,10 @@ import com.bor_devs.shoplist.data.local.DisabledDao
 import com.bor_devs.shoplist.data.local.DisabledProductEntity
 import com.bor_devs.shoplist.data.local.ItemDao
 import com.bor_devs.shoplist.data.local.ItemEntity
+import com.bor_devs.shoplist.data.local.PendingItemDeleteDao
+import com.bor_devs.shoplist.data.local.PendingItemDeleteEntity
 import com.bor_devs.shoplist.data.prefs.Settings
+import com.bor_devs.shoplist.data.prefs.CachedListExtras
 import com.bor_devs.shoplist.data.prefs.SettingsDataStore
 import com.bor_devs.shoplist.data.remote.ItemRecord
 import com.bor_devs.shoplist.data.remote.PbRealtimeClient
@@ -23,6 +26,9 @@ import com.bor_devs.shoplist.data.sync.SyncMeta
 import com.bor_devs.shoplist.data.sync.WriteKind
 import com.bor_devs.shoplist.data.sync.WriteOp
 import com.bor_devs.shoplist.data.sync.WriteQueue
+import com.bor_devs.shoplist.data.sync.matches
+import com.bor_devs.shoplist.data.sync.reconcileCreatedItem
+import com.bor_devs.shoplist.data.sync.reconcileItemSnapshot
 import com.bor_devs.shoplist.di.AppScope
 import com.bor_devs.shoplist.domain.CachedItem
 import com.bor_devs.shoplist.domain.Category
@@ -38,6 +44,7 @@ import com.bor_devs.shoplist.ui.widget.WidgetUpdater
 import com.bor_devs.shoplist.util.NotificationHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +55,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -76,6 +85,7 @@ class ShopRepository @Inject constructor(
     private val itemDao: ItemDao,
     private val categoryDao: CategoryDao,
     private val disabledDao: DisabledDao,
+    private val pendingDeleteDao: PendingItemDeleteDao,
     private val wearBridge: com.bor_devs.shoplist.wear.WearBridge,
     private val notifications: NotificationHelper,
     @AppScope private val scope: CoroutineScope,
@@ -163,6 +173,8 @@ class ShopRepository @Inject constructor(
     private var presenceJob: Job? = null
     private var guestJob: Job? = null
     private var memberPollJob: Job? = null
+    private var connectJob: Job? = null
+    @Volatile private var activeConnection: Any = Any()
     private var sessionUserId: String? = null
 
     /** Pull-to-refresh / manual-refresh in-progress indicator. */
@@ -203,10 +215,14 @@ class ShopRepository @Inject constructor(
     }
 
     private fun onWriteApplied(op: WriteOp, result: Any?) {
+        if (op.kind == WriteKind.DELETE) {
+            scope.launch { pendingDeleteDao.deleteById(op.recordId) }
+            return
+        }
         if (op.kind != WriteKind.UPDATE || result !is ItemRecord) return
         scope.launch {
-            itemDao.getById(result.id)?.let {
-                itemDao.upsert(it.copy(serverUpdated = SyncMeta.parsePbDate(result.updated), dirty = false))
+            itemDao.updateById(result.id) {
+                it.copy(serverUpdated = SyncMeta.parsePbDate(result.updated), dirty = !it.matches(result))
             }
         }
     }
@@ -218,7 +234,7 @@ class ShopRepository @Inject constructor(
                 itemDao.deleteById(op.recordId)
             } else if (op.kind == WriteKind.UPDATE) {
                 Log.w(TAG, "Item write gave up, marking dirty: ${op.recordId}")
-                itemDao.getById(op.recordId)?.let { itemDao.upsert(it.copy(dirty = true)) }
+                markDirty(op.recordId)
             }
         }
     }
@@ -228,8 +244,12 @@ class ShopRepository @Inject constructor(
     // ---- Initialization / session restore ----
 
     @Volatile private var initialized = false
+    private val initializeLock = Mutex()
+    private val authLock = Mutex()
+    private val listLock = Mutex()
 
     suspend fun initialize() {
+      initializeLock.withLock {
         if (initialized) return
         initialized = true
         scope.launch { prefs.data.collect { settingsCache = it } }
@@ -240,6 +260,7 @@ class ShopRepository @Inject constructor(
         sessionUserId = s.auth.userId
         _listName.value = s.listName
         _sync.update { it.copy(code = s.syncCode, recordId = s.syncRecordId, syncHistory = s.syncHistory) }
+        val restoring = activeConnection
 
         // Seed multi-list state for first run / upgrade from single-list v1
         if (s.lists.isEmpty()) {
@@ -258,6 +279,9 @@ class ShopRepository @Inject constructor(
         loadCatalog()
         reconcileAccountLists() // pull lists shared with this account (e.g. invited as admin)
         refreshInvites() // pending admin invitations awaiting accept/decline
+        if (pb.baseUrl != s.serverUrl.trim().trimEnd('/')) return
+        listLock.withLock {
+        if (activeConnection !== restoring || prefs.snapshot().activeListId != s.activeListId) return
         val active = s.lists.firstOrNull { it.id == s.activeListId }
         val guestToken = if (active != null && active.role == "guest") active.code else null
         when {
@@ -266,23 +290,33 @@ class ShopRepository @Inject constructor(
             s.syncCode != null -> runCatching { connectToList(pb.joinList(s.syncCode).id) }
             else -> syncActiveListToServer() // server present but list still local → auto-sync
         }
+        }
+      }
     }
 
     suspend fun ensureGuestSession(): Boolean {
+      return authLock.withLock {
         if (!pb.hasServer) return false
         if (!pb.token.isNullOrBlank()) {
-            val refreshed = runCatching { pb.authRefresh("users") }.getOrNull()
-            if (refreshed != null) {
+            try {
+                val refreshed = pb.authRefresh("users")
                 pb.setToken(refreshed.token); sessionUserId = refreshed.record.id
                 persistAuth(refreshed); return true
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                // A timeout/offline server must never replace an existing user's
+                // identity with a fresh guest (and lose access to their lists).
+                val status = (error as? com.bor_devs.shoplist.data.remote.PbException)?.status
+                if (status != 401 && status != 403) return false
             }
             pb.setToken(null)
         }
-        return runCatching {
+        runCatching {
             val auth = pb.createGuest()
             pb.setToken(auth.token); sessionUserId = auth.record.id
             persistAuth(auth); true
         }.getOrDefault(false)
+      }
     }
 
     private suspend fun persistAuth(auth: com.bor_devs.shoplist.data.remote.AuthResponse) {
@@ -297,9 +331,11 @@ class ShopRepository @Inject constructor(
     }
 
     suspend fun loadCatalog() {
+        val origin = pb.baseUrl
         runCatching {
             val cats = pb.getCatalogCategories()
             val products = pb.getCatalogItems()
+            if (pb.baseUrl != origin) return@runCatching
             if (cats.isEmpty()) return@runCatching
             val map = LinkedHashMap<String, Category>()
             cats.forEach { map[it.key] = Category(it.key, it.icon, emptyList(), it.color.ifBlank { null }) }
@@ -313,6 +349,7 @@ class ShopRepository @Inject constructor(
         }
         runCatching {
             val cfg = pb.getAppConfig()
+            if (pb.baseUrl != origin) return@runCatching
             cfg.firstOrNull { it.key == "server_name" }?.value?.let { serverName.value = it.jsonPrimitive.content }
             cfg.firstOrNull { it.key == "enable_usernames" }?.value?.let { enableUsernames.value = parseBoolConfig(it) }
             requireAccount.value = cfg.firstOrNull { it.key == "require_account" }?.value?.let { parseBoolConfig(it) } ?: false
@@ -329,6 +366,7 @@ class ShopRepository @Inject constructor(
     // ---- Item actions (ported from shopStore.ts) ----
 
     fun addItem(name: String, category: String? = null) = scope.launch {
+      listLock.withLock {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return@launch
         val cat = category ?: DefaultCatalog.guessCategory(trimmed)
@@ -340,90 +378,112 @@ class ShopRepository @Inject constructor(
         val existing = all.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
         if (existing != null) {
             if (existing.inList && !existing.checked) return@launch
-            val updated = existing.copy(inList = true, checked = false, category = cat, updatedAt = now())
+            val updated = existing.copy(inList = true, checked = false, category = cat, updatedAt = now(), dirty = !existing.id.startsWith("local_"))
             itemDao.upsert(updated)
             pushFieldUpdate(updated, mapOf("in_list" to true, "checked" to false, "category" to cat))
             notifyWidgets()
             return@launch
         }
         val tempId = "local_" + UUID.randomUUID()
-        itemDao.upsert(ItemEntity(tempId, trimmed, false, "", cat, true, 0, now(), false))
         val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) {
-            syncMeta.pendingCreates.add(tempId)
+        val createNow = _sync.value.connected && recordId != null
+        if (createNow) syncMeta.pendingCreates.add(tempId)
+        itemDao.upsert(ItemEntity(tempId, trimmed, false, "", cat, true, 0, now(), false))
+        if (createNow && recordId != null) {
             try {
                 val record = pb.createItem(createBody(recordId, trimmed, cat, false, "", true, tempId))
-                swapTempId(tempId, record)
+                if (_sync.value.recordId == recordId && !_isGuest.value) swapTempId(tempId, record)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.e(TAG, "add failed, keeping local: ${e.message}")
             } finally {
                 syncMeta.pendingCreates.remove(tempId)
             }
         }
         notifyWidgets()
+      }
     }
 
     fun toggleCheck(id: String) = scope.launch {
-        val item = itemDao.getById(id) ?: return@launch
+      listLock.withLock {
         guestToken()?.let { token ->
             if (_shareMode.value != "shop" && _shareMode.value != "plan") return@launch
-            val updated = item.copy(checked = !item.checked, updatedAt = now())
-            itemDao.upsert(updated); notifyWidgets()
+            val updated = itemDao.updateById(id) { it.copy(checked = !it.checked, updatedAt = now()) } ?: return@launch
+            notifyWidgets()
             runCatching { pb.publicCheck(token, id, updated.checked, myName()) }
             return@launch
         }
-        val updated = item.copy(checked = !item.checked, updatedAt = now())
-        itemDao.upsert(updated)
+        val updated = itemDao.updateById(id) {
+            it.copy(checked = !it.checked, updatedAt = now(), dirty = !id.startsWith("local_"))
+        } ?: return@launch
         pushFieldUpdate(updated, mapOf("checked" to updated.checked))
         notifyWidgets()
+      }
     }
 
     fun deleteItem(id: String) = scope.launch {
+        listLock.withLock { deleteItemLocked(id) }
+    }
+
+    private suspend fun deleteItemLocked(id: String) {
         guestToken()?.let { token ->
-            if (_shareMode.value != "plan") return@launch
+            if (_shareMode.value != "plan") return
             itemDao.deleteById(id); notifyWidgets()
             runCatching { pb.publicRemove(token, id) }
-            return@launch
+            return
         }
-        itemDao.deleteById(id)
-        if (!id.startsWith("local_") && _sync.value.connected) itemQueue.enqueueDelete("shopping_items", id)
+        val recordId = _sync.value.recordId
+        if (!id.startsWith("local_") && recordId != null) {
+            pendingDeleteDao.enqueueAndDelete(PendingItemDeleteEntity(id, recordId))
+            if (_sync.value.connected) itemQueue.enqueueDelete("shopping_items", id)
+        } else itemDao.deleteById(id)
         notifyWidgets()
     }
 
     fun updateNote(id: String, note: String) = scope.launch {
-        val item = itemDao.getById(id) ?: return@launch
-        val updated = item.copy(note = note, updatedAt = now())
-        itemDao.upsert(updated)
+      listLock.withLock {
+        if (_isGuest.value) return@launch // public links expose no note-write endpoint
+        val updated = itemDao.updateById(id) {
+            it.copy(note = note, updatedAt = now(), dirty = !id.startsWith("local_"))
+        } ?: return@launch
         pushFieldUpdate(updated, mapOf("note" to note))
+      }
     }
 
     fun removeFromList(id: String) = scope.launch {
+      listLock.withLock {
         guestToken()?.let { token ->
             if (_shareMode.value != "plan") return@launch
             itemDao.deleteById(id); notifyWidgets()
             runCatching { pb.publicRemove(token, id) }
             return@launch
         }
-        val item = itemDao.getById(id) ?: return@launch
-        val updated = item.copy(inList = false, checked = false, updatedAt = now())
-        itemDao.upsert(updated)
+        val updated = itemDao.updateById(id) {
+            it.copy(inList = false, checked = false, updatedAt = now(), dirty = !id.startsWith("local_"))
+        } ?: return@launch
         pushFieldUpdate(updated, mapOf("in_list" to false, "checked" to false))
         notifyWidgets()
+      }
     }
 
     fun addBackToList(id: String) = scope.launch {
-        val item = itemDao.getById(id) ?: return@launch
-        val updated = item.copy(inList = true, checked = false, updatedAt = now())
-        itemDao.upsert(updated)
+      listLock.withLock {
+        if (_isGuest.value) return@launch
+        val updated = itemDao.updateById(id) {
+            it.copy(inList = true, checked = false, updatedAt = now(), dirty = !id.startsWith("local_"))
+        } ?: return@launch
         pushFieldUpdate(updated, mapOf("in_list" to true, "checked" to false))
         notifyWidgets()
+      }
     }
 
     fun clearCompleted() = scope.launch {
+      listLock.withLock {
         val all = itemDao.getAll()
+        if (_isGuest.value) return@launch
         val completed = all.filter { it.checked && it.inList }
         if (completed.isEmpty()) return@launch
-        itemDao.upsertAll(completed.map { it.copy(checked = false, inList = false, updatedAt = now()) })
+        itemDao.upsertAll(completed.map { it.copy(checked = false, inList = false, updatedAt = now(), dirty = !it.id.startsWith("local_")) })
         notifyWidgets()
         val remote = completed.filter { !it.id.startsWith("local_") }.map { it.id }
         if (remote.isEmpty()) return@launch
@@ -440,13 +500,22 @@ class ShopRepository @Inject constructor(
         } finally {
             remote.forEach { syncMeta.endWrite(it) }
         }
+      }
     }
 
     fun clearPreviouslyUsed(planning: Boolean) = scope.launch {
+      listLock.withLock {
+        if (_isGuest.value) return@launch
         val all = itemDao.getAll()
         val prev = all.filter { !it.inList || (planning && it.checked) }
         if (prev.isEmpty()) return@launch
-        itemDao.deleteByIds(prev.map { it.id })
+        val recordId = _sync.value.recordId
+        prev.forEach {
+            if (!it.id.startsWith("local_") && recordId != null) {
+                pendingDeleteDao.enqueueAndDelete(PendingItemDeleteEntity(it.id, recordId))
+            } else itemDao.deleteById(it.id)
+        }
+        notifyWidgets()
         if (!_sync.value.connected) return@launch
         val remote = prev.filter { !it.id.startsWith("local_") }.map { it.id }
         if (remote.isEmpty()) return@launch
@@ -454,11 +523,13 @@ class ShopRepository @Inject constructor(
         remote.forEach { syncMeta.beginWrite(it) }
         try {
             if (!pb.batchDeleteItems(remote)) remote.forEach { itemQueue.enqueueDelete("shopping_items", it) }
+            else remote.forEach { pendingDeleteDao.deleteById(it) }
         } catch (e: Exception) {
             remote.forEach { itemQueue.enqueueDelete("shopping_items", it) }
         } finally {
             remote.forEach { syncMeta.endWrite(it) }
         }
+      }
     }
 
     /** Auto-clear stale completed items (>1h), called on resume. */
@@ -488,6 +559,7 @@ class ShopRepository @Inject constructor(
     }
 
     fun setListName(name: String?) = scope.launch {
+      listLock.withLock {
         _listName.value = name
         prefs.setListName(name)
         upsertActiveListMeta()
@@ -501,36 +573,45 @@ class ShopRepository @Inject constructor(
                 listDataRef = pb.updateListData(recordId, data).data ?: data
             }
         }
+      }
     }
 
     // ---- Category actions ----
 
     fun addCategory(key: String, icon: String) = scope.launch {
+      listLock.withLock {
         categoryDao.upsertCategory(CustomCategoryEntity(key, icon))
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching { pb.createListCategory(recordId, key, icon) }
+      }
     }
 
     fun removeCategory(key: String) = scope.launch {
+      listLock.withLock {
         categoryDao.deleteCategory(key)
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching {
             pb.getListCategories(recordId).firstOrNull { it.key == key }?.let { pb.deleteListCategory(it.id) }
         }
+      }
     }
 
     fun addCategoryItem(catKey: String, name: String) = scope.launch {
+      listLock.withLock {
         addCustomItemLocal(catKey, name)
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching { pb.createListItem(recordId, catKey, name) }
+      }
     }
 
     fun removeCategoryItem(catKey: String, name: String) = scope.launch {
+      listLock.withLock {
         categoryDao.deleteItemByName(catKey, name)
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching {
             pb.getListItems(recordId).firstOrNull { it.categoryKey == catKey && it.name == name }?.let { pb.deleteListItem(it.id) }
         }
+      }
     }
 
     // ---- Per-list product deactivation (synced) ----
@@ -543,78 +624,100 @@ class ShopRepository @Inject constructor(
 
     /** Deactivate a product for the active list: translucent in settings, removed from the list, synced. */
     fun deactivateProduct(item: LocalizedItem) = scope.launch {
+      listLock.withLock {
         val key = canonicalKey(item)
         if (key.isBlank()) return@launch
         disabledDao.insert(DisabledProductEntity(key))
         val variants = localizedVariants(item)
-        itemDao.getAll().filter { variants.contains(it.name.trim().lowercase()) }.forEach { deleteItem(it.id) }
+        itemDao.getAll().filter { variants.contains(it.name.trim().lowercase()) }.forEach { deleteItemLocked(it.id) }
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching { pb.createDisabledProduct(recordId, key) }
+      }
     }
 
     fun reactivateProduct(item: LocalizedItem) = scope.launch {
+      listLock.withLock {
         val key = canonicalKey(item)
         disabledDao.deleteByName(key)
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching {
             pb.getListDisabledProducts(recordId).firstOrNull { it.name == key }?.let { pb.deleteDisabledProduct(it.id) }
         }
+      }
     }
 
     private suspend fun loadListDisabled(recordId: String) {
+        val origin = pb.baseUrl
+        val connection = activeConnection
         runCatching {
-            disabledDao.replaceAll(pb.getListDisabledProducts(recordId).map { DisabledProductEntity(it.name) })
+            val records = pb.getListDisabledProducts(recordId)
+            listLock.withLock {
+                if (isActiveConnection(recordId, origin, connection)) disabledDao.replaceAll(records.map { DisabledProductEntity(it.name) })
+            }
         }
         runCatching {
-            _disabledCategories.value = pb.getListDisabledCategories(recordId).map { it.key }.toSet()
+            val records = pb.getListDisabledCategories(recordId)
+            listLock.withLock {
+                if (isActiveConnection(recordId, origin, connection)) _disabledCategories.value = records.map { it.key }.toSet()
+            }
         }
     }
 
     /** Hide a default category for the active list (synced). */
     fun deactivateCategory(key: String) = scope.launch {
+      listLock.withLock {
         if (key.isBlank() || _disabledCategories.value.contains(key)) return@launch
         _disabledCategories.update { it + key }
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching { pb.createDisabledCategory(recordId, key) }
+      }
     }
 
     fun reactivateCategory(key: String) = scope.launch {
+      listLock.withLock {
         _disabledCategories.update { it - key }
         val recordId = _sync.value.recordId
         if (_sync.value.connected && recordId != null) runCatching {
             pb.getListDisabledCategories(recordId).firstOrNull { it.key == key }?.let { pb.deleteDisabledCategory(it.id) }
         }
+      }
     }
 
     // ---- Multi-list switching ----
 
     /** Create a new local list and make it active (the "Nova llista" action). */
     fun createLocalList(name: String, emoji: String = "🛒") = scope.launch {
+      listLock.withLock {
         val s = prefs.snapshot()
+        goLocal()
         snapshotActiveItems(s)
         val id = "list_" + UUID.randomUUID()
         val display = name.trim().ifBlank { null }
         prefs.setLists(s.lists + SavedList(id, display, emoji, null, null, true))
         prefs.setActiveListId(id)
         itemDao.clear()
+        restoreListExtras(null)
         _listName.value = display; prefs.setListName(display)
-        goLocal()
         prefs.setSync(null, null)
         notifyWidgets()
         // With a server configured, a new list is synced by default.
         if (pb.hasServer) syncActiveListToServer()
+      }
     }
 
     /** Make another saved list the active one, swapping items through the cache. */
     fun switchList(id: String) = scope.launch {
+      listLock.withLock {
         val s = prefs.snapshot()
         if (id == s.activeListId) return@launch
         val target = s.lists.firstOrNull { it.id == id } ?: return@launch
+        goLocal()
         val caches = snapshotActiveItems(s).toMutableMap()
         val targetItems = caches.remove(id) ?: emptyList()
         prefs.setListCaches(caches)
         prefs.setActiveListId(id)
         itemDao.replaceAll(targetItems.map { it.toEntity() })
+        restoreListExtras(s.listExtras[id])
         _listName.value = target.name; prefs.setListName(target.name)
         prefs.setSync(target.code, target.recordId)
         if (target.role == "guest" && target.code != null) {
@@ -629,18 +732,23 @@ class ShopRepository @Inject constructor(
             if (pb.hasServer && target.recordId == null && target.code == null) syncActiveListToServer()
         }
         notifyWidgets()
+      }
     }
 
     fun deleteList(id: String) = scope.launch {
+      listLock.withLock {
         val s = prefs.snapshot()
         if (s.lists.size <= 1) return@launch
         val remaining = s.lists.filterNot { it.id == id }
         val caches = s.listCaches.toMutableMap(); caches.remove(id)
+        prefs.setListExtras(s.listExtras - id)
         if (id == s.activeListId) {
+            goLocal()
             val next = remaining.first()
             val nextItems = caches.remove(next.id) ?: emptyList()
             prefs.setLists(remaining); prefs.setListCaches(caches); prefs.setActiveListId(next.id)
             itemDao.replaceAll(nextItems.map { it.toEntity() })
+            restoreListExtras(s.listExtras[next.id])
             _listName.value = next.name; prefs.setListName(next.name); prefs.setSync(next.code, next.recordId)
             if (next.role == "guest" && next.code != null) {
                 connectAsGuest(next.code, next.recordId)
@@ -655,15 +763,18 @@ class ShopRepository @Inject constructor(
         } else {
             prefs.setLists(remaining); prefs.setListCaches(caches)
         }
+      }
     }
 
     fun setActiveListEmoji(emoji: String) = scope.launch {
+      listLock.withLock {
         val s = prefs.snapshot()
         prefs.setLists(s.lists.map { if (it.id == s.activeListId) it.copy(emoji = emoji) else it })
         val rid = _sync.value.recordId
         if (_sync.value.connected && rid != null) {
             runCatching { listDataRef = pb.updateListData(rid, JsonObject(listDataRef + mapOf("emoji" to JsonPrimitive(emoji)))).data ?: listDataRef }
         }
+      }
     }
 
     /** Snapshot the current active items into the DataStore cache; returns the new map. */
@@ -671,16 +782,29 @@ class ShopRepository @Inject constructor(
         val caches = s.listCaches.toMutableMap()
         caches[s.activeListId] = itemDao.getAll().map { it.toCached() }
         prefs.setListCaches(caches)
+        val extras = CachedListExtras(
+            categories = categoryDao.getCategories(), items = categoryDao.getItems(),
+            disabledProducts = disabledDao.getAll(), disabledCategories = _disabledCategories.value,
+        )
+        prefs.setListExtras(s.listExtras + (s.activeListId to extras))
         return caches
     }
 
+    private suspend fun restoreListExtras(cached: CachedListExtras?) {
+        val extras = cached ?: CachedListExtras()
+        categoryDao.replaceAll(extras.categories, extras.items)
+        disabledDao.replaceAll(extras.disabledProducts)
+        _disabledCategories.value = extras.disabledCategories
+    }
+
     /** Stop realtime/presence and mark the active list local (optionally keeping linkage for re-join). */
-    private fun goLocal(code: String? = null, recordId: String? = null) {
+    private suspend fun goLocal(code: String? = null, recordId: String? = null) {
+        activeConnection = Any()
         stopGuest()
+        connectJob?.cancel()
         realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel(); memberPollJob?.cancel()
         _activeUsers.value = emptyList()
-        scope.launch { disabledDao.clear() } // disabled set is per-list; local lists start empty
-        _disabledCategories.value = emptySet()
+        listDataRef = JsonObject(emptyMap())
         _sync.update { it.copy(connected = false, code = code, recordId = recordId, msg = "", msgType = MsgType.INFO) }
     }
 
@@ -700,6 +824,7 @@ class ShopRepository @Inject constructor(
     // ---- Sync / connect ----
 
     fun createList(name: String) = scope.launch {
+      listLock.withLock {
         if (!ensureGuestSession()) { setMsg("No server", MsgType.ERROR); return@launch }
         runCatching {
             val r = pb.createList(name)
@@ -708,6 +833,7 @@ class ShopRepository @Inject constructor(
             addToHistory(r.inviteCode)
             connectToList(r.id)
         }.onFailure { setMsg("Error", MsgType.ERROR) }
+      }
     }
 
     /**
@@ -731,20 +857,46 @@ class ShopRepository @Inject constructor(
 
     /** Joins the list membership and reports whether local data would be affected. */
     suspend fun beginJoin(code: String): JoinInfo? {
+        val sourceListId = prefs.snapshot().activeListId
+        val origin = pb.baseUrl
         if (!ensureGuestSession()) return null
         val r = runCatching { pb.joinList(code.trim().uppercase()) }.getOrNull() ?: return null
-        return JoinInfo(r.id, r.name, r.inviteCode.ifBlank { code.trim().uppercase() }, itemDao.getAll().isNotEmpty())
+        return JoinInfo(r.id, r.name, r.inviteCode.ifBlank { code.trim().uppercase() }, itemDao.getAll().isNotEmpty(), sourceListId, origin)
     }
 
     fun finishJoin(info: JoinInfo, replace: Boolean) = scope.launch {
-        if (replace) itemDao.clear()
+      listLock.withLock {
+        val s = prefs.snapshot()
+        if (s.activeListId != info.sourceListId || pb.baseUrl != info.serverUrl) return@launch
+        val sourceRecordId = _sync.value.recordId
+        val existing = s.lists.firstOrNull { it.recordId == info.recordId }
+        goLocal()
+        val sourceItems = itemDao.getAll()
+        val copying = existing?.id?.let { it != s.activeListId } == true ||
+            (sourceRecordId != null && sourceRecordId != info.recordId)
+        if (copying) {
+            snapshotActiveItems(s)
+            val id = existing?.id ?: ("list_" + UUID.randomUUID())
+            val target = (s.listCaches[id] ?: emptyList()).map { it.toEntity() }
+            val copies = if (replace) emptyList() else sourceItems.map {
+                it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false)
+            }
+            prefs.setLists(if (existing != null) s.lists.map {
+                if (it.id == id && it.role == "guest") it.copy(role = "admin") else it
+            } else s.lists + SavedList(id, info.name, code = info.code, recordId = info.recordId, isLocal = false))
+            prefs.setActiveListId(id)
+            itemDao.replaceAll(target + copies)
+            restoreListExtras(s.listExtras[id])
+        } else if (replace) itemDao.clear()
         _listName.value = info.name; prefs.setListName(info.name)
         setConnected(info.code, info.recordId)
         addToHistory(info.code)
         connectToList(info.recordId)
+      }
     }
 
     fun rotateCode() = scope.launch {
+      listLock.withLock {
         val id = _sync.value.recordId ?: return@launch
         runCatching {
             val r = pb.rotateCode(id)
@@ -752,6 +904,7 @@ class ShopRepository @Inject constructor(
             prefs.setSync(r.inviteCode, id); addToHistory(r.inviteCode)
             upsertActiveListMeta()
         }
+      }
     }
 
     // ---- Public link sharing ----
@@ -837,12 +990,17 @@ class ShopRepository @Inject constructor(
      * mode-gated public endpoints.
      */
     fun openSharedLink(token: String) = scope.launch {
+      listLock.withLock {
+        val sourceListId = prefs.snapshot().activeListId
+        val origin = pb.baseUrl
         if (!ensureGuestSession()) { setMsg("No server", MsgType.ERROR); return@launch }
         val r = runCatching { pb.joinByToken(token) }.getOrNull()
         if (r == null || r.listId.isBlank()) { setMsg("Error", MsgType.ERROR); return@launch }
 
         val s = prefs.snapshot()
-        snapshotActiveItems(s)
+        if (s.activeListId != sourceListId || pb.baseUrl != origin) return@launch
+        goLocal()
+        val caches = snapshotActiveItems(s)
         val existing = s.lists.firstOrNull { it.recordId == r.listId }
         val localId = existing?.id ?: ("list_" + UUID.randomUUID())
         val role = if (r.role == "admin") "admin" else "guest"
@@ -857,7 +1015,8 @@ class ShopRepository @Inject constructor(
         )
         prefs.setLists(if (existing != null) s.lists.map { if (it.id == localId) saved else it } else s.lists + saved)
         prefs.setActiveListId(localId)
-        itemDao.clear()
+        itemDao.replaceAll(if (role == "admin") caches[localId].orEmpty().map { it.toEntity() } else emptyList())
+        restoreListExtras(if (role == "admin") prefs.snapshot().listExtras[localId] else null)
         _listName.value = saved.name; prefs.setListName(saved.name)
 
         if (role == "admin") {
@@ -869,11 +1028,16 @@ class ShopRepository @Inject constructor(
             connectAsGuest(token, r.listId)
         }
         notifyWidgets()
+      }
     }
 
     /** Drive a guest list from the public token endpoints: poll the snapshot and
      *  map items read-only; writes go through the gated public endpoints. */
     private fun connectAsGuest(token: String, recordId: String?) {
+        val connection = Any()
+        activeConnection = connection
+        val origin = pb.baseUrl
+        connectJob?.cancel()
         realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel(); memberPollJob?.cancel()
         _activeUsers.value = emptyList()
         _sync.update { it.copy(connected = false, code = token, recordId = recordId, msg = "", msgType = MsgType.INFO) }
@@ -883,6 +1047,8 @@ class ShopRepository @Inject constructor(
             while (true) {
                 runCatching {
                     val snap = pb.publicSnapshot(token)
+                    listLock.withLock {
+                    if (activeConnection !== connection || guestToken() != token || pb.baseUrl != origin) return@withLock
                     _shareMode.value = snap.mode
                     _listName.value = snap.list.name.ifBlank { null }
                     prefs.setListName(snap.list.name.ifBlank { null })
@@ -890,6 +1056,7 @@ class ShopRepository @Inject constructor(
                         ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy)
                     })
                     notifyWidgets()
+                    }
                 }
                 delay(5_000)
             }
@@ -897,7 +1064,13 @@ class ShopRepository @Inject constructor(
     }
 
     fun disconnect() = scope.launch {
+        listLock.withLock { disconnectLocked() }
+    }
+
+    private suspend fun disconnectLocked() {
+        activeConnection = Any()
         stopGuest()
+        connectJob?.cancel()
         realtime.stop(); realtimeJob?.cancel(); presenceJob?.cancel(); memberPollJob?.cancel()
         _activeUsers.value = emptyList()
         _sync.update { it.copy(connected = false, code = null, recordId = null, msg = "", msgType = MsgType.INFO) }
@@ -912,10 +1085,12 @@ class ShopRepository @Inject constructor(
     }
 
     private fun connectToList(recordId: String) {
+        activeConnection = Any()
         stopGuest()
         _sync.update { it.copy(connected = true, recordId = recordId) }
         startRealtime(recordId)
-        scope.launch {
+        connectJob?.cancel()
+        connectJob = scope.launch {
             runCatching {
                 fetchAndMerge(recordId)
                 pushPending(recordId)
@@ -935,7 +1110,7 @@ class ShopRepository @Inject constructor(
         memberPollJob = scope.launch {
             while (true) {
                 delay(25_000)
-                runCatching { fetchAndMerge(recordId) }
+                runCatching { fetchAndMerge(recordId); pushPending(recordId); itemQueue.flush() }
             }
         }
     }
@@ -944,37 +1119,42 @@ class ShopRepository @Inject constructor(
     fun refresh() = scope.launch {
         val token = guestToken()
         if (token != null) {
+            val origin = pb.baseUrl
+            val connection = activeConnection
             _refreshing.value = true
             runCatching {
                 val snap = pb.publicSnapshot(token)
+                listLock.withLock {
+                if (activeConnection !== connection || guestToken() != token || pb.baseUrl != origin) return@withLock
                 _shareMode.value = snap.mode
                 _listName.value = snap.list.name.ifBlank { null }
                 itemDao.replaceAll(snap.items.map {
                     ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy)
                 })
                 notifyWidgets()
+                }
             }
             _refreshing.value = false
             return@launch
         }
         val recordId = _sync.value.recordId ?: return@launch
         _refreshing.value = true
-        runCatching { fetchAndMerge(recordId) }
+        runCatching { fetchAndMerge(recordId); pushPending(recordId); itemQueue.flush() }
         _refreshing.value = false
     }
 
     private suspend fun fetchAndMerge(recordId: String) {
+        val origin = pb.baseUrl
+        val connection = activeConnection
         val records = pb.getItems(recordId)
         val listRecord = pb.getList(recordId)
+        listLock.withLock {
+        if (!isActiveConnection(recordId, origin, connection)) return
         listDataRef = listRecord.data ?: JsonObject(emptyMap())
-        val local = itemDao.getAll()
-        val localById = local.associateBy { it.id }
-        val offline = local.filter { it.id.startsWith("local_") }
-        val merged = records.map { r ->
-            val l = localById[r.id]
-            if (l != null && (l.dirty || syncMeta.hasPendingWrite(r.id))) l else r.toEntity(l)
+        itemDao.mergeAll(recordId) { local, deletedIds ->
+            if (_sync.value.recordId != recordId || _isGuest.value) return@mergeAll local
+            reconcileItemSnapshot(local, records, deletedIds, syncMeta::hasPendingWrite, now())
         }
-        itemDao.replaceAll(offline + merged)
         listRecord.data?.get("listName")?.let { el ->
             val name = if (el is JsonNull) null else el.jsonPrimitive.contentOrNull
             _listName.value = name; prefs.setListName(name)
@@ -990,33 +1170,48 @@ class ShopRepository @Inject constructor(
             runCatching { listDataRef = pb.updateListData(recordId, JsonObject(listDataRef + mapOf("emoji" to JsonPrimitive(localEmoji)))).data ?: listDataRef }
         }
         notifyWidgets()
+        }
     }
 
     private suspend fun pushPending(recordId: String) {
-        val all = itemDao.getAll()
-        all.filter { it.dirty && !it.id.startsWith("local_") }.forEach {
-            itemQueue.enqueueUpdate(
-                "shopping_items", it.id,
-                mapOf("name" to it.name, "category" to it.category, "checked" to it.checked, "note" to it.note, "in_list" to it.inList),
-            )
+        val origin = pb.baseUrl
+        val connection = activeConnection
+        val offline = listLock.withLock {
+            if (!isActiveConnection(recordId, origin, connection)) return
+            pendingDeleteDao.forList(recordId).forEach { itemQueue.enqueueDelete("shopping_items", it.id) }
+            val all = itemDao.getAll()
+            all.filter { it.dirty && !it.id.startsWith("local_") }.forEach {
+                itemQueue.enqueueUpdate(
+                    "shopping_items", it.id,
+                    mapOf("name" to it.name, "category" to it.category, "checked" to it.checked, "note" to it.note, "in_list" to it.inList),
+                )
+            }
+            all.filter { it.id.startsWith("local_") && syncMeta.pendingCreates.add(it.id) }
         }
-        val offline = all.filter { it.id.startsWith("local_") && !syncMeta.pendingCreates.contains(it.id) }
         if (offline.isEmpty()) return
-        offline.forEach { syncMeta.pendingCreates.add(it.id) }
         try {
+            if (!isActiveConnection(recordId, origin, connection)) return
             if (offline.size > 1) {
                 val bodies = offline.map { createBody(recordId, it.name, it.category, it.checked, it.note, it.inList, it.id) }
                 val results = runCatching { pb.batchCreateItems(bodies) }.getOrNull()
+                if (!isActiveConnection(recordId, origin, connection)) return
                 if (results != null && results.size == offline.size) {
                     results.forEachIndexed { i, rec -> swapTempId(offline[i].id, rec) }
                 } else {
                     offline.forEach { item ->
-                        runCatching { swapTempId(item.id, pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id))) }
+                        if (!isActiveConnection(recordId, origin, connection)) return
+                        runCatching {
+                            val rec = pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id))
+                            if (isActiveConnection(recordId, origin, connection)) swapTempId(item.id, rec)
+                        }
                     }
                 }
             } else {
                 val item = offline[0]
-                runCatching { swapTempId(item.id, pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id))) }
+                runCatching {
+                    val rec = pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id))
+                    if (isActiveConnection(recordId, origin, connection)) swapTempId(item.id, rec)
+                }
             }
         } finally {
             offline.forEach { syncMeta.pendingCreates.remove(it.id) }
@@ -1024,16 +1219,25 @@ class ShopRepository @Inject constructor(
     }
 
     private suspend fun loadListCustomData(recordId: String) {
+        val origin = pb.baseUrl
+        val connection = activeConnection
         runCatching {
-            pb.getListCategories(recordId).forEach { categoryDao.upsertCategory(CustomCategoryEntity(it.key, it.icon)) }
-            pb.getListItems(recordId).forEach { addCustomItemLocal(it.categoryKey, it.name) }
+            val cats = pb.getListCategories(recordId)
+            val its = pb.getListItems(recordId)
+            listLock.withLock {
+                if (!isActiveConnection(recordId, origin, connection)) return@withLock
+                cats.forEach { categoryDao.upsertCategory(CustomCategoryEntity(it.key, it.icon)) }
+                its.forEach { addCustomItemLocal(it.categoryKey, it.name) }
+            }
         }
-        loadListDisabled(recordId)
+        if (isActiveConnection(recordId, origin, connection)) loadListDisabled(recordId)
     }
 
     // ---- Realtime handling (ported from useListSync.ts) ----
 
     private suspend fun handleRealtime(recordId: String, e: RealtimeEvent) {
+      listLock.withLock {
+        if (_sync.value.recordId != recordId || _isGuest.value) return
         when (e.collection) {
             "shopping_items" -> handleItemEvent(recordId, e)
             "list_categories" -> {
@@ -1079,18 +1283,19 @@ class ShopRepository @Inject constructor(
                 }
             }
         }
+      }
     }
 
     private suspend fun handleItemEvent(recordId: String, e: RealtimeEvent) {
         val rec = pb.json.decodeFromJsonElement(ItemRecord.serializer(), e.record)
         if (rec.list != recordId) return
+        if (e.action != "delete" && rec.id in itemDao.pendingDeleteIds(recordId)) return
         when (e.action) {
             "create" -> {
                 val ext = rec.externalId
+                if (ext in syncMeta.pendingCreates) return // create response reconciles later local edits
                 if (ext.isNotBlank() && itemDao.getById(ext) != null) {
-                    val temp = itemDao.getById(ext)
-                    itemDao.deleteById(ext)
-                    if (itemDao.getById(rec.id) == null) itemDao.upsert(rec.toEntity(temp))
+                    swapTempId(ext, rec)
                     notifyWidgets()
                     return
                 }
@@ -1103,11 +1308,11 @@ class ShopRepository @Inject constructor(
                 }
             }
             "update" -> {
-                val current = itemDao.getById(rec.id) ?: return
-                if (syncMeta.shouldSkipRemoteUpdate(rec.id, rec.updated, current.serverUpdated)) return
                 val prev = items.value
-                val updated = rec.toEntity(current)
-                itemDao.upsert(updated)
+                val updated = itemDao.updateById(rec.id) { current ->
+                    if (current.dirty || syncMeta.shouldSkipRemoteUpdate(rec.id, rec.updated, current.serverUpdated)) current
+                    else rec.toEntity(current)
+                } ?: return
                 maybeNotify(prev, listOf(updated.toDomain()))
                 notifyWidgets()
             }
@@ -1162,8 +1367,11 @@ class ShopRepository @Inject constructor(
      */
     suspend fun reconcileAccountLists() {
         val uid = sessionUserId ?: return
+        val origin = pb.baseUrl
         val members = runCatching { pb.getMyListMemberships(uid) }.getOrNull() ?: return
         if (members.isEmpty()) return
+        listLock.withLock {
+        if (sessionUserId != uid || pb.baseUrl != origin) return
         val s = prefs.snapshot()
         val known = s.lists.mapNotNull { it.recordId }.toSet()
         val additions = members.mapNotNull { m ->
@@ -1178,6 +1386,7 @@ class ShopRepository @Inject constructor(
             )
         }
         if (additions.isNotEmpty()) prefs.setLists(s.lists + additions)
+        }
     }
 
     suspend fun refreshInvites() {
@@ -1185,13 +1394,13 @@ class ShopRepository @Inject constructor(
     }
 
     fun acceptInvite(id: String) = scope.launch {
-        runCatching { pb.acceptInvite(id) }
+        if (runCatching { pb.acceptInvite(id) }.isFailure) { setMsg("Error", MsgType.ERROR); return@launch }
         _invites.update { list -> list.filterNot { it.id == id } }
         reconcileAccountLists()
     }
 
     fun declineInvite(id: String) = scope.launch {
-        runCatching { pb.declineInvite(id) }
+        if (runCatching { pb.declineInvite(id) }.isFailure) { setMsg("Error", MsgType.ERROR); return@launch }
         _invites.update { list -> list.filterNot { it.id == id } }
     }
 
@@ -1227,10 +1436,12 @@ class ShopRepository @Inject constructor(
     // ---- Local list management / backup ----
 
     fun resetLocal() = scope.launch {
+      listLock.withLock {
         itemDao.clear()
         categoryDao.getCategories().forEach { categoryDao.deleteCategory(it.key) }
         _listName.value = null; prefs.setListName(null)
-        disconnect()
+        disconnectLocked()
+      }
     }
 
     suspend fun exportJson(): String {
@@ -1244,57 +1455,116 @@ class ShopRepository @Inject constructor(
         )
     }
 
-    suspend fun importJson(text: String): Boolean = runCatching {
+    suspend fun importJson(text: String): Boolean = listLock.withLock { runCatching {
         val backup = pb.json.decodeFromString(BackupData.serializer(), text)
         _listName.value = backup.listName; prefs.setListName(backup.listName)
         itemDao.replaceAll(backup.items.map {
             ItemEntity(
-                id = if (it.id.isBlank()) "local_" + UUID.randomUUID() else it.id,
+                // Backups carry content, not ids owned by a different list/server.
+                id = "local_" + UUID.randomUUID(),
                 name = it.name, checked = it.checked, note = it.note,
                 category = it.category, inList = it.inList, serverUpdated = 0, updatedAt = now(), dirty = false,
             )
         })
         true
-    }.getOrDefault(false)
+    }.getOrDefault(false) }
 
     // ---- Server configuration ----
 
     suspend fun testServer(url: String): Boolean = pb.health(url)
 
     suspend fun applyServer(url: String) {
+      listLock.withLock {
         val clean = url.trim().trimEnd('/')
-        pb.setBaseUrl(clean)
-        prefs.setServerUrl(clean)
-        prefs.setWizardDone(true)
+        authLock.withLock {
+            if (clean != pb.baseUrl) detachServer()
+            pb.setBaseUrl(clean)
+            prefs.setServerUrl(clean)
+            prefs.setWizardDone(true)
+        }
         if (clean.isNotBlank()) {
             ensureGuestSession()
             loadCatalog()
+            syncActiveListToServer()
         }
+      }
     }
 
     suspend fun useLocalMode() {
-        prefs.setServerUrl("")
-        pb.setBaseUrl("")
-        prefs.setWizardDone(true)
+      listLock.withLock {
+        authLock.withLock {
+            detachServer()
+            prefs.setServerUrl("")
+            pb.setBaseUrl("")
+            prefs.setWizardDone(true)
+        }
+      }
+    }
+
+    /** Preserve the lists as local copies without sending another host's ids or token. */
+    private suspend fun detachServer() {
+        goLocal()
+        itemQueue.clear()
+        pendingDeleteDao.clear()
+        pb.setToken(null)
+        sessionUserId = null
+        prefs.clearAuth()
+        prefs.setSync(null, null)
+        prefs.setSyncHistory(emptyList())
+        _sync.update { it.copy(syncHistory = emptyList()) }
+        val s = prefs.snapshot()
+        itemDao.replaceAll(itemDao.getAll().map {
+            it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false)
+        })
+        prefs.setListCaches(s.listCaches.mapValues { (_, items) -> items.map {
+            it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false)
+        } })
+        prefs.setLists(s.lists.map { it.copy(code = null, recordId = null, isLocal = true, role = "owner") })
+        serverCatalog.value = emptyList()
+        _invites.value = emptyList()
+        _avatarUrl.value = null
+        _avatarColor.value = null
     }
 
     // ---- Helpers ----
 
     private suspend fun markDirty(id: String) {
-        itemDao.getById(id)?.let { itemDao.upsert(it.copy(dirty = true)) }
+        itemDao.updateById(id) { it.copy(dirty = true) }
     }
 
-    private fun pushFieldUpdate(item: ItemEntity, body: Map<String, Any?>) {
+    private suspend fun pushFieldUpdate(item: ItemEntity, body: Map<String, Any?>) {
         if (item.id.startsWith("local_")) return
+        markDirty(item.id)
         if (_sync.value.connected) itemQueue.enqueueUpdate("shopping_items", item.id, body)
-        else scope.launch { markDirty(item.id) }
     }
 
     private suspend fun swapTempId(tempId: String, record: ItemRecord) {
-        val temp = itemDao.getById(tempId)
-        val realExists = itemDao.getById(record.id) != null
-        itemDao.deleteById(tempId)
-        if (!realExists) itemDao.upsert(record.toEntity(temp))
+        var acknowledged: ItemEntity? = null
+        var deleteRemote = false
+        itemDao.mergeAll(record.list) { all, _ ->
+            if (_sync.value.recordId != record.list || _isGuest.value) return@mergeAll all
+            val temp = all.firstOrNull { it.id == tempId }
+            val realExists = all.any { it.id == record.id }
+            when {
+                temp == null -> { deleteRemote = !realExists; all }
+                realExists -> all.filterNot { it.id == tempId }
+                else -> {
+                    val reconciled = reconcileCreatedItem(temp, record)
+                    acknowledged = reconciled
+                    all.filterNot { it.id == tempId } + reconciled
+                }
+            }
+        }
+        if (deleteRemote) {
+            pendingDeleteDao.upsert(PendingItemDeleteEntity(record.id, record.list))
+            itemQueue.enqueueDelete("shopping_items", record.id)
+        }
+        acknowledged?.takeIf { it.dirty }?.let { item ->
+            pushFieldUpdate(item, mapOf(
+                "name" to item.name, "category" to item.category,
+                "checked" to item.checked, "note" to item.note, "in_list" to item.inList,
+            ))
+        }
     }
 
     private suspend fun addCustomItemLocal(categoryKey: String, name: String) {
@@ -1316,6 +1586,9 @@ class ShopRepository @Inject constructor(
 
     private fun now() = System.currentTimeMillis()
 
+    private fun isActiveConnection(recordId: String, origin: String, connection: Any): Boolean =
+        activeConnection === connection && _sync.value.recordId == recordId && !_isGuest.value && pb.baseUrl == origin
+
     private fun isNetworkAvailable(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
         val net = cm.activeNetwork ?: return false
@@ -1329,8 +1602,8 @@ class ShopRepository @Inject constructor(
         return prim.content.equals("true", ignoreCase = true) || prim.content == "1"
     }
 
-    private fun ItemEntity.toCached() = CachedItem(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty)
-    private fun CachedItem.toEntity() = ItemEntity(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty)
+    private fun ItemEntity.toCached() = CachedItem(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty, addedBy, checkedBy)
+    private fun CachedItem.toEntity() = ItemEntity(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty, addedBy, checkedBy)
 
     private fun ItemRecord.toEntity(local: ItemEntity?): ItemEntity = ItemEntity(
         id = id, name = name, checked = checked, note = note,
@@ -1377,7 +1650,10 @@ class ShopRepository @Inject constructor(
         return map
     }
 
-    data class JoinInfo(val recordId: String, val name: String, val code: String, val hasLocalItems: Boolean)
+    data class JoinInfo(
+        val recordId: String, val name: String, val code: String, val hasLocalItems: Boolean,
+        val sourceListId: String, val serverUrl: String,
+    )
 
     @kotlinx.serialization.Serializable
     private data class BackupData(val listName: String?, val items: List<BackupItem>)

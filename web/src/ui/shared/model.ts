@@ -114,7 +114,7 @@ export function useHaulModel() {
                 active: isActive,
             };
         }),
-        [lists, activeListId, listCaches, inList],
+        [lists, activeListId, listCaches, inListAll],
     );
 
     const isDisabled = (it: LocalizedItem | string) => disabledSet.has(canonicalKey(it));

@@ -4,27 +4,32 @@ import { X, Server, Moon, Download, Upload, Trash2, Plus, Copy, LogOut, Package,
 import { useShopStore } from '../../store/shopStore';
 import { translations, categoryStyles, EMOJI_LIST } from '../../data/constants';
 import { pb, isNativePlatform, reinitializePocketBase, ensureGuestSession } from '../../lib/pocketbase';
-import PocketBase from 'pocketbase';
+import PocketBase, { BaseAuthStore } from 'pocketbase';
 import { getLocalizedItemName } from '../../utils/helpers';
 import { triggerHaptic } from '../../utils/haptics';
 import { ensureNotificationPermission } from '../../lib/notifications';
 import type { LocalizedItem, SettingsTab } from '../../types';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useBackButton } from '../../hooks/useBackButton';
+import { captureConnectionScope, disconnectList, fetchListData, finishListConnection, isConnectionCurrent, type ConnectionData, type ConnectionScope } from '../../ui/shared/listConnection';
+import { mergeRemoteItems, type ItemRecord } from '../../lib/itemSync';
+import { hasPendingWrite } from '../../lib/syncMeta';
+import { isAccountSession } from '../../utils/auth';
 
 interface SettingsModalProps {
     onClose: () => void;
     installPrompt?: any;
     onInstall?: () => void;
+    initialSyncCode?: string | null;
 }
 
-const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps) => {
+const SettingsModal = ({ onClose, installPrompt, onInstall, initialSyncCode }: SettingsModalProps) => {
     const {
         lang, setLang, theme, setTheme,
         notifyOnAdd, notifyOnCheck, setNotifyOnAdd, setNotifyOnCheck,
         categories, addCategoryItem, removeCategoryItem, addCategory, removeCategory,
-        items, resetDefaults, importData, listName, setListName,
-        sync, setSyncState, syncFromRemote, addToSyncHistory, removeFromSyncHistory,
+        items, resetDefaults, importData, listName,
+        sync, setSyncState, removeFromSyncHistory,
         auth, setUsername, setAuth
     } = useShopStore();
     const t = translations[lang];
@@ -66,6 +71,13 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
         return () => window.removeEventListener('deep-link-code', handleDeepLink as EventListener);
     }, []);
 
+    useEffect(() => {
+        if (initialSyncCode) {
+            setSyncInputCode(initialSyncCode);
+            void connectSync(initialSyncCode);
+        }
+    }, [initialSyncCode]);
+
     // Server URL State (for native apps)
     const { serverUrl, setServerUrl } = useShopStore();
     const [tempServerUrl, setTempServerUrl] = useState(serverUrl || '');
@@ -104,7 +116,7 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
         }
         setConnectionStatus({ msg: 'Probando conexión...', type: 'loading' });
         try {
-            const testPb = new PocketBase(tempServerUrl);
+            const testPb = new PocketBase(tempServerUrl, new BaseAuthStore());
             await testPb.health.check();
 
             // Success - save URL
@@ -142,36 +154,38 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
 
 
     // Pending sync record for merge/replace dialog
-    const [pendingSyncRecord, setPendingSyncRecord] = useState<{ id: string; code: string; data: { items: any[]; categories: any; listName?: string } } | null>(null);
+    const [pendingSyncRecord, setPendingSyncRecord] = useState<{ id: string; code: string; scope: ConnectionScope; data: ConnectionData } | null>(null);
 
     // --- Sync Logic ---
     const connectSync = async (codeInput: string) => {
         if (!navigator.onLine) return;
         const code = codeInput.trim().toUpperCase();
+        if (!code) return;
+        const scope = captureConnectionScope();
         setSyncState({ msg: 'Connecting...', msgType: 'info' });
         try {
-            const record = await pb.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists/join', {
+            if (!pb.authStore.isValid && !await ensureGuestSession()) throw new Error('Connection failed');
+            if (!isConnectionCurrent(scope)) return;
+            const record = await scope.client.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists/join', {
                 method: 'POST',
                 body: { code }
             });
-            const listRecord = await pb.collection('shopping_lists').getOne(record.id);
-            const remoteData = listRecord.data || { items: [], categories: undefined };
+            if (!isConnectionCurrent(scope)) return;
+            const remoteData = await fetchListData(record.id, scope.client);
+            const current = useShopStore.getState();
+            if (current.activeListId !== scope.listId || pb !== scope.client) return;
 
             // If user has local items, ask whether to merge or replace
-            if (items.length > 0 && remoteData.items && remoteData.items.length > 0) {
-                setPendingSyncRecord({ id: record.id, code, data: remoteData });
+            if (current.items.length > 0 && remoteData.items.length > 0) {
+                setPendingSyncRecord({ id: record.id, code, scope, data: remoteData });
                 return;
             }
 
             // If no conflict, just sync. Prioritize remote metadata (name/cats) even if items are empty (Atomic lists)
-            finishConnection(record.id, code, {
-                items: (remoteData.items?.length || 0) > 0 ? remoteData.items : items,
-                categories: remoteData.categories || categories,
-                listName: remoteData.listName || listName
-            });
+            finishListConnection(record.id, code, remoteData, scope, true);
         } catch (err: any) {
             console.error(err);
-            disconnectSync();
+            if (useShopStore.getState().activeListId !== scope.listId || pb !== scope.client) return;
             // Distinguish between 404 (Not Found) and other errors
             if (err.status === 404) {
                 setSyncState({ msg: 'Code not found', msgType: 'error' });
@@ -183,48 +197,14 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
 
     const handleSyncChoice = (choice: 'merge' | 'replace') => {
         if (!pendingSyncRecord) return;
-        const { id, code, data } = pendingSyncRecord;
-
-        if (choice === 'replace') {
-            // Replace local with remote
-            finishConnection(id, code, data);
-        } else {
-            // Merge: combine items (avoid duplicates by id)
-            // Merge: combine items (avoid duplicates by id)
-            const remoteItems = data.items || [];
-            const localItemIds = new Set(items.map((i: any) => i.id));
-            const mergedItems = [...items, ...remoteItems.filter((i: any) => !localItemIds.has(i.id))];
-            finishConnection(id, code, { items: mergedItems, categories: data.categories || categories, listName: data.listName || listName });
-        }
+        const { id, code, data, scope } = pendingSyncRecord;
+        finishListConnection(id, code, data, scope, choice === 'merge');
         setPendingSyncRecord(null);
-    };
-
-    const finishConnection = (recordId: string, code: string, data: { items: any[]; categories: any; listName?: string | null }) => {
-        syncFromRemote({ items: data.items || [], categories: data.categories || undefined, listName: data.listName });
-        setSyncState({ connected: true, code, recordId, msg: 'Connected', msgType: 'success' });
-        addToSyncHistory(code);
-        localStorage.setItem('shopListSyncCode', code);
-
-        // Push merged/synced data to remote
-        pb.collection('shopping_lists').update(recordId, { data: { items: data.items, categories: data.categories, listName: data.listName } }).catch(console.error);
-
-        // Load custom categories and items for this list
-        useShopStore.getState().loadListCustomData();
-
-        // Subscribe to updates - wrap in try/catch to avoid errors during subscription
-        try {
-            pb.collection('shopping_lists').unsubscribe('*').catch(() => { });
-            pb.collection('shopping_lists').subscribe(recordId, (e) => {
-                if (e.action === 'delete') { disconnectSync(); }
-                // Remote updates handled by App.tsx sync logic
-            }).catch(console.error);
-        } catch (e) {
-            console.error('Subscription error:', e);
-        }
     };
 
     const createSharedList = async () => {
         if (!navigator.onLine) return alert(lang === 'ca' ? 'Sense connexió' : 'Sin conexión');
+        const scope = captureConnectionScope();
         // A valid (guest) session is required to create a list.
         if (!pb.authStore.isValid) {
             const ok = await ensureGuestSession();
@@ -233,7 +213,8 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
         }
         let record: { id: string; name: string; inviteCode: string };
         try {
-            record = await pb.send('/api/shoplist/lists', {
+            if (!isConnectionCurrent(scope)) return;
+            record = await scope.client.send('/api/shoplist/lists', {
                 method: 'POST',
                 body: { name: listName || 'Shopping list' }
             });
@@ -250,7 +231,7 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
         // Step 2: Finish connection (this should not throw to user)
         // Step 2: Finish connection (this should not throw to user)
         try {
-            finishConnection(record.id, record.inviteCode, { items, categories, listName });
+            finishListConnection(record.id, record.inviteCode, { items: [], listName }, scope, true);
         } catch (err) {
             console.error('Error in finishConnection:', err);
             // Still show success since list was created
@@ -258,16 +239,13 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
     };
 
     const disconnectSync = () => {
-        pb.collection('shopping_lists').unsubscribe('*');
-        setSyncState({ connected: false, code: null, recordId: null, msg: '' });
-        localStorage.removeItem('shopListSyncCode');
-        setListName(null);
+        disconnectList();
     };
 
     const syncAccountState = () => {
         const record = pb.authStore.record;
         setAuth({
-            isLoggedIn: pb.authStore.isValid,
+            isLoggedIn: isAccountSession(pb.authStore),
             email: record?.email ?? null,
             userId: record?.id ?? null,
             username: record?.display_name ?? null
@@ -277,15 +255,19 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
     // Approach (A): "claim" upgrades the current guest into an account IN PLACE
     // (same id), so lists and memberships are preserved. No new identity.
     const claimAccount = async () => {
-        if (!pb.authStore.isValid) await ensureGuestSession();
+        const client = pb;
+        if (!client.authStore.isValid && !await ensureGuestSession()) return;
+        if (pb !== client) return;
+        const token = client.authStore.token;
         setAccountLoading(true);
         setAccountError('');
         try {
-            const res = await pb.send<{ token: string; record: any }>('/api/shoplist/account/claim', {
+            const res = await client.send<{ token: string; record: any }>('/api/shoplist/account/claim', {
                 method: 'POST',
                 body: { email: accountEmail, password: accountPassword }
             });
-            pb.authStore.save(res.token, res.record);
+            if (pb !== client || client.authStore.token !== token) return;
+            client.authStore.save(res.token, res.record);
             syncAccountState();
         } catch (error: any) {
             if (error?.status === 409) {
@@ -336,10 +318,11 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
     };
 
     const connectByRecordId = (recordId: string, name?: string) => {
-        setSyncState({ connected: true, recordId, code: null, msg: 'Connected', msgType: 'success' });
-        if (name) setListName(name);
+        const scope = captureConnectionScope();
+        fetchListData(recordId).then(data => {
+            finishListConnection(recordId, null, { ...data, listName: data.listName ?? name ?? null }, scope);
+        }).catch(console.error);
         setRecoveredLists([]);
-        useShopStore.getState().loadListCustomData();
     };
 
     const handleAccountLogout = async () => {
@@ -360,51 +343,40 @@ const SettingsModal = ({ onClose, installPrompt, onInstall }: SettingsModalProps
     };
 
     const manualSync = async () => {
-        if (!sync.connected || !sync.recordId) return;
+        const client = pb;
+        const source = useShopStore.getState();
+        const recordId = source.sync.recordId;
+        if (!source.sync.connected || !recordId) return;
+        const isCurrent = () => {
+            const state = useShopStore.getState();
+            return pb === client && state.sync.connected && state.activeListId === source.activeListId && state.sync.recordId === recordId;
+        };
         setSyncState({ msg: 'Syncing...', msgType: 'info' });
         try {
-            // 1. Fetch Remote Metadata first so pushing the name never clobbers
-            // other fields of the blob (categories now sync row-level)
-            const listRecord = await pb.collection('shopping_lists').getOne(sync.recordId);
-            const remoteData = listRecord.data || {};
-            if ((listName ?? null) !== (remoteData.listName ?? null)) {
-                await pb.collection('shopping_lists').update(sync.recordId, { data: { ...remoteData, listName } });
+            const [listRecord, records] = await Promise.all([
+                client.collection('shopping_lists').getOne(recordId),
+                client.collection('shopping_items').getFullList({
+                    filter: client.filter('list = {:id}', { id: recordId }), sort: '-created',
+                }),
+            ]);
+            if (!isCurrent()) return;
+            for (const record of records) {
+                const state = useShopStore.getState();
+                const tempId = record.external_id as string | undefined;
+                if (tempId && (state.items.some(i => i.id === tempId) || state.deletedItemIds.includes(tempId))) {
+                    state.confirmItemCreated(tempId, record as unknown as ItemRecord);
+                }
             }
-
-            // 2. Fetch Remote Atomic Items
-            const records = await pb.collection('shopping_items').getFullList({
-                filter: `list = "${sync.recordId}"`,
-                sort: '-created'
+            const state = useShopStore.getState();
+            useShopStore.setState({
+                items: mergeRemoteItems(state.items, records as unknown as ItemRecord[], state.deletedItemIds, hasPendingWrite, new Set(source.items.map(i => i.id))),
+                ...(state.listName === source.listName ? { listName: listRecord.data?.listName ?? listRecord.name ?? null } : {}),
             });
-
-            // Map to ShopItem format
-            const remoteItems = records.map((r: any) => ({
-                id: r.id,
-                name: r.name,
-                checked: r.checked,
-                note: r.note,
-                category: r.category,
-                inList: r.in_list,
-                serverUpdated: Date.parse(r.updated) || 0,
-                updatedAt: Date.now()
-            }));
-
-            // 3. Merge & Update Local State
-            // Preserve offline items
-            const offlineItems = items.filter(i => i.id.startsWith('local_'));
-
-            syncFromRemote({
-                items: [...offlineItems, ...remoteItems],
-                categories,
-                listName: listName ?? remoteData.listName
-            });
-            // Re-merge per-row custom categories/items
-            await useShopStore.getState().loadListCustomData();
-
-            setSyncState({ msg: 'Synced just now', msgType: 'success' });
+            await state.loadListCustomData();
+            if (isCurrent()) setSyncState({ msg: 'Synced just now', msgType: 'success' });
         } catch (e) {
             console.error(e);
-            setSyncState({ msg: 'Sync failed', msgType: 'error' });
+            if (isCurrent()) setSyncState({ msg: 'Sync failed', msgType: 'error' });
         }
     };
 
