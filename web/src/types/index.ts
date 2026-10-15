@@ -21,6 +21,10 @@ export interface ShopItem {
     name: string;
     checked: boolean;
     note: string;
+    quantity?: string;
+    catalogSourceId?: string;
+    catalogSourceKind?: 'custom' | 'global' | '';
+    catalogSourceCategory?: string;
     category: string;
     updatedAt?: number;
     inList?: boolean;  // true = en lista activa, false/undefined = en "utilizados anteriormente"
@@ -28,6 +32,24 @@ export interface ShopItem {
     dirty?: boolean;        // local edits the server hasn't accepted yet (resync pushes them)
     addedBy?: string;       // name of who added the item
     checkedBy?: string;     // name of who bought (checked) it
+}
+
+export interface ProductDraft {
+    name: string;
+    category: string;
+    quantity?: string;
+    note?: string;
+    addToList?: boolean;
+}
+
+export type ProductSaveStatus = 'saved' | 'pending' | 'exists' | 'error';
+
+export interface ProductSaveResult {
+    status: ProductSaveStatus;
+    itemId?: string;
+    catalogId?: string;
+    categoryKey?: string;
+    error?: string;
 }
 
 export type AppMode = 'planning' | 'shopping';

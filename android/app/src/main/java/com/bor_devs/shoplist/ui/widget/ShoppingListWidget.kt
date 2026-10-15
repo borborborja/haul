@@ -137,7 +137,7 @@ private fun ItemWidgetRow(item: ShopItem, open: Action) {
         )
         Spacer(modifier = GlanceModifier.width(8.dp))
         Text(
-            text = item.name,
+            text = listOf(item.name, item.quantity).filter { it.isNotBlank() }.joinToString(" · "),
             style = TextStyle(color = if (item.checked) GlanceTheme.colors.onSurfaceVariant else GlanceTheme.colors.onSurface),
             maxLines = 1,
         )

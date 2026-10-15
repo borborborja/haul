@@ -12,7 +12,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Serializable
-private data class WItem(val id: String, val name: String, val category: String = "other", val checked: Boolean = false)
+private data class WItem(val id: String, val name: String, val category: String = "other", val checked: Boolean = false, val quantity: String = "")
 
 /** Pushes the active list snapshot to the paired Wear OS watch via the Data Layer. */
 @Singleton
@@ -21,7 +21,7 @@ class WearBridge @Inject constructor(@ApplicationContext private val context: Co
 
     fun pushSnapshot(listName: String?, items: List<ShopItem>) {
         runCatching {
-            val inList = items.filter { it.inList }.map { WItem(it.id, it.name, it.category, it.checked) }
+            val inList = items.filter { it.inList }.map { WItem(it.id, it.name, it.category, it.checked, it.quantity) }
             val req = PutDataMapRequest.create("/haul/list").apply {
                 dataMap.putString("listName", listName ?: "Haul")
                 dataMap.putLong("ts", System.currentTimeMillis())

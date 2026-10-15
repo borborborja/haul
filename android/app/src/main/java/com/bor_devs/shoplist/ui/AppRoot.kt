@@ -1,9 +1,12 @@
 package com.bor_devs.shoplist.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,6 +19,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import com.bor_devs.shoplist.data.repo.ShopRepository
+import com.bor_devs.shoplist.ui.components.ProductFlowHost
 import com.bor_devs.shoplist.ui.components.MergeReplaceDialog
 import com.bor_devs.shoplist.ui.i18n.LocalAppLang
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
@@ -37,7 +41,10 @@ fun AppRoot(vm: MainViewModel) {
     val registrationOpen by vm.registrationOpen.collectAsState()
     val scope = rememberCoroutineScope()
 
-    var showSettings by remember { mutableStateOf(false) }
+    val activeListId by vm.activeListId.collectAsState()
+    val savedScreens = rememberSaveableStateHolder()
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showSettings) { showSettings = false }
     var pendingJoin by remember { mutableStateOf<ShopRepository.JoinInfo?>(null) }
 
     // Deep-link sync code -> join flow
@@ -56,18 +63,24 @@ fun AppRoot(vm: MainViewModel) {
             LocalStrings provides stringsFor(appLang),
             LocalAppLang provides appLang,
         ) {
-            Box(Modifier.fillMaxSize().background(haulBackgroundBrush())) {
-                Surface(
-                    color = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    val needsAccount = requireAccount && settings.serverUrl.isNotBlank() && !settings.auth.isLoggedIn
-                    when {
-                        !settings.wizardDone -> ServerWizardScreen(vm) {}
-                        needsAccount -> AuthGateScreen(vm, registrationOpen)
-                        showSettings -> SettingsScreen(vm) { showSettings = false }
-                        else -> MainScreen(vm) { showSettings = true }
+            ProductFlowHost(vm) { productActions ->
+                Box(Modifier.fillMaxSize().background(haulBackgroundBrush())) {
+                    Surface(
+                        color = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        val needsAccount = requireAccount && settings.serverUrl.isNotBlank() && !settings.auth.isLoggedIn
+                        when {
+                            !settings.wizardDone -> ServerWizardScreen(vm) {}
+                            needsAccount -> AuthGateScreen(vm, registrationOpen)
+                            showSettings -> savedScreens.SaveableStateProvider("settings") {
+                                SettingsScreen(vm, productActions) { showSettings = false }
+                            }
+                            else -> savedScreens.SaveableStateProvider("main:${settings.serverUrl}:${settings.auth.userId.orEmpty()}:$activeListId") {
+                                MainScreen(vm, productActions) { showSettings = true }
+                            }
+                        }
                     }
                 }
             }

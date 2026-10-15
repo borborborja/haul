@@ -42,11 +42,22 @@ class MainViewModel @Inject constructor(
     val listName = repo.listName
     val lists = repo.lists
     val activeListId = repo.activeListId
+    // Keep each list's browsing context while settings or an editor is open.
+    val catalogContexts = MutableStateFlow<Map<String, CatalogContext>>(emptyMap())
+    val catalogContextKey: String
+        get() = "${settings.value.serverUrl}|${settings.value.auth.userId.orEmpty()}|${activeListId.value}"
+    fun setCatalogContext(transform: (CatalogContext) -> CatalogContext) {
+        val id = catalogContextKey
+        catalogContexts.value = catalogContexts.value + (id to transform(catalogContexts.value[id] ?: CatalogContext()))
+    }
     val listCounts = repo.listCounts
     val refreshing = repo.refreshing
     val activeUsers = repo.activeUsers
     val isGuest = repo.isGuest
     val shareMode = repo.shareMode
+    val quantitySupported = repo.quantitySupported
+    val catalogSyncError = repo.catalogSyncError
+    val catalogPendingCount = repo.catalogPendingCount
     val avatarUrl = repo.avatarUrl
     val avatarColor = repo.avatarColor
     val serverName = repo.serverName
@@ -97,6 +108,15 @@ class MainViewModel @Inject constructor(
     fun removeCategory(key: String) = repo.removeCategory(key)
     fun addCategoryItem(catKey: String, name: String) = repo.addCategoryItem(catKey, name)
     fun removeCategoryItem(catKey: String, name: String) = repo.removeCategoryItem(catKey, name)
+    suspend fun createProduct(name: String, categoryKey: String, quantity: String = "", note: String = "", addToList: Boolean = true, expectedListId: String? = activeListId.value) =
+        repo.createProduct(name, categoryKey, quantity, note, addToList, expectedListId)
+    suspend fun addCatalogProduct(product: com.bor_devs.shoplist.domain.LocalizedItem, categoryKey: String, displayName: String? = null, expectedListId: String? = activeListId.value) =
+        repo.addCatalogProduct(product, categoryKey, displayName, expectedListId)
+    suspend fun editProduct(itemId: String, name: String, categoryKey: String, quantity: String, note: String, saveToCatalog: Boolean = false, expectedListId: String? = activeListId.value) =
+        repo.editProduct(itemId, name, categoryKey, quantity, note, saveToCatalog, expectedListId)
+    suspend fun createCategory(name: String, icon: String, expectedListId: String? = activeListId.value) = repo.createCategory(name, icon, expectedListId)
+    suspend fun setProductHidden(item: com.bor_devs.shoplist.domain.LocalizedItem, hidden: Boolean, expectedListId: String? = activeListId.value) = repo.setProductHidden(item, hidden, expectedListId)
+    suspend fun retryPendingCatalog() = repo.retryPendingCatalog()
     fun deactivateProduct(item: com.bor_devs.shoplist.domain.LocalizedItem) = repo.deactivateProduct(item)
     fun reactivateProduct(item: com.bor_devs.shoplist.domain.LocalizedItem) = repo.reactivateProduct(item)
     fun deactivateCategory(key: String) = repo.deactivateCategory(key)

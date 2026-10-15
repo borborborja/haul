@@ -50,6 +50,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -67,16 +69,21 @@ import com.bor_devs.shoplist.domain.ShopItem
 import com.bor_devs.shoplist.domain.SortOrder
 import com.bor_devs.shoplist.domain.ViewMode
 import com.bor_devs.shoplist.ui.MainViewModel
+import com.bor_devs.shoplist.ui.components.ProductActions
+import com.bor_devs.shoplist.ui.i18n.categoryName
+import com.bor_devs.shoplist.ui.i18n.productStrings
+import com.bor_devs.shoplist.ui.normalizedProductName
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.bor_devs.shoplist.ui.components.CatalogPanel
 import com.bor_devs.shoplist.ui.components.GridItemCard
 import com.bor_devs.shoplist.ui.components.ItemRow
 import com.bor_devs.shoplist.ui.components.SegmentOption
 import com.bor_devs.shoplist.ui.components.SegmentedIconSwitch
-import com.bor_devs.shoplist.ui.components.ProductEditDialog
 import com.bor_devs.shoplist.ui.components.RenameListDialog
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
 import com.bor_devs.shoplist.ui.i18n.Strings
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val Mint = Color(0xFF10B981)
 private val MintInk = Color(0xFF06231A)
@@ -85,8 +92,9 @@ private val SegGradient = Brush.linearGradient(listOf(Color(0xFF13D08F), Color(0
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
+fun MainScreen(vm: MainViewModel, actions: ProductActions, onOpenSettings: () -> Unit) {
     val t = LocalStrings.current
+    val p = productStrings()
     val settings by vm.settings.collectAsState()
     val items by vm.items.collectAsState()
     val categories by vm.categories.collectAsState()
@@ -99,6 +107,15 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     val listCounts by vm.listCounts.collectAsState()
     val invites by vm.invites.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
+    val guest by vm.isGuest.collectAsState()
+    val shareMode by vm.shareMode.collectAsState()
+    val contexts by vm.catalogContexts.collectAsState()
+    val catalogContext = contexts[vm.catalogContextKey] ?: com.bor_devs.shoplist.ui.CatalogContext()
+    val canAdd = !guest || shareMode == "plan"
+    val canCheck = !guest || shareMode == "plan" || shareMode == "shop"
+    val canManage = !guest
+    val scrollState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     invites.firstOrNull()?.let { inv ->
         AlertDialog(
@@ -113,12 +130,11 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
     val mode = settings.appMode
     fun catIcon(key: String) = categories[key]?.icon ?: ""
 
-    var noteFor by remember { mutableStateOf<ShopItem?>(null) }
     var renaming by remember { mutableStateOf(false) }
-    var completedExpanded by remember { mutableStateOf(true) }
-    var previouslyExpanded by remember { mutableStateOf(true) }
+    var completedExpanded by rememberSaveable { mutableStateOf(true) }
+    var previouslyExpanded by rememberSaveable { mutableStateOf(true) }
     var showSwitcher by remember { mutableStateOf(false) }
-    var catalogOpen by remember { mutableStateOf(false) }
+    val catalogOpen = catalogContext.open
 
     var autoClearTimeLeft by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(settings.autoClearScheduled, settings.autoClearMinutes) {
@@ -131,16 +147,8 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
         }
     }
 
-    val appLang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
-    // Bought items count as "used", not "in list", so the planner catalog lets you re-add them.
-    val inListNames = remember(items) { items.filter { it.inList && !it.checked }.map { it.name.lowercase() }.toSet() }
-    fun toggleCatalog(name: String, cat: String) {
-        val existing = items.find { it.name.equals(name, ignoreCase = true) }
-        if (existing != null && existing.inList && !existing.checked) vm.removeFromList(existing.id) else vm.addItem(name, cat)
-    }
-    fun addCustom(name: String) {
-        val match = categories.values.firstOrNull { c -> c.items.any { it.forLang(appLang).equals(name, ignoreCase = true) } }
-        vm.addItem(name, match?.key ?: "other")
+    val inListNames = remember(items) {
+        items.filter { it.inList && !it.checked }.map { normalizedProductName(it.name) }.toSet()
     }
 
     Scaffold(containerColor = Color.Transparent) { padding ->
@@ -150,10 +158,14 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                 connected = sync.connected,
                 mode = mode,
                 catalogOpen = catalogOpen,
+                canAdd = canAdd,
                 onToggleMode = { m -> if (m != mode) vm.setAppMode(m) },
                 onOpenLists = { showSwitcher = true },
                 onOpenSettings = onOpenSettings,
-                onToggleCatalog = { catalogOpen = !catalogOpen },
+                onToggleCatalog = {
+                    vm.setCatalogContext { it.copy(open = !it.open) }
+                    if (!catalogOpen) scope.launch { scrollState.animateScrollToItem(0) }
+                },
                 t = t,
             )
 
@@ -178,21 +190,10 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                 previouslyUsed = items.filter { !it.inList || it.checked }
             }
 
-            if (!shopping && catalogOpen) {
-                CatalogPanel(
-                    categories = categories.filterKeys { it !in disabledCategories },
-                    inListNames = inListNames,
-                    disabled = disabledProducts,
-                    onToggleItem = { name, cat -> toggleCatalog(name, cat) },
-                    onAddCustom = { addCustom(it) },
-                    onManage = onOpenSettings,
-                )
-            }
-
-            if (shopping) {
-                ShoppingProgressHero(total = total, checkedCount = checkedCount, autoclean = settings.autoClearEnabled, countdown = autoClearTimeLeft, t = t)
-            }
-
+            if (guest && shareMode != "plan") Text(
+                if (shareMode == "shop") p.checkOnly else p.readOnly,
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp),
+            )
             PullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = { vm.refresh() },
@@ -200,9 +201,29 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
             ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                state = scrollState,
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                if (catalogOpen && canAdd) {
+                    item(key = "catalog") {
+                        CatalogPanel(
+                            categories = categories.filterKeys { it !in disabledCategories },
+                            inListNames = inListNames, disabled = disabledProducts,
+                            query = catalogContext.query, activeCategory = catalogContext.categoryKey,
+                            onQueryChange = { query -> vm.setCatalogContext { it.copy(query = query) } },
+                            onCategoryChange = { key -> vm.setCatalogContext { it.copy(categoryKey = key) } },
+                            onAddItem = actions.addProduct,
+                            onNewProduct = { category, name -> actions.createProduct(category, name, true) },
+                            onNewCategory = if (canManage) actions.createCategory else null,
+                        )
+                    }
+                }
+                if (shopping) {
+                    item(key = "progress") {
+                        ShoppingProgressHero(total = total, checkedCount = checkedCount, autoclean = settings.autoClearEnabled, countdown = autoClearTimeLeft, t = t)
+                    }
+                }
                 // Vista label + view/sort selectors
                 item {
                     Row(
@@ -237,7 +258,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                     items(activeItems.sortedBy { it.name.lowercase() }.chunked(2)) { rowItems ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowItems.forEach { item ->
-                                Box(Modifier.weight(1f)) { GridItemCard(item, catIcon(item.category)) { if (shopping) vm.toggleCheck(item.id) else vm.removeFromList(item.id) } }
+                                Box(Modifier.weight(1f)) { GridItemCard(item, catIcon(item.category), enabled = if (shopping) canCheck else canAdd, onEdit = if (canManage) ({ actions.editProduct(item) }) else null) { if (shopping) vm.toggleCheck(item.id) else vm.removeFromList(item.id) } }
                             }
                             repeat(2 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                         }
@@ -247,7 +268,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                         if (catKey != null && settings.sortOrder == SortOrder.CATEGORY) {
                             item(key = "h_$catKey") {
                                 Text(
-                                    "${catIcon(catKey)} ${t.cats[catKey] ?: catKey}".trim(),
+                                    "${catIcon(catKey)} ${categories[catKey]?.let { t.categoryName(it) } ?: catKey}".trim(),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
@@ -259,9 +280,10 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                                 item = item, mode = mode,
                                 categoryIcon = if (settings.sortOrder == SortOrder.CATEGORY) "" else catIcon(item.category),
                                 compact = settings.viewMode == ViewMode.COMPACT,
+                                canEdit = canManage, canRemove = canAdd, canToggle = if (shopping) canCheck else canAdd,
                                 onToggle = { if (shopping) vm.toggleCheck(item.id) else vm.removeFromList(item.id) },
                                 onDelete = { vm.deleteItem(item.id) },
-                                onEditNote = { noteFor = item },
+                                onEditNote = { actions.editProduct(item) },
                                 onRemoveFromList = { vm.removeFromList(item.id) },
                                 onAddBack = { vm.addBackToList(item.id) },
                             )
@@ -273,7 +295,7 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                     item {
                         CompletedSectionHeader(
                             title = "${t.completed} (${completedItems.size})", clearLabel = t.clearComp,
-                            onClear = { vm.clearCompleted() }, expanded = completedExpanded,
+                            onClear = { if (canManage) vm.clearCompleted() }, canManage = canManage, expanded = completedExpanded,
                             onToggleExpand = { completedExpanded = !completedExpanded },
                             autoClearEnabled = settings.autoClearEnabled,
                             onToggleAutoClear = { vm.setAutoClearEnabled(!settings.autoClearEnabled) },
@@ -284,8 +306,9 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                     if (completedExpanded) {
                         items(completedItems.sortedBy { it.name.lowercase() }, key = { it.id }) { item ->
                             ItemRow(item = item, mode = mode, categoryIcon = "", compact = true,
+                                canEdit = canManage, canRemove = canAdd, canToggle = if (shopping) canCheck else canAdd,
                                 onToggle = { vm.toggleCheck(item.id) }, onDelete = { vm.deleteItem(item.id) },
-                                onEditNote = { noteFor = item }, onRemoveFromList = { vm.removeFromList(item.id) }, onAddBack = { vm.addBackToList(item.id) })
+                                onEditNote = { actions.editProduct(item) }, onRemoveFromList = { vm.removeFromList(item.id) }, onAddBack = { vm.addBackToList(item.id) })
                         }
                     }
                 }
@@ -294,15 +317,16 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
                     item {
                         SectionHeader(
                             title = "${t.previouslyUsed} (${previouslyUsed.size})", actionLabel = t.clearComp,
-                            onAction = { vm.clearPreviouslyUsed(true) },
+                            onAction = { if (canManage) vm.clearPreviouslyUsed(true) }, canManage = canManage,
                             expanded = previouslyExpanded, onToggleExpand = { previouslyExpanded = !previouslyExpanded },
                         )
                     }
                     if (previouslyExpanded) {
                         items(previouslyUsed.sortedBy { it.name.lowercase() }, key = { "p_${it.id}" }) { item ->
                             ItemRow(item = item, mode = mode, categoryIcon = "", compact = true,
+                                canEdit = canManage, canRemove = canAdd, canToggle = if (shopping) canCheck else canAdd,
                                 onToggle = { vm.addBackToList(item.id) }, onDelete = { vm.deleteItem(item.id) },
-                                onEditNote = { noteFor = item }, onRemoveFromList = { vm.removeFromList(item.id) }, onAddBack = { vm.addBackToList(item.id) })
+                                onEditNote = { actions.editProduct(item) }, onRemoveFromList = { vm.removeFromList(item.id) }, onAddBack = { vm.addBackToList(item.id) })
                         }
                     }
                 }
@@ -311,9 +335,6 @@ fun MainScreen(vm: MainViewModel, onOpenSettings: () -> Unit) {
         }
     }
 
-    noteFor?.let { item ->
-        ProductEditDialog(item = item, categories = categories, onSave = { vm.updateNote(item.id, it); noteFor = null }, onDismiss = { noteFor = null })
-    }
     if (renaming) {
         RenameListDialog(current = listName, onSave = { vm.setListName(it.ifBlank { null }); renaming = false }, onDismiss = { renaming = false })
     }
@@ -332,6 +353,7 @@ private fun HaulHeader(
     connected: Boolean,
     mode: AppMode,
     catalogOpen: Boolean,
+    canAdd: Boolean,
     onToggleMode: (AppMode) -> Unit,
     onOpenLists: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -364,7 +386,7 @@ private fun HaulHeader(
                 Spacer(Modifier.width(5.dp))
                 SegItem(t.modeShop, mode == AppMode.SHOPPING, Modifier.weight(1f)) { onToggleMode(AppMode.SHOPPING) }
             }
-            if (mode == AppMode.PLANNING) {
+            if (canAdd) {
                 Spacer(Modifier.width(9.dp))
                 Surface(
                     shape = RoundedCornerShape(14.dp), color = if (catalogOpen) Color(0xFF0B7A5B) else Mint,
@@ -430,7 +452,7 @@ private fun ShoppingProgressHero(total: Int, checkedCount: Int, autoclean: Boole
 
 @Composable
 private fun CompletedSectionHeader(
-    title: String, clearLabel: String, onClear: () -> Unit, expanded: Boolean, onToggleExpand: () -> Unit,
+    title: String, clearLabel: String, onClear: () -> Unit, canManage: Boolean = true, expanded: Boolean, onToggleExpand: () -> Unit,
     autoClearEnabled: Boolean, onToggleAutoClear: () -> Unit, autoClearTimeLeft: Int?,
     onScheduleAutoClear: () -> Unit, onCancelAutoClear: () -> Unit, t: Strings,
 ) {
@@ -441,11 +463,11 @@ private fun CompletedSectionHeader(
                 Spacer(Modifier.width(4.dp))
                 Text(title, style = MaterialTheme.typography.titleSmall)
             }
-            TextButton(onClick = onClear) {
+            if (canManage) TextButton(onClick = onClear) {
                 Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(clearLabel)
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (canManage) Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onToggleAutoClear() }.padding(vertical = 4.dp)) {
                 Checkbox(checked = autoClearEnabled, onCheckedChange = { onToggleAutoClear() })
                 Text(t.autoCleanup, style = MaterialTheme.typography.bodySmall)
@@ -465,14 +487,14 @@ private fun CompletedSectionHeader(
 }
 
 @Composable
-private fun SectionHeader(title: String, actionLabel: String, onAction: () -> Unit, expanded: Boolean, onToggleExpand: () -> Unit) {
+private fun SectionHeader(title: String, actionLabel: String, onAction: () -> Unit, canManage: Boolean = true, expanded: Boolean, onToggleExpand: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onToggleExpand() }) {
             Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(4.dp))
             Text(title, style = MaterialTheme.typography.titleSmall)
         }
-        TextButton(onClick = onAction) { Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(actionLabel) }
+        if (canManage) TextButton(onClick = onAction) { Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(actionLabel) }
     }
 }
 

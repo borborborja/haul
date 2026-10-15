@@ -10,6 +10,7 @@ export interface ShareItem {
     category: string;
     checked: boolean;
     note: string;
+    quantity?: string;
     addedBy?: string;
     checkedBy?: string;
 }
@@ -27,6 +28,7 @@ export interface ShareSnapshot {
     categories: ShareCategory[];
     // Full set of categories to choose from when adding (catalog + list custom).
     allCategories?: ShareCategory[];
+    quantitySupported?: boolean;
 }
 
 // Same origin in the browser; the public page is always served by the backend.
@@ -52,11 +54,11 @@ export const checkItem = (token: string, itemId: string, checked: boolean, displ
         body: JSON.stringify({ checked, displayName }),
     }).then((r) => json<{ ok: boolean }>(r));
 
-export const addItem = (token: string, name: string, category: string, displayName?: string) =>
+export const addItem = (token: string, name: string, category: string, displayName?: string, quantity?: string, note?: string) =>
     fetch(base(`/api/shoplist/public/${encodeURIComponent(token)}/items`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, category, displayName }),
+        body: JSON.stringify({ name, category, displayName, ...(quantity !== undefined ? { quantity } : {}), ...(note !== undefined ? { note } : {}) }),
     }).then((r) => json<{ id: string }>(r));
 
 export const removeItem = (token: string, itemId: string) =>

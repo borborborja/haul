@@ -121,7 +121,7 @@ private fun WearApp(onToggle: (String) -> Unit) {
                     else -> items(pending, key = { it.id }) { item ->
                         Chip(
                             onClick = { onToggle(item.id) },
-                            label = { Text(item.name, maxLines = 2) },
+                            label = { Text(listOf(item.name, item.quantity).filter { it.isNotBlank() }.joinToString(" · "), maxLines = 2) },
                             colors = ChipDefaults.secondaryChipColors(),
                             modifier = Modifier.fillMaxWidth(),
                         )

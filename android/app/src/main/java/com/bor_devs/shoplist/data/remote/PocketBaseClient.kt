@@ -57,6 +57,14 @@ class PocketBaseClient @Inject constructor(
         false
     }
 
+    suspend fun capabilities(): HealthResponse = decode(request("GET", "/api/shoplist/health", auth = false))
+
+    suspend fun catalogRequest(method: String, path: String, body: JsonElement?, origin: String, authToken: String?): JsonObject =
+        withContext(Dispatchers.IO) {
+            val text = execute(method, origin + path, body, true, authToken)
+            if (text.isBlank()) JsonObject(emptyMap()) else json.decodeFromString<JsonObject>(text)
+        }
+
     suspend fun createGuest(): AuthResponse =
         decode(request("POST", "/api/shoplist/guests", auth = false))
 
@@ -146,8 +154,8 @@ class PocketBaseClient @Inject constructor(
         request("POST", "/api/shoplist/public/$token/items/$itemId/check", buildJsonObject { put("checked", checked); put("displayName", displayName) })
     }
 
-    suspend fun publicAdd(token: String, name: String, category: String, displayName: String = "") {
-        request("POST", "/api/shoplist/public/$token/items", buildJsonObject { put("name", name); put("category", category); put("displayName", displayName) })
+    suspend fun publicAdd(token: String, name: String, category: String, displayName: String = "", quantity: String = "", note: String = "") {
+        request("POST", "/api/shoplist/public/$token/items", buildJsonObject { put("name", name); put("category", category); put("displayName", displayName); put("quantity", quantity); put("note", note) })
     }
 
     suspend fun publicRemove(token: String, itemId: String) {
@@ -354,7 +362,7 @@ class PocketBaseClient @Inject constructor(
     private suspend fun rawGet(url: String, auth: Boolean): String =
         withContext(Dispatchers.IO) { execute("GET", url, null, auth) }
 
-    private fun execute(method: String, url: String, body: JsonElement?, auth: Boolean): String {
+    private fun execute(method: String, url: String, body: JsonElement?, auth: Boolean, authToken: String? = token): String {
         val httpUrl = url.toHttpUrlOrNull() ?: throw PbException(0, "Invalid URL: $url")
         val reqBody = body?.let { json.encodeToString(JsonElement.serializer(), it).toRequestBody(jsonMedia) }
         val builder = Request.Builder().url(httpUrl)
@@ -365,7 +373,7 @@ class PocketBaseClient @Inject constructor(
             "PATCH" -> builder.patch(reqBody ?: emptyBody())
             else -> builder.method(method, reqBody)
         }
-        if (auth) token?.let { builder.header("Authorization", it) }
+        if (auth) authToken?.let { builder.header("Authorization", it) }
         http.newCall(builder.build()).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) throw PbException(resp.code, "HTTP ${resp.code} for $url", text)

@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.bor_devs.shoplist.domain.AppMode
 import com.bor_devs.shoplist.domain.ShopItem
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
+import com.bor_devs.shoplist.ui.i18n.productStrings
 import com.bor_devs.shoplist.ui.theme.categoryColor
 
 // Uniform soft outer glow on every edge (offset 0,0) — not a directional drop
@@ -66,6 +67,9 @@ fun ItemRow(
     mode: AppMode,
     categoryIcon: String,
     compact: Boolean,
+    canEdit: Boolean = true,
+    canRemove: Boolean = true,
+    canToggle: Boolean = true,
     onToggle: () -> Unit,
     onDelete: () -> Unit,
     onEditNote: () -> Unit,
@@ -73,6 +77,7 @@ fun ItemRow(
     onAddBack: () -> Unit,
 ) {
     val t = LocalStrings.current
+    val p = productStrings()
     var menuOpen by remember { mutableStateOf(false) }
     val vPad = if (compact) 4.dp else 8.dp
 
@@ -85,7 +90,7 @@ fun ItemRow(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .clickable { onToggle() }
+                .clickable(enabled = canToggle) { onToggle() }
                 .padding(start = 6.dp, end = 4.dp, top = vPad, bottom = vPad),
         ) {
             Box(
@@ -129,6 +134,7 @@ fun ItemRow(
                     textDecoration = if (item.checked) TextDecoration.LineThrough else null,
                     color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 )
+                if (item.quantity.isNotBlank()) Text(item.quantity, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 if (item.note.isNotBlank()) {
                     Text(
                         text = item.note,
@@ -150,18 +156,18 @@ fun ItemRow(
                     )
                 }
             }
-            Box {
+            if (canEdit || canRemove) Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Filled.MoreVert, contentDescription = "Menu")
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text(t.notes) }, onClick = { menuOpen = false; onEditNote() })
-                    if (item.inList) {
-                        DropdownMenuItem(text = { Text(t.previouslyUsed) }, onClick = { menuOpen = false; onRemoveFromList() })
-                    } else {
+                    if (canEdit) DropdownMenuItem(text = { Text(p.editProduct) }, onClick = { menuOpen = false; onEditNote() })
+                    if (item.inList && canRemove) {
+                        DropdownMenuItem(text = { Text(p.removeFromList) }, onClick = { menuOpen = false; onRemoveFromList() })
+                    } else if (canRemove) {
                         DropdownMenuItem(text = { Text(t.add) }, onClick = { menuOpen = false; onAddBack() })
                     }
-                    DropdownMenuItem(
+                    if (canEdit) DropdownMenuItem(
                         text = { Text(t.delete) },
                         leadingIcon = { Icon(Icons.Filled.Delete, null) },
                         onClick = { menuOpen = false; onDelete() },
@@ -176,6 +182,8 @@ fun ItemRow(
 fun GridItemCard(
     item: ShopItem,
     categoryIcon: String,
+    enabled: Boolean = true,
+    onEdit: (() -> Unit)? = null,
     onToggle: () -> Unit,
 ) {
     Surface(
@@ -185,7 +193,7 @@ fun GridItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .cardGlow(16.dp, CardGlow, 16.dp)
-            .clickable { onToggle() },
+            .clickable(enabled = enabled) { onToggle() },
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -202,6 +210,10 @@ fun GridItemCard(
                 textDecoration = if (item.checked) TextDecoration.LineThrough else null,
                 color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
+            if (item.quantity.isNotBlank()) Text(item.quantity, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            if (onEdit != null) {
+                androidx.compose.material3.TextButton(onClick = onEdit) { Text(productStrings().edit) }
+            }
             val attrib = attributionText(item, LocalStrings.current)
             if (attrib.isNotBlank()) {
                 Text(

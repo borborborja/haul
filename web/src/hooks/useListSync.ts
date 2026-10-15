@@ -16,6 +16,10 @@ const mapItemRecord = (r: any, local?: ShopItem): ShopItem => ({
     name: r.name,
     checked: r.checked,
     note: r.note,
+    quantity: r.quantity ?? local?.quantity ?? '',
+    catalogSourceId: r.catalog_source_id || local?.catalogSourceId || '',
+    catalogSourceKind: r.catalog_source_kind || local?.catalogSourceKind || '',
+    catalogSourceCategory: r.catalog_source_category || local?.catalogSourceCategory || '',
     category: r.category,
     inList: r.in_list,
     addedBy: r.added_by,
@@ -25,7 +29,9 @@ const mapItemRecord = (r: any, local?: ShopItem): ShopItem => ({
 });
 
 export function useListSync() {
-    const { sync, listName, lang, setSyncState, addToSyncHistory } = useShopStore();
+    const { sync, listName, lang, setSyncState, addToSyncHistory, items, activeListId, quantitySupported } = useShopStore();
+
+    useEffect(() => { useShopStore.getState().refreshCatalogProjection(); }, [items, activeListId, sync.recordId, quantitySupported]);
 
     // undefined = remote list name not fetched yet this session (don't push)
     const lastRemoteListNameRef = useRef<string | null | undefined>(undefined);
@@ -91,16 +97,24 @@ export function useListSync() {
     // and dirty items whose last write was rejected.
     const pushPendingItems = async (currentRecordId: string) => {
         const client = pb;
-        const { items, deletedItemIds, sync: currentSync } = useShopStore.getState();
+        const ownerListId = useShopStore.getState().activeListId;
+        if (useShopStore.getState().quantitySupported === null && useShopStore.getState().items.some(item => item.quantity)) {
+            await useShopStore.getState().checkServerCapabilities();
+        }
+        const { items, deletedItemIds, sync: currentSync, quantitySupported: supportsQuantity } = useShopStore.getState();
+        if (pb !== client || useShopStore.getState().activeListId !== ownerListId) return;
         if (!currentSync.connected || currentSync.recordId !== currentRecordId) return;
+        // An older PocketBase schema silently ignores unknown fields. Keep the
+        // whole local edit pending until quantity can be safely acknowledged.
+        const canWrite = (item: ShopItem) => !item.quantity || supportsQuantity === true;
         deletedItemIds.filter(id => !id.startsWith('local_')).forEach(id => enqueueItemDelete(id));
         for (const item of items) {
-            if (item.dirty && !item.id.startsWith('local_')) {
+            if (item.dirty && !item.id.startsWith('local_') && canWrite(item)) {
                 enqueueItemUpdate(item.id, itemWriteBody(item));
             }
         }
 
-        const offline = items.filter(i => i.id.startsWith('local_') && !pendingCreates.has(i.id));
+        const offline = items.filter(i => i.id.startsWith('local_') && !pendingCreates.has(i.id) && canWrite(i));
         if (offline.length === 0) return;
         offline.forEach(i => pendingCreates.add(i.id));
 
@@ -110,6 +124,10 @@ export function useListSync() {
             category: item.category,
             checked: item.checked,
             note: item.note,
+            quantity: item.quantity || '',
+            catalog_source_id: item.catalogSourceId || '',
+            catalog_source_kind: item.catalogSourceKind || '',
+            catalog_source_category: item.catalogSourceCategory || '',
             in_list: item.inList !== false,
             external_id: item.id
         });
@@ -194,7 +212,7 @@ export function useListSync() {
                     }
 
                     // Connect
-                    useShopStore.setState({ items: [], deletedItemIds: [], disabledProducts: [], disabledCategories: [] });
+                    useShopStore.setState({ items: [], categories: useShopStore.getState().catalogCategories, deletedItemIds: [], disabledProducts: [], disabledCategories: [] });
                     setSyncState({ msg: 'Connecting...', msgType: 'info' });
                     // Initial sync might be empty for items if using atomic, but we need metadata
                     // We will let the atomic sync hook handle the items fetch.
@@ -314,78 +332,16 @@ export function useListSync() {
             if (cancelled) { unsubList(); return; }
             unsubscribers.push(unsubList);
 
-            // CUSTOM CATEGORIES (row-level: concurrent edits can't clobber each other)
-            const unsubCats = await client.collection('list_categories').subscribe('*', (e) => {
-                if (!isCurrent() || e.record.list !== currentRecordId) return;
-                const { categories } = useShopStore.getState();
-                if (e.action === 'create') {
-                    if (!categories[e.record.key]) {
-                        useShopStore.setState({
-                            categories: { ...categories, [e.record.key]: { icon: e.record.icon, items: [] } }
-                        });
-                    }
-                } else if (e.action === 'delete') {
-                    if (categories[e.record.key]) {
-                        const next = { ...categories };
-                        delete next[e.record.key];
-                        useShopStore.setState({ categories: next });
-                    }
-                }
-            }, { filter: `list = "${currentRecordId}"` });
-            if (cancelled) { unsubCats(); return; }
-            unsubscribers.push(unsubCats);
+            // Identity-bearing snapshots plus the durable local overlay handle
+            // creates, edits and deletes without clobbering newer local intent.
+            for (const collection of ['list_categories', 'list_items', 'list_disabled_products', 'list_disabled_categories']) {
+                const unsubscribe = await client.collection(collection).subscribe('*', event => {
+                    if (isCurrent() && event.record.list === currentRecordId) void useShopStore.getState().loadListCustomData();
+                }, { filter: `list = "${currentRecordId}"` });
+                if (cancelled) { unsubscribe(); return; }
+                unsubscribers.push(unsubscribe);
+            }
 
-            // CUSTOM CATEGORY ITEMS
-            const unsubCatItems = await client.collection('list_items').subscribe('*', (e) => {
-                if (!isCurrent() || e.record.list !== currentRecordId) return;
-                const { categories } = useShopStore.getState();
-                const cat = categories[e.record.category_key];
-                if (!cat) return;
-                const matches = (item: any) => typeof item === 'string'
-                    ? item === e.record.name
-                    : (item.es === e.record.name || item.ca === e.record.name || item.en === e.record.name);
-                if (e.action === 'create') {
-                    if (!cat.items.some(matches)) {
-                        useShopStore.setState({
-                            categories: { ...categories, [e.record.category_key]: { ...cat, items: [...cat.items, e.record.name] } }
-                        });
-                    }
-                } else if (e.action === 'delete') {
-                    useShopStore.setState({
-                        categories: { ...categories, [e.record.category_key]: { ...cat, items: cat.items.filter(i => !matches(i)) } }
-                    });
-                }
-            }, { filter: `list = "${currentRecordId}"` });
-            if (cancelled) { unsubCatItems(); return; }
-            unsubscribers.push(unsubCatItems);
-
-            // Deactivated products (translucent in settings; filtered from the add UI)
-            const unsubDisabled = await client.collection('list_disabled_products').subscribe('*', (e) => {
-                if (!isCurrent() || e.record.list !== currentRecordId) return;
-                const { disabledProducts } = useShopStore.getState();
-                const name = e.record.name as string;
-                if (e.action === 'create') {
-                    if (!disabledProducts.includes(name)) useShopStore.setState({ disabledProducts: [...disabledProducts, name] });
-                } else if (e.action === 'delete') {
-                    useShopStore.setState({ disabledProducts: disabledProducts.filter((k) => k !== name) });
-                }
-            }, { filter: `list = "${currentRecordId}"` });
-            if (cancelled) { unsubDisabled(); return; }
-            unsubscribers.push(unsubDisabled);
-
-            // Deactivated default categories (hidden from the planner for this list)
-            const unsubDisabledCats = await client.collection('list_disabled_categories').subscribe('*', (e) => {
-                if (!isCurrent() || e.record.list !== currentRecordId) return;
-                const { disabledCategories } = useShopStore.getState();
-                const key = e.record.key as string;
-                if (e.action === 'create') {
-                    if (!disabledCategories.includes(key)) useShopStore.setState({ disabledCategories: [...disabledCategories, key] });
-                } else if (e.action === 'delete') {
-                    useShopStore.setState({ disabledCategories: disabledCategories.filter((k) => k !== key) });
-                }
-            }, { filter: `list = "${currentRecordId}"` });
-            if (cancelled) { unsubDisabledCats(); return; }
-            unsubscribers.push(unsubDisabledCats);
         };
 
         const init = async () => {
@@ -393,6 +349,8 @@ export function useListSync() {
                 await subscribeAll();
                 if (!isCurrent()) return;
                 await fetchAndMerge(currentRecordId);
+                if (!isCurrent()) return;
+                await useShopStore.getState().flushCatalogChanges();
                 if (!isCurrent()) return;
                 await pushPendingItems(currentRecordId);
             } catch (e) {
@@ -409,6 +367,21 @@ export function useListSync() {
             unsubscribers.forEach(u => { try { u(); } catch { /* already closed */ } });
         };
     }, [sync.connected, sync.recordId]);
+
+    // Process new product commands without rebuilding the subscriptions.
+    useEffect(() => {
+        const state = useShopStore.getState();
+        if (!state.sync.connected || !state.sync.recordId) return;
+        const currentRecordId = state.sync.recordId;
+        const ownerListId = state.activeListId;
+        let cancelled = false;
+        void (async () => {
+            await state.flushCatalogChanges();
+            if (cancelled || useShopStore.getState().activeListId !== ownerListId || useShopStore.getState().sync.recordId !== currentRecordId) return;
+            await pushPendingItems(currentRecordId);
+        })();
+        return () => { cancelled = true; };
+    }, [sync.syncVersion, sync.connected, sync.recordId]);
 
     // 3. Sync local LIST NAME changes to remote (categories sync row-level
     // through list_categories/list_items, so the blob no longer carries them)

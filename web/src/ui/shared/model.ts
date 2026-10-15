@@ -5,7 +5,7 @@ import { useShopStore } from '../../store/shopStore';
 import { tt } from '../../data/i18n';
 import type { ShopItem, Categories, Lang, LocalizedItem } from '../../types';
 import { catColor } from '../theme';
-import { canonicalKey } from '../../utils/helpers';
+import { catalogVisibilityKeys, normalizeProductName } from '../../lib/catalogSync';
 
 // Catalog item names only carry es/ca/en; for other UI languages fall back to
 // English text (the catalog content itself isn't translated to all 15 langs).
@@ -87,17 +87,17 @@ export function useHaulModel() {
     );
 
     const currentNames = useMemo(
-        () => new Set(inList.map((i) => i.name.toLowerCase())),
+        () => new Set(inList.map((i) => normalizeProductName(i.name))),
         [inList],
     );
 
     const disabledSet = useMemo(() => new Set(disabledProducts), [disabledProducts]);
     const bandItems = (key: string) =>
         (categories[key]?.items || [])
-            .filter((it) => !disabledSet.has(canonicalKey(it)))
+            .filter((it) => !catalogVisibilityKeys(it).some((key) => disabledSet.has(key)))
             .map((it) => {
                 const name = localized(it, lang);
-                return { name, inList: currentNames.has(name.toLowerCase()) };
+                return { name, inList: currentNames.has(normalizeProductName(name)) };
             });
 
     // Multi-list summary for switchers.
@@ -117,7 +117,7 @@ export function useHaulModel() {
         [lists, activeListId, listCaches, inListAll],
     );
 
-    const isDisabled = (it: LocalizedItem | string) => disabledSet.has(canonicalKey(it));
+    const isDisabled = (it: LocalizedItem | string) => catalogVisibilityKeys(it).some((key) => disabledSet.has(key));
 
     return { t, lang, categories, groups, recent, pending, completed, total, done, frac, bands, bandItems, listSummaries, isDisabled };
 }

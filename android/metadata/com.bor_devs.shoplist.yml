@@ -30,9 +30,9 @@ RepoType: git
 Repo: https://github.com/borborborja/haul.git
 
 Builds:
-  - versionName: 1.12.3
-    versionCode: 11203
-    commit: v1.12.3
+  - versionName: 1.13.0
+    versionCode: 11300
+    commit: v1.13.0
     subdir: android
     gradle:
       - yes
@@ -42,5 +42,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.12.3
-CurrentVersionCode: 11203
+CurrentVersion: 1.13.0
+CurrentVersionCode: 11300

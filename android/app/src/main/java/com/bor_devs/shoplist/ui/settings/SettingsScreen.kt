@@ -73,6 +73,12 @@ import com.bor_devs.shoplist.domain.ThemeMode
 import com.bor_devs.shoplist.ui.MainViewModel
 import com.bor_devs.shoplist.util.AppUpdater
 import com.bor_devs.shoplist.util.ReleaseInfo
+import com.bor_devs.shoplist.ui.components.ProductActions
+import com.bor_devs.shoplist.ui.components.isProductHidden
+import com.bor_devs.shoplist.ui.i18n.categoryName
+import com.bor_devs.shoplist.ui.i18n.productStrings
+import com.bor_devs.shoplist.ui.i18n.commandError
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.bor_devs.shoplist.ui.components.AddCategoryDialog
 import com.bor_devs.shoplist.ui.components.canonKey
 import com.bor_devs.shoplist.ui.i18n.LocalStrings
@@ -83,9 +89,9 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: MainViewModel, actions: ProductActions, onBack: () -> Unit) {
     val t = LocalStrings.current
-    var tab by remember { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf(t.tabAccount, t.tabCatalog, t.tabOther, t.tabAbout)
 
     Scaffold(
@@ -105,7 +111,7 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
                 when (tab) {
                     0 -> AccountTab(vm)
-                    1 -> CatalogTab(vm)
+                    1 -> CatalogTab(vm, actions)
                     2 -> OtherTab(vm)
                     else -> AboutTab(vm)
                 }
@@ -437,82 +443,68 @@ private fun AuthForm(registrationOpen: Boolean, onClaim: (String, String) -> Uni
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CatalogTab(vm: MainViewModel) {
+private fun CatalogTab(vm: MainViewModel, actions: ProductActions) {
     val t = LocalStrings.current
+    val p = productStrings()
     val lang = com.bor_devs.shoplist.ui.i18n.LocalAppLang.current
     val categories by vm.categories.collectAsState()
     val disabled by vm.disabledProducts.collectAsState()
     val disabledCats by vm.disabledCategories.collectAsState()
     val lists by vm.lists.collectAsState()
     val activeListId by vm.activeListId.collectAsState()
-    var showAddCat by remember { mutableStateOf(false) }
-    var addItemFor by remember { mutableStateOf<String?>(null) }
+    val guest by vm.isGuest.collectAsState()
+    val canManage = !guest
+    val scope = rememberCoroutineScope()
+    var retrying by remember { mutableStateOf(false) }
+    var retryMessage by remember { mutableStateOf<String?>(null) }
 
-    // Which list are you managing? (switches the active list)
     Section(t.manageList) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             lists.forEach { l ->
-                FilterChip(
-                    selected = l.id == activeListId,
-                    onClick = { if (l.id != activeListId) vm.switchList(l.id) },
-                    label = { Text("${l.emoji} ${l.name ?: t.myList}", style = MaterialTheme.typography.labelMedium) },
-                )
+                FilterChip(selected = l.id == activeListId, onClick = { if (l.id != activeListId) vm.switchList(l.id) },
+                    label = { Text("${l.emoji} ${l.name ?: t.myList}", style = MaterialTheme.typography.labelMedium) })
             }
         }
-        val fromServer = categories.values.any { it.color != null }
-        Text(
-            if (fromServer) t.catalogServer else t.catalogLocal,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp),
-        )
     }
-
+    if (!canManage) {
+        Text(t.guestBanner, style = MaterialTheme.typography.bodyMedium)
+        return
+    }
     Section(t.manageCatalog) {
-        Text(t.tapHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-        Button(onClick = { showAddCat = true }) { Text(t.newCategory) }
+        Button(onClick = actions.createCategory) { Text(t.newCategory) }
+        TextButton(onClick = {
+            retrying = true
+            scope.launch {
+                try {
+                    val result = vm.retryPendingCatalog()
+                    retryMessage = when (result.status) {
+                        com.bor_devs.shoplist.domain.CommandStatus.PENDING_SYNC -> p.pending
+                        com.bor_devs.shoplist.domain.CommandStatus.SAVED_LOCAL -> p.savedLocal
+                        com.bor_devs.shoplist.domain.CommandStatus.SYNCED -> p.synced
+                        else -> p.commandError(result.error)
+                    }
+                } finally { retrying = false }
+            }
+        }, enabled = !retrying) { Text(p.syncChanges) }
+        retryMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
     categories.values.forEach { cat ->
-        val catOff = disabledCats.contains(cat.key)
-        Section("${cat.icon} ${t.cats[cat.key] ?: cat.key}") {
+        val catOff = cat.key in disabledCats
+        Section("${cat.icon} ${t.categoryName(cat)}") {
             TextButton(onClick = { if (catOff) vm.reactivateCategory(cat.key) else vm.deactivateCategory(cat.key) }) {
-                Text(if (catOff) t.reactivate else t.deactivate, style = MaterialTheme.typography.labelMedium)
+                Text(if (catOff) t.reactivate else t.deactivate)
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.alpha(if (catOff) 0.45f else 1f)) {
-                cat.items.forEach { item ->
-                    val off = disabled.contains(canonKey(item))
-                    FilterChip(
-                        selected = !off,
-                        onClick = { if (off) vm.reactivateProduct(item) else vm.deactivateProduct(item) },
-                        label = {
-                            Text(
-                                item.forLang(lang),
-                                style = MaterialTheme.typography.labelMedium,
-                                textDecoration = if (off) TextDecoration.LineThrough else null,
-                            )
-                        },
-                        modifier = Modifier.alpha(if (off) 0.45f else 1f),
-                    )
+            cat.items.forEach { product ->
+                val off = isProductHidden(product, disabled)
+                Row(Modifier.fillMaxWidth().alpha(if (off || catOff) 0.55f else 1f), verticalAlignment = Alignment.CenterVertically) {
+                    Text(product.forLang(lang), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                        textDecoration = if (off) TextDecoration.LineThrough else null)
+                    TextButton(onClick = { actions.hideProduct(product, !off) }) { Text(if (off) t.reactivate else p.hide) }
                 }
-                AssistChip(
-                    onClick = { addItemFor = cat.key },
-                    label = { Text(t.add, style = MaterialTheme.typography.labelMedium) },
-                    leadingIcon = { Icon(Icons.Filled.Add, contentDescription = t.add, modifier = Modifier.size(16.dp)) },
-                )
             }
+            AssistChip(onClick = { actions.createProduct(cat.key, "", false) }, label = { Text(p.newProduct) },
+                leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp)) })
         }
-    }
-
-    if (showAddCat) AddCategoryDialog(onAdd = { key, icon -> vm.addCategory(key, icon); showAddCat = false }, onDismiss = { showAddCat = false })
-    addItemFor?.let { key ->
-        var name by remember { mutableStateOf("") }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { addItemFor = null },
-            title = { Text(t.add) },
-            text = { OutlinedTextField(value = name, onValueChange = { name = it }, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { TextButton(onClick = { if (name.isNotBlank()) vm.addCategoryItem(key, name.trim()); addItemFor = null }) { Text(t.add) } },
-            dismissButton = { TextButton(onClick = { addItemFor = null }) { Text(t.cancel) } },
-        )
     }
 }
 

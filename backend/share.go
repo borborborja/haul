@@ -141,6 +141,7 @@ func publicSnapshot(e *core.RequestEvent) error {
 		Category  string `json:"category"`
 		Checked   bool   `json:"checked"`
 		Note      string `json:"note"`
+		Quantity  string `json:"quantity"`
 		AddedBy   string `json:"addedBy,omitempty"`
 		CheckedBy string `json:"checkedBy,omitempty"`
 	}
@@ -155,6 +156,7 @@ func publicSnapshot(e *core.RequestEvent) error {
 			Category:  cat,
 			Checked:   it.GetBool("checked"),
 			Note:      it.GetString("note"),
+			Quantity:  it.GetString("quantity"),
 			AddedBy:   it.GetString("added_by"),
 			CheckedBy: it.GetString("checked_by"),
 		})
@@ -223,11 +225,12 @@ func publicSnapshot(e *core.RequestEvent) error {
 	}
 
 	return e.JSON(http.StatusOK, map[string]any{
-		"list":          map[string]string{"name": list.GetString("name")},
-		"mode":          list.GetString("share_mode"),
-		"items":         outItems,
-		"categories":    cats,
-		"allCategories": allCats,
+		"list":              map[string]string{"name": list.GetString("name")},
+		"mode":              list.GetString("share_mode"),
+		"items":             outItems,
+		"categories":        cats,
+		"allCategories":     allCats,
+		"quantitySupported": true,
 	})
 }
 
@@ -341,6 +344,8 @@ func publicAddItem(e *core.RequestEvent) error {
 	var body struct {
 		Name        string `json:"name"`
 		Category    string `json:"category"`
+		Quantity    string `json:"quantity"`
+		Note        string `json:"note"`
 		DisplayName string `json:"displayName"`
 	}
 	if err := e.BindBody(&body); err != nil {
@@ -354,6 +359,10 @@ func publicAddItem(e *core.RequestEvent) error {
 		name = string(chars[:200])
 	}
 
+	quantity := strings.TrimSpace(body.Quantity)
+	if len([]rune(quantity)) > 80 || len([]rune(body.Note)) > 1000 {
+		return apis.NewBadRequestError("Quantity or note is too long.", nil)
+	}
 	collection, err := e.App.FindCollectionByNameOrId("shopping_items")
 	if err != nil {
 		return err
@@ -362,6 +371,8 @@ func publicAddItem(e *core.RequestEvent) error {
 	item.Set("list", list.Id)
 	item.Set("name", name)
 	item.Set("category", strings.TrimSpace(body.Category))
+	item.Set("quantity", quantity)
+	item.Set("note", body.Note)
 	item.Set("checked", false)
 	item.Set("in_list", true)
 	item.Set("source", "share")

@@ -1,0 +1,6 @@
+Afegeix productes dins la categoria sense sortir de la llista.
+Crea diversos productes alhora i afegeix-ne mentre compres.
+Edita noms, categories, quantitats i notes.
+La cerca ignora accents i espais sobrants i evita afegits duplicats.
+Amaga productes o categories del catàleg amb Desfés sense perdre les compres.
+Millores d’accessibilitat i sincronització del catàleg sense connexió.

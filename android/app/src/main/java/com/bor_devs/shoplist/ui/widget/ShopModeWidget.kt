@@ -183,7 +183,7 @@ private fun ShopModeRow(item: ShopItem, open: androidx.glance.action.Action) {
         Text(text = "◯", style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant))
         Spacer(modifier = GlanceModifier.width(10.dp))
         Text(
-            text = item.name,
+            text = listOf(item.name, item.quantity).filter { it.isNotBlank() }.joinToString(" · "),
             style = TextStyle(fontWeight = FontWeight.Medium, color = GlanceTheme.colors.onSurface),
             maxLines = 1,
         )

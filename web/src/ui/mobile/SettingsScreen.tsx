@@ -1,18 +1,18 @@
 import { useState } from 'react';
-import { ChevronLeft, Plus, Download, Upload, RotateCcw, Link2, Users } from 'lucide-react';
+import { ChevronLeft, Download, Upload, RotateCcw, Link2, Users } from 'lucide-react';
 import PublicShareButton from '../shared/PublicShareButton';
 import MembersButton from '../shared/MembersButton';
 import AvatarPicker from '../shared/AvatarPicker';
 import { useShopStore } from '../../store/shopStore';
-import { useHaulModel, localized, catLabel } from '../shared/model';
+import { useHaulModel } from '../shared/model';
+import { useProductFlow } from '../shared/productFlowContext';
+import CatalogManagement from '../shared/CatalogManagement';
 import { useAccountSync } from '../shared/useAccountSync';
 import { useSettingsExtras } from '../shared/useSettingsExtras';
-import type { LocalizedItem } from '../../types';
-import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha, catColor } from '../theme';
+import { ACCENT, ACCENT_INK, DANGER, FONT_DISPLAY, FONT_MONO, alpha } from '../theme';
 import { APP_VERSION } from '../../data/version';
 import { LANGS, detectLang, type Lang } from '../../data/i18n';
 import UpdateNotice from '../shared/UpdateNotice';
-import { canonicalKey } from '../../utils/helpers';
 import { Capacitor } from '@capacitor/core';
 
 type Tab = 'account' | 'catalog' | 'other' | 'about';
@@ -25,8 +25,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
         theme, lang, setTheme, setLang, langManual, setLangManual, auth, sync, listName,
         showCompletedInline, autoClearEnabled, notifyOnAdd, notifyOnCheck,
         setShowCompletedInline, setAutoClearEnabled, setNotifyOnAdd, setNotifyOnCheck,
-        categories, addCategory, addCategoryItem,
-        disabledProducts, deactivateProduct, reactivateProduct, disabledCategories, deactivateCategory, reactivateCategory, registrationOpen,
+        registrationOpen,
     } = useShopStore();
     const acc = useAccountSync();
     const extras = useSettingsExtras();
@@ -35,12 +34,12 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
     const hasServer = !isNative || !!extras.serverUrl;
 
     const [serverInput, setServerInput] = useState(extras.serverUrl || '');
-    const [tab, setTab] = useState<Tab>('account');
+    const flow = useProductFlow();
+    const tab = flow.settingsTab;
+    const setTab = flow.setSettingsTab;
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [uname, setUname] = useState(auth.username || '');
-    const [addingCat, setAddingCat] = useState<string | null>(null);
-    const [newProduct, setNewProduct] = useState('');
 
     const tabs: [Tab, string][] = [['account', t.account], ['catalog', t.catalog], ['other', t.other], ['about', t.about]];
 
@@ -62,7 +61,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
     return (
         <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: 'calc(env(safe-area-inset-top) + 6px) 22px 10px', display: 'flex', alignItems: 'center', gap: 14, flex: 'none' }}>
-                <button onClick={onClose} aria-label="back" style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <button onClick={onClose} aria-label={t.close} style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                     <ChevronLeft size={20} color="var(--text)" strokeWidth={2.2} />
                 </button>
                 <h1 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, letterSpacing: '-.02em', color: 'var(--text)', margin: 0 }}>{t.settings}</h1>
@@ -72,7 +71,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                 {tabs.map(([key, label]) => {
                     const on = tab === key;
                     return (
-                        <button key={key} onClick={() => setTab(key)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: FONT_MONO, fontSize: 12, letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 500, padding: '11px 0', borderBottom: `2px solid ${on ? ACCENT : 'transparent'}`, color: on ? 'var(--text)' : 'var(--muted)' }}>{label}</button>
+                        <button key={key} onClick={() => setTab(key)} aria-pressed={on} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: FONT_MONO, fontSize: 12, letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 500, padding: '11px 0', minHeight: 44, borderBottom: `2px solid ${on ? ACCENT : 'transparent'}`, color: on ? 'var(--text)' : 'var(--muted)' }}>{label}</button>
                     );
                 })}
             </div>
@@ -142,58 +141,8 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
                 )}
 
                 {/* ===== CATALOG ===== */}
-                {tab === 'catalog' && (
-                    <>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                            <div>
-                                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, letterSpacing: '-.01em', color: 'var(--text)' }}>{t.manageCatalog}</div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{t.manageCatalogSub}</div>
-                            </div>
-                            <button onClick={() => {
-                                const name = window.prompt(t.category); if (!name) return;
-                                const key = name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `cat_${Date.now()}`;
-                                addCategory(key, '📦');
-                            }} style={{ ...greenBtn, flex: 'none', padding: '10px 14px', fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Plus size={13} color={ACCENT_INK} strokeWidth={2.6} />{t.category}
-                            </button>
-                        </div>
-                        {Object.keys(categories).map((key) => {
-                            const cat = categories[key];
-                            const color = catColor(key, cat.color);
-                            const catOff = disabledCategories.includes(key);
-                            return (
-                                <div key={key} style={{ marginBottom: 20, opacity: catOff ? 0.5 : 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                        <div style={{ width: 26, height: 26, borderRadius: 8, background: alpha(color, 0.16), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{cat.icon}</div>
-                                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, letterSpacing: '-.01em', color: 'var(--text)', textDecoration: catOff ? 'line-through' : 'none' }}>{catLabel(key, lang, cat.names)}</span>
-                                        <button onClick={() => catOff ? reactivateCategory(key) : deactivateCategory(key)} title={catOff ? t.reactivate : t.deactivate} style={{ marginLeft: 'auto', flex: 'none', cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--muted)', borderRadius: 9, padding: '4px 10px', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>{catOff ? t.reactivate : t.deactivate}</button>
-                                    </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                                        {cat.items.map((it: LocalizedItem | string, idx: number) => {
-                                            const off = disabledProducts.includes(canonicalKey(it));
-                                            return (
-                                                <button key={idx} onClick={() => off ? reactivateProduct(it) : deactivateProduct(it)} style={{ flex: 'none', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, padding: '7px 12px', borderRadius: 11, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', opacity: off ? 0.4 : 1, textDecoration: off ? 'line-through' : 'none' }}>
-                                                    {localized(it, lang)}
-                                                </button>
-                                            );
-                                        })}
-                                        <button onClick={() => { setAddingCat(addingCat === key ? null : key); setNewProduct(''); }} style={{ flex: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, padding: '7px 12px', borderRadius: 11, border: `1px dashed ${color}`, background: 'transparent', color, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                            <Plus size={13} strokeWidth={2.6} />{t.add}
-                                        </button>
-                                    </div>
-                                    {addingCat === key && (
-                                        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', border: `1.5px solid ${color}`, borderRadius: 12, height: 44, padding: '0 5px 0 13px', gap: 8, marginTop: 9 }}>
-                                            <input value={newProduct} onChange={(e) => setNewProduct(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newProduct.trim()) { addCategoryItem(key, { es: newProduct.trim(), ca: newProduct.trim(), en: newProduct.trim() }); setNewProduct(''); } }} placeholder={t.newProduct} style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', fontSize: 14, color: 'var(--text)', fontFamily: 'inherit', outline: 'none' }} />
-                                            <button onClick={() => { if (newProduct.trim()) { addCategoryItem(key, { es: newProduct.trim(), ca: newProduct.trim(), en: newProduct.trim() }); setNewProduct(''); } }} style={{ flex: 'none', border: 'none', background: ACCENT, borderRadius: 9, height: 34, padding: '0 13px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12.5, color: ACCENT_INK }}>{t.add}</button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </>
-                )}
+                {tab === 'catalog' && <CatalogManagement />}
 
-                {/* ===== OTHER ===== */}
                 {tab === 'other' && (
                     <>
                         <div style={{ ...monoLabel, marginBottom: 11 }}>{t.theme}</div>

@@ -88,7 +88,7 @@ func registerRoutes(app core.App, publicDir string) {
 	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{
 		Func: func(e *core.ServeEvent) error {
 			e.Router.GET("/api/shoplist/health", func(e *core.RequestEvent) error {
-				return e.JSON(http.StatusOK, map[string]string{"status": "ok"})
+				return e.JSON(http.StatusOK, map[string]any{"status": "ok", "supports_quantity": true})
 			})
 
 			e.Router.GET("/api/shoplist/setup", setupStatus)

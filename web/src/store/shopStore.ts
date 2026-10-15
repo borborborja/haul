@@ -5,9 +5,10 @@ import { defaultCategories } from '../data/constants';
 import { pb, normalizeServerUrl } from '../lib/pocketbase';
 import { isConfigEnabled } from '../utils/config';
 import { enqueueItemUpdate, enqueueItemDelete, itemQueue } from '../lib/itemWriteQueue';
-import { canonicalKey, localizedVariants } from '../utils/helpers';
+import { canonicalKey } from '../utils/helpers';
 import { pendingCreates, resetSyncMeta } from '../lib/syncMeta';
 import { reconcileCreatedItem, type ItemRecord } from '../lib/itemSync';
+import { createProductActions, beginCatalogSnapshotRequest, isCatalogSnapshotRequestCurrent, type ProductActions } from './productActions';
 
 interface SyncHistoryItem {
     code: string;
@@ -29,8 +30,8 @@ interface SyncState {
 
 // ===== v2 multi-list ("Les meves llistes") =====
 // Each saved list is local-only until it gets a sync code/recordId.
-// Categories/catalog stay GLOBAL (server catalog), so a list cache only
-// snapshots the per-list slice: items + name + sync linkage.
+// The shared base catalog is combined with each list's custom suggestions,
+// visibility choices, purchases and sync linkage.
 export interface SavedList {
     id: string;
     name: string | null;
@@ -68,7 +69,7 @@ interface ServerWorkspace {
 
 export const DEFAULT_LIST_ID = 'default';
 
-interface ShopState {
+export interface ShopState extends ProductActions {
     // Data
     items: ShopItem[];
     deletedItemIds: string[];
@@ -170,7 +171,7 @@ interface ShopState {
     loadCatalog: () => Promise<void>;
     loadListCustomData: () => Promise<void>;
 
-    // Per-list product deactivation (translucent in settings, removed from the list, synced)
+    // Per-list catalog visibility; purchases and history are preserved.
     deactivateProduct: (item: LocalizedItem | string) => Promise<void>;
     reactivateProduct: (item: LocalizedItem | string) => Promise<void>;
     deactivateCategory: (key: string) => void;
@@ -186,6 +187,7 @@ interface ShopState {
 export const useShopStore = create<ShopState>()(
     persist(
         (set, get) => ({
+            ...createProductActions(set, get),
             items: [],
             deletedItemIds: [],
             categories: defaultCategories,
@@ -262,7 +264,7 @@ export const useShopStore = create<ShopState>()(
                         msg: '', msgType: 'info', syncVersion: 0, lastLocalInteraction: 0,
                     },
                     auth: { isLoggedIn: false, email: null, userId: null, username: null, avatarUrl: null, avatarColor: null },
-                    activeUsers: [], serverName: 'ShoppingList', requireAccount: false,
+                    activeUsers: [], quantitySupported: null, catalogSyncStatus: 'saved', catalogSyncError: null, serverName: 'ShoppingList', requireAccount: false,
                     registrationOpen: true, enableUsernames: false,
                 });
             },
@@ -561,6 +563,7 @@ export const useShopStore = create<ShopState>()(
                     listName: name || null,
                     sync: { ...sync, connected: false, code: null, recordId: null, msg: '', msgType: 'info' as const },
                 });
+                get().refreshCatalogProjection();
                 return id;
             },
 
@@ -598,6 +601,7 @@ export const useShopStore = create<ShopState>()(
                         lastLocalInteraction: 0,
                     },
                 });
+                get().refreshCatalogProjection();
             },
 
             deleteList: (id) => {
@@ -659,110 +663,16 @@ export const useShopStore = create<ShopState>()(
                     : l),
             })),
 
-            addCategoryItem: async (catKey, item) => {
-                const client = pb;
-                const { sync, categories } = get();
-                const itemName = typeof item === 'string' ? item : (item.es || item.ca || item.en || '');
-
-                // 1. Optimistic update
-                const cats = { ...categories };
-                if (cats[catKey]) {
-                    cats[catKey] = { ...cats[catKey], items: [...cats[catKey].items, item] };
-                }
-                set({ categories: cats });
-
-                // 2. Sync to server if connected
-                if (sync.connected && sync.recordId) {
-                    try {
-                        await client.collection('list_items').create({
-                            list: sync.recordId,
-                            category_key: catKey,
-                            name: itemName
-                        });
-                    } catch (e) {
-                        console.error("Failed to sync category item", e);
-                    }
-                }
+            addCategoryItem: async (category, item) => {
+                const state = get();
+                await state.createProduct({ name: item[state.lang] || item.en || item.es || item.ca, category, addToList: false });
             },
-            removeCategoryItem: async (catKey, idx) => {
-                const client = pb;
-                const { sync, categories } = get();
-                const itemToRemove = categories[catKey]?.items[idx];
-                const itemName = typeof itemToRemove === 'string' ? itemToRemove : (itemToRemove?.es || itemToRemove?.ca || itemToRemove?.en || '');
-
-                // 1. Optimistic update
-                const cats = { ...categories };
-                if (cats[catKey]) {
-                    const newItems = [...cats[catKey].items];
-                    newItems.splice(idx, 1);
-                    cats[catKey] = { ...cats[catKey], items: newItems };
-                }
-                set({ categories: cats });
-
-                // 2. Sync to server - find and delete by name
-                if (sync.connected && sync.recordId && itemName) {
-                    try {
-                        const records = await client.collection('list_items').getFullList({
-                            filter: pb.filter('list = {:list} && category_key = {:category} && name = {:name}', { list: sync.recordId, category: catKey, name: itemName })
-                        });
-                        if (records.length > 0) {
-                            await client.collection('list_items').delete(records[0].id);
-                        }
-                    } catch (e) {
-                        console.error("Failed to delete category item from server", e);
-                    }
-                }
+            removeCategoryItem: async (category, index) => {
+                const item = get().categories[category]?.items[index];
+                if (item) await get().deleteCatalogItem(category, item);
             },
-
-            // Category Management
-            addCategory: async (key, icon) => {
-                const client = pb;
-                const { sync, categories } = get();
-
-                // 1. Optimistic update
-                const cats = { ...categories };
-                if (!cats[key]) {
-                    cats[key] = { icon, items: [] };
-                }
-                set({ categories: cats });
-
-                // 2. Sync to server if connected
-                if (sync.connected && sync.recordId) {
-                    try {
-                        await client.collection('list_categories').create({
-                            list: sync.recordId,
-                            key: key,
-                            icon: icon,
-                            name: key
-                        });
-                    } catch (e) {
-                        console.error("Failed to sync category", e);
-                    }
-                }
-            },
-            removeCategory: async (key) => {
-                const client = pb;
-                const { sync, categories } = get();
-
-                // 1. Optimistic update
-                const cats = { ...categories };
-                delete cats[key];
-                set({ categories: cats });
-
-                // 2. Sync to server - find and delete
-                if (sync.connected && sync.recordId) {
-                    try {
-                        const records = await client.collection('list_categories').getFullList({
-                            filter: pb.filter('list = {:list} && key = {:key}', { list: sync.recordId, key })
-                        });
-                        if (records.length > 0) {
-                            await client.collection('list_categories').delete(records[0].id);
-                        }
-                    } catch (e) {
-                        console.error("Failed to delete category from server", e);
-                    }
-                }
-            },
+            addCategory: async (name, icon) => { await get().createCatalogCategory(name, icon); },
+            removeCategory: async (key) => { await get().deleteCatalogCategory(key); },
 
             setSyncState: (s) => set((state) => {
                 const sync = { ...state.sync, ...s };
@@ -790,7 +700,15 @@ export const useShopStore = create<ShopState>()(
                 listName: null,
                 sync: { ...state.sync, connected: false, code: null, recordId: null, msg: '', msgType: 'info' as const },
             })),
-            importData: (items, categories, listName) => set({ items, categories, listName: listName || null }),
+            importData: (items, categories, listName) => {
+                const state = get();
+                const origin = normalizeServerUrl(state.serverUrl || pb.baseURL);
+                set({ items: items.map(item => ({ ...item, quantity: item.quantity || '' })), categories, listName: listName || null,
+                    catalogEntries: state.catalogEntries.filter(entry => entry.origin !== origin || entry.listId !== state.activeListId || entry.remoteListId !== state.sync.recordId),
+                    catalogInitializedScopes: state.catalogInitializedScopes.filter(key => key !== `${origin}\n${state.activeListId}\n${state.sync.recordId || ''}`) });
+                get().initializeCatalogEntries();
+                void get().flushCatalogChanges();
+            },
 
             // Auth Actions
             setAuth: (auth) => set((state) => ({ auth: { ...state.auth, ...auth } })),
@@ -814,6 +732,8 @@ export const useShopStore = create<ShopState>()(
             }),
 
             loadCatalog: async () => {
+                get().initializeCatalogEntries();
+                void get().checkServerCapabilities();
                 const client = pb;
                 try {
                     const cats = await client.collection('catalog_categories').getFullList({ sort: 'order', filter: 'hidden = false' });
@@ -840,6 +760,8 @@ export const useShopStore = create<ShopState>()(
                         // Only add if category is also not hidden (extra safety)
                         if (catKey && newCats[catKey] && !catHidden) {
                             newCats[catKey].items.push({
+                                _catalogId: String(i.id),
+                                _catalogKind: 'global',
                                 es: i.name_es || '',
                                 ca: i.name_ca || i.name_es || '',
                                 en: i.name_en || i.name_es || '',
@@ -864,6 +786,7 @@ export const useShopStore = create<ShopState>()(
                         }
                     });
                     set({ categories: viewCats, catalogCategories: newCats });
+                    get().refreshCatalogProjection();
 
                     // Load server config
                     try {
@@ -890,122 +813,37 @@ export const useShopStore = create<ShopState>()(
             },
 
             loadListCustomData: async () => {
+                get().initializeCatalogEntries();
                 const client = pb;
-                const { sync, catalogCategories: categories, activeListId } = get();
+                const { sync, activeListId } = get();
                 if (!sync.connected || !sync.recordId) return;
-
+                const startedAt = Date.now();
+                const generation = beginCatalogSnapshotRequest(get());
                 try {
-                    // Load custom categories for this list
-                    const customCats = await client.collection('list_categories').getFullList({
-                        filter: `list = "${sync.recordId}"`
-                    });
-
-                    // Load custom items for this list
-                    const customItems = await client.collection('list_items').getFullList({
-                        filter: `list = "${sync.recordId}"`
-                    });
-
-                    // Merge with existing categories
-                    const mergedCats = Object.fromEntries(Object.entries(categories).map(([key, cat]) => [key, { ...cat, items: [...cat.items] }]));
-
-                    customCats.forEach((c: any) => {
-                        if (!mergedCats[c.key]) {
-                            mergedCats[c.key] = {
-                                icon: c.icon,
-                                items: [],
-                                color: undefined
-                            };
-                        }
-                    });
-
-                    // Add custom items to their categories
-                    customItems.forEach((i: any) => {
-                        if (mergedCats[i.category_key]) {
-                            // Check if item already exists to avoid duplicates
-                            const exists = mergedCats[i.category_key].items.some(item => {
-                                if (typeof item === 'string') return item === i.name;
-                                return item.es === i.name || item.ca === i.name || item.en === i.name;
-                            });
-                            if (!exists) {
-                                mergedCats[i.category_key].items.push(i.name);
-                            }
-                        }
-                    });
-
-                    // Load deactivated products + categories for this list
-                    const disabledRecs = await client.collection('list_disabled_products').getFullList({
-                        filter: `list = "${sync.recordId}"`
-                    });
-                    const disabledCatRecs = await client.collection('list_disabled_categories').getFullList({
-                        filter: `list = "${sync.recordId}"`
-                    }).catch(() => []);
-
-                    if (pb !== client || get().activeListId !== activeListId || get().sync.recordId !== sync.recordId) return;
-                    set({ categories: mergedCats, disabledProducts: disabledRecs.map((r: any) => r.name), disabledCategories: (disabledCatRecs as any[]).map((r: any) => r.key) });
-                    console.log("Loaded list custom data:", customCats.length, "categories,", customItems.length, "items,", disabledRecs.length, "disabled");
-                } catch (e) {
-                    console.error("Failed to load list custom data", e);
-                }
+                    const collections = ['list_categories', 'list_items', 'list_disabled_products', 'list_disabled_categories'] as const;
+                    const results = await Promise.all(collections.map(collection => client.collection(collection).getFullList({
+                        filter: client.filter('list = {:list}', { list: sync.recordId }), requestKey: null,
+                    })));
+                    if (pb !== client || !get().sync.connected || get().activeListId !== activeListId || get().sync.recordId !== sync.recordId || !isCatalogSnapshotRequestCurrent(get(), generation)) return;
+                    const rows = results.flatMap((records, index) => records.map(record => ({
+                        id: record.id, collection: collections[index],
+                        data: (collections[index] === 'list_categories' ? { key: String(record.key), name: String(record.name || record.key), icon: String(record.icon || '📦') }
+                            : collections[index] === 'list_items' ? { category_key: String(record.category_key), name: String(record.name) }
+                            : collections[index] === 'list_disabled_products' ? { name: String(record.name) } : { key: String(record.key) }) as Record<string, string>,
+                    })));
+                    get().mergeCatalogSnapshot(rows, startedAt);
+                    void get().flushCatalogChanges();
+                } catch (error) { console.error('Failed to load list custom data', error); }
             },
+            deactivateProduct: async (item) => { await get().setProductVisibility(item, true); },
+            reactivateProduct: async (item) => { await get().setProductVisibility(item, false); },
+            deactivateCategory: (key) => { get().setCategoryVisibility(key, true); },
+            reactivateCategory: (key) => { get().setCategoryVisibility(key, false); },
 
-            deactivateProduct: async (item) => {
-                const { sync, items, disabledProducts } = get();
-                const key = canonicalKey(item);
-                if (!key || disabledProducts.includes(key)) return;
-                const variants = new Set(localizedVariants(item));
-
-                // 1. Optimistic: mark disabled + drop matching items from the list
-                const matched = items.filter((i) => variants.has(i.name.trim().toLowerCase()));
-                set({
-                    disabledProducts: [...disabledProducts, key],
-                    deletedItemIds: [...new Set([...get().deletedItemIds, ...matched.filter(i => !i.id.startsWith('local_') || pendingCreates.has(i.id)).map(i => i.id)])],
-                    items: items.filter((i) => !variants.has(i.name.trim().toLowerCase())),
-                });
-
-                // 2. Network
-                if (sync.connected && sync.recordId) {
-                    pb.collection('list_disabled_products').create({ list: sync.recordId, name: key }).catch(() => { });
-                    matched.forEach((i) => { if (!i.id.startsWith('local_')) enqueueItemDelete(i.id); });
-                }
-            },
-
-            reactivateProduct: async (item) => {
-                const client = pb;
-                const { sync, disabledProducts } = get();
-                const key = canonicalKey(item);
-                set({ disabledProducts: disabledProducts.filter((k) => k !== key) });
-                if (sync.connected && sync.recordId) {
-                    try {
-                        const recs = await client.collection('list_disabled_products').getFullList({ filter: pb.filter('list = {:list} && name = {:name}', { list: sync.recordId, name: key }) });
-                        await Promise.all(recs.map((r: any) => client.collection('list_disabled_products').delete(r.id)));
-                    } catch { /* realtime/refresh will reconcile */ }
-                }
-            },
-
-            deactivateCategory: (key) => {
-                const { sync, disabledCategories } = get();
-                if (!key || disabledCategories.includes(key)) return;
-                set({ disabledCategories: [...disabledCategories, key] });
-                if (sync.connected && sync.recordId) {
-                    pb.collection('list_disabled_categories').create({ list: sync.recordId, key }).catch(() => { });
-                }
-            },
-
-            reactivateCategory: async (key) => {
-                const client = pb;
-                const { sync, disabledCategories } = get();
-                set({ disabledCategories: disabledCategories.filter((k) => k !== key) });
-                if (sync.connected && sync.recordId) {
-                    try {
-                        const recs = await client.collection('list_disabled_categories').getFullList({ filter: pb.filter('list = {:list} && key = {:key}', { list: sync.recordId, key }) });
-                        await Promise.all(recs.map((r: any) => client.collection('list_disabled_categories').delete(r.id)));
-                    } catch { /* realtime/refresh will reconcile */ }
-                }
-            }
         }),
         {
             name: 'shoplist-storage',
-            version: 1,
+            version: 2,
             migrate: (persisted: any) => {
                 // Seed multi-list state for users upgrading from the single-list v1 store
                 if (persisted && !persisted.lists) {
@@ -1021,9 +859,24 @@ export const useShopStore = create<ShopState>()(
                     persisted.activeListId = DEFAULT_LIST_ID;
                     persisted.listCaches = {};
                 }
+                if (persisted) {
+                    persisted.catalogEntries ??= [];
+                    persisted.catalogInitializedScopes ??= [];
+                    persisted.quantityCapabilities ??= {};
+                    const normalizeItems = (items: ShopItem[] = []) => items.map(item => ({ ...item, quantity: item.quantity || '' }));
+                    persisted.items = normalizeItems(persisted.items);
+                    for (const cache of Object.values(persisted.listCaches || {}) as ListCache[]) cache.items = normalizeItems(cache.items);
+                    for (const workspace of Object.values(persisted.serverWorkspaces || {}) as ServerWorkspace[]) {
+                        workspace.items = normalizeItems(workspace.items);
+                        for (const cache of Object.values(workspace.listCaches || {})) cache.items = normalizeItems(cache.items);
+                    }
+                }
                 return persisted;
             },
             partialize: (state) => ({
+                catalogEntries: state.catalogEntries,
+                catalogInitializedScopes: state.catalogInitializedScopes,
+                quantityCapabilities: state.quantityCapabilities,
                 items: state.items,
                 deletedItemIds: state.deletedItemIds,
                 disabledProducts: state.disabledProducts,

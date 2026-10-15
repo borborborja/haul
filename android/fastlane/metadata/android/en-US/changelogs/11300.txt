@@ -1,0 +1,6 @@
+Add products directly inside a category without leaving your list.
+Create several products at once and add items while shopping.
+Edit names, categories, quantities and notes.
+Search ignores accents and extra spaces and avoids duplicate additions.
+Hide catalog products or categories with Undo while keeping purchases.
+Improved keyboard access and offline catalog syncing.

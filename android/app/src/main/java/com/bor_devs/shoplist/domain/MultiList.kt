@@ -34,4 +34,8 @@ data class CachedItem(
     val dirty: Boolean,
     val addedBy: String = "",
     val checkedBy: String = "",
+    val quantity: String = "",
+    val sourceId: String = "",
+    val sourceKind: String = "",
+    val sourceCategory: String = "",
 )

@@ -4,8 +4,8 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [ItemEntity::class, CustomCategoryEntity::class, CustomItemEntity::class, DisabledProductEntity::class, PendingItemDeleteEntity::class],
-    version = 4,
+    entities = [ItemEntity::class, CustomCategoryEntity::class, CustomItemEntity::class, DisabledProductEntity::class, PendingItemDeleteEntity::class, CatalogMutationEntity::class],
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -13,4 +13,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun disabledDao(): DisabledDao
     abstract fun pendingItemDeleteDao(): PendingItemDeleteDao
+    abstract fun catalogMutationDao(): CatalogMutationDao
 }

@@ -50,7 +50,8 @@ export async function fetchListData(recordId: string, client = pb): Promise<Conn
         listName: list.data?.listName ?? list.name ?? null,
         items: records.map((r: RecordModel) => ({
             id: r.id, name: r.name, category: r.category, checked: r.checked,
-            note: r.note || '', inList: r.in_list !== false,
+            note: r.note || '', quantity: r.quantity || '', inList: r.in_list !== false,
+            catalogSourceId: r.catalog_source_id || '', catalogSourceKind: r.catalog_source_kind || undefined, catalogSourceCategory: r.catalog_source_category || '',
             addedBy: r.added_by, checkedBy: r.checked_by,
             serverUpdated: parsePbDate(r.updated), updatedAt: parsePbDate(r.updated),
         })),

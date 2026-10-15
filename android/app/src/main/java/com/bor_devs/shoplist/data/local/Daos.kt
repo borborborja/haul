@@ -96,7 +96,7 @@ interface CategoryDao {
     @Query("DELETE FROM custom_categories WHERE key = :key")
     suspend fun deleteCategory(key: String)
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Upsert
     suspend fun insertItem(item: CustomItemEntity)
 
     @Query("SELECT * FROM custom_items WHERE categoryKey = :key AND name = :name LIMIT 1")
@@ -155,4 +155,28 @@ interface PendingItemDeleteDao {
 
     @Query("DELETE FROM pending_item_deletes")
     suspend fun clear()
+}
+
+@Dao
+interface CatalogMutationDao {
+    @Query("SELECT * FROM catalog_mutations WHERE origin = :origin AND localListId = :listId")
+    suspend fun forList(origin: String, listId: String): List<CatalogMutationEntity>
+
+    @Query("SELECT * FROM catalog_mutations WHERE origin = :origin AND localListId = :listId AND entityId = :id LIMIT 1")
+    suspend fun get(origin: String, listId: String, id: String): CatalogMutationEntity?
+
+    @Upsert
+    suspend fun upsert(row: CatalogMutationEntity)
+
+    @Query("UPDATE catalog_mutations SET remoteId = :remoteId, remoteListId = :remoteListId, acknowledgedRevision = :sentRevision, attempts = 0, nextAttemptAt = 0, lastError = '' WHERE origin = :origin AND localListId = :listId AND entityId = :id")
+    suspend fun acknowledge(origin: String, listId: String, id: String, remoteId: String, remoteListId: String, sentRevision: Long)
+
+    @Query("UPDATE catalog_mutations SET attempts = attempts + 1, nextAttemptAt = :nextAttemptAt, lastError = :error WHERE origin = :origin AND localListId = :listId AND entityId = :id AND revision = :revision")
+    suspend fun fail(origin: String, listId: String, id: String, revision: Long, nextAttemptAt: Long, error: String)
+
+    @Query("DELETE FROM catalog_mutations WHERE origin = :origin AND localListId = :listId AND entityId = :id")
+    suspend fun delete(origin: String, listId: String, id: String)
+
+    @Query("UPDATE catalog_mutations SET nextAttemptAt = 0, lastError = '' WHERE origin = :origin AND localListId = :listId")
+    suspend fun retry(origin: String, listId: String)
 }

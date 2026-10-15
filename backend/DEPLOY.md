@@ -86,6 +86,28 @@ o ponlo en tu `.env`:
 SHOPLIST_IMAGE=borborbor/shoppinglist:v2.0.2
 ```
 
+### Cantidades y catálogo por lista
+
+Actualiza primero el backend y después los clientes web/Android. Al arrancar,
+la migración `1800000014_item_quantity_catalog_source` añade a `shopping_items`
+los campos opcionales `quantity` (texto, hasta 80 caracteres) y
+`catalog_source_id`, `catalog_source_kind`, `catalog_source_category`. Conserva
+las compras existentes y no modifica el catálogo global.
+
+Comprueba que `GET /api/shoplist/health` devuelve `supports_quantity: true` antes
+de habilitar cantidades en los clientes. Las compras nuevas sin cantidad siguen
+usando el valor vacío. Los clientes anteriores pueden seguir leyendo y editando
+sus campos habituales: omitir los campos nuevos en una actualización no borra
+sus valores. Si un servidor anterior no anuncia compatibilidad, los clientes
+nuevos conservan las compras con cantidad pendientes en el dispositivo hasta
+actualizar el backend o quitar esa cantidad; no las confirman como sincronizadas.
+La respuesta pública de una lista también anuncia
+`quantitySupported: true` e incluye la cantidad de cada compra.
+
+Android migra su base local de Room 4 a 5 sin borrar datos y conserva las
+operaciones de catálogo pendientes tras reinicios. Valida la actualización en
+un entorno de pruebas con una copia de la base antes de aplicarla a producción.
+
 ### Si aún ves la versión vieja
 
 - **Comprueba el digest** que tienes vs. el del registro:

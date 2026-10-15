@@ -18,18 +18,22 @@ data class ItemEntity(
     val dirty: Boolean,
     val addedBy: String = "",
     val checkedBy: String = "",
+    val quantity: String = "",
+    val sourceId: String = "",
+    val sourceKind: String = "",
+    val sourceCategory: String = "",
 ) {
     fun toDomain() = ShopItem(
         id = id, name = name, checked = checked, note = note, category = category,
         inList = inList, serverUpdated = serverUpdated, updatedAt = updatedAt, dirty = dirty,
-        addedBy = addedBy, checkedBy = checkedBy,
+        addedBy = addedBy, checkedBy = checkedBy, quantity = quantity, sourceId = sourceId, sourceKind = sourceKind, sourceCategory = sourceCategory,
     )
 
     companion object {
         fun from(i: ShopItem) = ItemEntity(
             id = i.id, name = i.name, checked = i.checked, note = i.note, category = i.category,
             inList = i.inList, serverUpdated = i.serverUpdated, updatedAt = i.updatedAt, dirty = i.dirty,
-            addedBy = i.addedBy, checkedBy = i.checkedBy,
+            addedBy = i.addedBy, checkedBy = i.checkedBy, quantity = i.quantity, sourceId = i.sourceId, sourceKind = i.sourceKind, sourceCategory = i.sourceCategory,
         )
     }
 }
@@ -40,6 +44,8 @@ data class ItemEntity(
 data class CustomCategoryEntity(
     @PrimaryKey val key: String,
     val icon: String,
+    val displayName: String = "",
+    val sourceId: String = "",
 )
 
 /** A custom suggestion item the user added to a category. */
@@ -49,6 +55,7 @@ data class CustomItemEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val categoryKey: String,
     val name: String,
+    val sourceId: String = "",
 )
 
 /** A catalog product deactivated for the active list (canonical lowercase key). */
@@ -63,4 +70,23 @@ data class DisabledProductEntity(
 data class PendingItemDeleteEntity(
     @PrimaryKey val id: String,
     val listId: String,
+)
+
+/** Durable desired state: request acknowledgements advance only the sent revision. */
+@Entity(tableName = "catalog_mutations", primaryKeys = ["origin", "localListId", "entityId"])
+data class CatalogMutationEntity(
+    val origin: String,
+    val localListId: String,
+    val entityId: String,
+    val collection: String,
+    val payload: String,
+    val remoteId: String = "",
+    val remoteListId: String = "",
+    val deleted: Boolean = false,
+    val revision: Long = 1,
+    val acknowledgedRevision: Long = 0,
+    val attempts: Int = 0,
+    val nextAttemptAt: Long = 0,
+    val lastError: String = "",
+    val principalId: String = "",
 )

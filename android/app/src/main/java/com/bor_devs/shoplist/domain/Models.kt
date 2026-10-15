@@ -1,10 +1,14 @@
 package com.bor_devs.shoplist.domain
 
 /** A localized catalog item name (es/ca/en), mirroring the web `LocalizedItem`. */
+@kotlinx.serialization.Serializable
 data class LocalizedItem(
     val es: String,
     val ca: String,
     val en: String,
+    val sourceId: String = "",
+    val sourceKind: String = "global",
+    val sourceCategory: String = "",
 ) {
     // Catalog item names only carry es/ca/en; other UI languages fall back to en.
     fun forLang(lang: Lang): String = when (lang.code) {
@@ -15,11 +19,13 @@ data class LocalizedItem(
 }
 
 /** A category with its icon and its catalog of suggested items. */
+@kotlinx.serialization.Serializable
 data class Category(
     val key: String,
     val icon: String,
     val items: List<LocalizedItem> = emptyList(),
     val color: String? = null,
+    val displayName: String? = null,
 )
 
 /**
@@ -44,6 +50,10 @@ data class ShopItem(
     /** Name of who added the item / who bought (checked) it. */
     val addedBy: String = "",
     val checkedBy: String = "",
+    val quantity: String = "",
+    val sourceId: String = "",
+    val sourceKind: String = "",
+    val sourceCategory: String = "",
 ) {
     val isLocal: Boolean get() = id.startsWith("local_")
 }

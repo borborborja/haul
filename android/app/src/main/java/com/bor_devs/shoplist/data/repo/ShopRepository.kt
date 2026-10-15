@@ -4,6 +4,10 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import androidx.room.withTransaction
+import com.bor_devs.shoplist.data.local.AppDatabase
+import com.bor_devs.shoplist.data.local.CatalogMutationDao
+import com.bor_devs.shoplist.data.local.CatalogMutationEntity
 import com.bor_devs.shoplist.data.local.CategoryDao
 import com.bor_devs.shoplist.data.local.CustomCategoryEntity
 import com.bor_devs.shoplist.data.local.CustomItemEntity
@@ -26,10 +30,16 @@ import com.bor_devs.shoplist.data.sync.SyncMeta
 import com.bor_devs.shoplist.data.sync.WriteKind
 import com.bor_devs.shoplist.data.sync.WriteOp
 import com.bor_devs.shoplist.data.sync.WriteQueue
+import com.bor_devs.shoplist.data.sync.canSyncQuantity
 import com.bor_devs.shoplist.data.sync.matches
 import com.bor_devs.shoplist.data.sync.reconcileCreatedItem
 import com.bor_devs.shoplist.data.sync.reconcileItemSnapshot
 import com.bor_devs.shoplist.di.AppScope
+import com.bor_devs.shoplist.domain.CommandStatus
+import com.bor_devs.shoplist.domain.ProductCommandResult
+import com.bor_devs.shoplist.domain.CategoryCommandResult
+import com.bor_devs.shoplist.domain.validateProduct
+import com.bor_devs.shoplist.domain.normalizeProductName
 import com.bor_devs.shoplist.domain.CachedItem
 import com.bor_devs.shoplist.domain.Category
 import com.bor_devs.shoplist.domain.DefaultCatalog
@@ -65,6 +75,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.text.Normalizer
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -86,6 +97,8 @@ class ShopRepository @Inject constructor(
     private val categoryDao: CategoryDao,
     private val disabledDao: DisabledDao,
     private val pendingDeleteDao: PendingItemDeleteDao,
+    private val catalogMutationDao: CatalogMutationDao,
+    private val database: AppDatabase,
     private val wearBridge: com.bor_devs.shoplist.wear.WearBridge,
     private val notifications: NotificationHelper,
     @AppScope private val scope: CoroutineScope,
@@ -146,6 +159,10 @@ class ShopRepository @Inject constructor(
     val enableUsernames = MutableStateFlow(false)
     val requireAccount = MutableStateFlow(false)
     val registrationOpen = MutableStateFlow(true)
+    val quantitySupported = MutableStateFlow(true)
+    val catalogSyncError = MutableStateFlow<String?>(null)
+    val catalogPendingCount = MutableStateFlow(0)
+    private val catalogFlushLock = Mutex()
 
     /** True when a server is configured (not local mode). */
     val hasServer: Boolean get() = pb.hasServer
@@ -196,6 +213,8 @@ class ShopRepository @Inject constructor(
     )
 
     private suspend fun executeWrite(op: WriteOp): Any? {
+        val current = if (op.kind == WriteKind.UPDATE) itemDao.getById(op.recordId) else null
+        if (current != null && !canSyncQuantity(current.quantity, quantitySupported.value)) throw com.bor_devs.shoplist.data.remote.PbException(400, "QUANTITY_UNSUPPORTED")
         syncMeta.beginWrite(op.recordId)
         try {
             return when (op.kind) {
@@ -256,6 +275,8 @@ class ShopRepository @Inject constructor(
         val s = prefs.snapshot()
         settingsCache = s
         if (s.serverUrl.isNotBlank()) pb.setBaseUrl(s.serverUrl)
+        quantitySupported.value = s.serverUrl.isBlank() || s.quantityCapabilities[s.serverUrl] == true
+        serverCatalog.value = s.catalogSnapshots[pb.baseUrl].orEmpty()
         pb.setToken(s.authToken)
         sessionUserId = s.auth.userId
         _listName.value = s.listName
@@ -274,6 +295,13 @@ class ShopRepository @Inject constructor(
                 .collect { (name, its) -> wearBridge.pushSnapshot(name, its) }
         }
 
+        listLock.withLock { ensureLegacyCatalogMutationsLocked(); restorePendingCatalogLocked() }
+        scope.launch {
+            while (true) {
+                delay(15_000)
+                flushCatalogMutations()
+            }
+        }
         if (!pb.hasServer) return // local mode
         ensureGuestSession()
         loadCatalog()
@@ -332,6 +360,10 @@ class ShopRepository @Inject constructor(
 
     suspend fun loadCatalog() {
         val origin = pb.baseUrl
+        val capability = runCatching { pb.capabilities().supportsQuantity }.getOrNull()
+        if (pb.baseUrl != origin) return
+        quantitySupported.value = capability ?: prefs.snapshot().quantityCapabilities[origin] ?: false
+        if (capability != null) prefs.setQuantityCapability(origin, capability)
         runCatching {
             val cats = pb.getCatalogCategories()
             val products = pb.getCatalogItems()
@@ -342,10 +374,11 @@ class ShopRepository @Inject constructor(
             products.forEach { i ->
                 val key = i.expand?.category?.key
                 if (key != null) map[key]?.let { c ->
-                    map[key] = c.copy(items = c.items + LocalizedItem(i.nameEs, i.nameCa.ifBlank { i.nameEs }, i.nameEn.ifBlank { i.nameEs }))
+                    map[key] = c.copy(items = c.items + LocalizedItem(i.nameEs, i.nameCa.ifBlank { i.nameEs }, i.nameEn.ifBlank { i.nameEs }, i.id, "global", key))
                 }
             }
             serverCatalog.value = map.values.toList()
+            prefs.setCatalogSnapshot(origin, map.values.toList())
         }
         runCatching {
             val cfg = pb.getAppConfig()
@@ -576,45 +609,374 @@ class ShopRepository @Inject constructor(
       }
     }
 
+    /** Create a reusable suggestion for this list, optionally adding it to the purchase. */
+    suspend fun createProduct(name: String, categoryKey: String, quantity: String = "", note: String = "", addToList: Boolean = true, expectedListId: String? = null): ProductCommandResult =
+        productCommand(expectedListId) {
+            val clean = name.trim()
+            validateProduct(clean, categoryKey, quantity.trim(), note)?.let { return@productCommand ProductCommandResult(CommandStatus.VALIDATION_ERROR, error = it) }
+            if (_isGuest.value) {
+                val token = guestToken()
+                if (_shareMode.value != "plan" || token == null || !addToList) return@productCommand ProductCommandResult(CommandStatus.FAILED, error = "PERMISSION")
+                pb.publicAdd(token, clean, categoryKey, myName(), quantity.trim(), note)
+                return@productCommand ProductCommandResult(CommandStatus.SYNCED, categoryKey = categoryKey)
+            }
+            val cats = currentCategories()
+            if (!cats.containsKey(categoryKey)) return@productCommand ProductCommandResult(CommandStatus.VALIDATION_ERROR, error = "CATEGORY_NOT_FOUND")
+            if (cats[categoryKey]?.items?.any { localizedVariants(it).any { candidate -> normalizeProductName(candidate) == normalizeProductName(clean) } } == true) {
+                return@productCommand ProductCommandResult(CommandStatus.DUPLICATE, error = "DUPLICATE_CATALOG", categoryKey = categoryKey)
+            }
+            if (addToList) {
+                val existing = itemDao.getAll().firstOrNull { normalizeProductName(it.name) == normalizeProductName(clean) && it.inList && !it.checked }
+                if (existing != null) return@productCommand ProductCommandResult(CommandStatus.DUPLICATE, existing.id, categoryKey, "DUPLICATE_LIST")
+            }
+            val id = newCatalogId()
+            persistCatalogMutationLocked("list_items", buildJsonObject { put("category_key", categoryKey); put("name", clean) }, id)
+            categoryDao.insertItem(CustomItemEntity(categoryKey = categoryKey, name = clean, sourceId = id))
+            val purchaseId = if (addToList) addShoppingProductLocked(clean, categoryKey, quantity.trim(), note, id, "custom", categoryKey) else null
+            launchPendingWrites()
+            ProductCommandResult(savedStatus(), purchaseId, categoryKey)
+        }
+
+    /** Catalog selection adds to the purchase without creating another suggestion. */
+    suspend fun addCatalogProduct(product: LocalizedItem, categoryKey: String, displayName: String? = null, expectedListId: String? = null): ProductCommandResult = productCommand(expectedListId) {
+        val language = com.bor_devs.shoplist.domain.Lang.from(settingsCache?.appLang ?: java.util.Locale.getDefault().language)
+        val name = displayName?.trim()?.ifBlank { null } ?: product.forLang(language).trim()
+        val existing = itemDao.getAll().firstOrNull { normalizeProductName(it.name) == normalizeProductName(name) && it.inList && !it.checked }
+        if (existing != null) return@productCommand ProductCommandResult(CommandStatus.DUPLICATE, existing.id, categoryKey, "DUPLICATE_LIST")
+        if (_isGuest.value) {
+            val token = guestToken()
+            if (token == null || _shareMode.value != "plan") return@productCommand ProductCommandResult(CommandStatus.FAILED, error = "PERMISSION")
+            pb.publicAdd(token, name, categoryKey, myName())
+            return@productCommand ProductCommandResult(CommandStatus.SYNCED, categoryKey = categoryKey)
+        }
+        val effective = currentCategories()[categoryKey]?.items?.firstOrNull { localizedVariants(it).any { value -> normalizeProductName(value) == normalizeProductName(name) } } ?: product
+        val id = addShoppingProductLocked(name, categoryKey, "", "", effective.sourceId, effective.sourceKind, categoryKey)
+        launchPendingWrites()
+        ProductCommandResult(savedStatus(), id, categoryKey)
+    }
+
+    /** Edit this purchase; catalog changes require the explicit opt-in. */
+    suspend fun editProduct(itemId: String, name: String, categoryKey: String, quantity: String, note: String, saveToCatalog: Boolean = false, expectedListId: String? = null): ProductCommandResult = productCommand(expectedListId) {
+        validateProduct(name.trim(), categoryKey, quantity.trim(), note)?.let { return@productCommand ProductCommandResult(CommandStatus.VALIDATION_ERROR, error = it) }
+        if (_isGuest.value) return@productCommand ProductCommandResult(CommandStatus.FAILED, error = "PERMISSION")
+        if (!currentCategories().containsKey(categoryKey)) return@productCommand ProductCommandResult(CommandStatus.VALIDATION_ERROR, error = "CATEGORY_NOT_FOUND")
+        val old = itemDao.getById(itemId) ?: return@productCommand ProductCommandResult(CommandStatus.FAILED, error = "NOT_FOUND")
+        val duplicate = itemDao.getAll().firstOrNull { it.id != itemId && normalizeProductName(it.name) == normalizeProductName(name) && it.inList && !it.checked }
+        if (duplicate != null) return@productCommand ProductCommandResult(CommandStatus.DUPLICATE, duplicate.id, categoryKey, "DUPLICATE_LIST")
+        val catalog = currentCategories()
+        val original = catalog[old.sourceCategory.ifBlank { old.category }]?.items?.firstOrNull {
+            old.sourceId.isNotBlank() && it.sourceId == old.sourceId || localizedVariants(it).any { value -> normalizeProductName(value) == normalizeProductName(old.name) }
+        }
+        var sourceId = old.sourceId.ifBlank { original?.sourceId.orEmpty() }
+        var sourceKind = old.sourceKind.ifBlank { original?.sourceKind.orEmpty() }
+        if (saveToCatalog) {
+            val settings = prefs.snapshot()
+            val alias = catalogMutationDao.forList(pb.baseUrl, settings.activeListId).firstOrNull { it.entityId == sourceId || it.remoteId == sourceId }
+            val custom = categoryDao.getItems().firstOrNull { sourceId.isNotBlank() && (it.sourceId == sourceId || alias != null && (it.sourceId == alias.entityId || it.sourceId == alias.remoteId)) }
+            val ownIds = setOf(sourceId, alias?.entityId.orEmpty(), alias?.remoteId.orEmpty()).filter { it.isNotBlank() }.toSet()
+            if (catalog[categoryKey]?.items?.any { product -> product.sourceId !in ownIds && localizedVariants(product).any { normalizeProductName(it) == normalizeProductName(name) } } == true) {
+                return@productCommand ProductCommandResult(CommandStatus.DUPLICATE, error = "DUPLICATE_CATALOG", categoryKey = categoryKey)
+            }
+            if (sourceKind == "custom" && custom != null) {
+                sourceId = custom.sourceId
+                val body = buildJsonObject { put("category_key", categoryKey); put("name", name.trim()) }
+                persistCatalogMutationLocked("list_items", body, custom.sourceId, remoteId = custom.sourceId)
+                categoryDao.insertItem(custom.copy(name = name.trim(), categoryKey = categoryKey))
+            } else {
+                sourceId = newCatalogId(); sourceKind = "custom"
+                persistCatalogMutationLocked("list_items", buildJsonObject { put("category_key", categoryKey); put("name", name.trim()) }, sourceId)
+                categoryDao.insertItem(CustomItemEntity(categoryKey = categoryKey, name = name.trim(), sourceId = sourceId))
+            }
+        }
+        val updated = old.copy(name = name.trim(), category = categoryKey, quantity = quantity.trim(), note = note, sourceId = sourceId, sourceKind = sourceKind, sourceCategory = if (saveToCatalog) categoryKey else old.sourceCategory, dirty = !old.id.startsWith("local_"), updatedAt = now())
+        itemDao.upsert(updated)
+        pushFieldUpdate(updated, editableItemFields(updated))
+        launchPendingWrites()
+        notifyWidgets()
+        ProductCommandResult(savedStatus(), itemId, categoryKey)
+    }
+
+    suspend fun createCategory(name: String, icon: String, expectedListId: String? = null): CategoryCommandResult = try {
+        val origin = pb.baseUrl
+        val principal = sessionUserId
+        val targetList = expectedListId ?: prefs.snapshot().activeListId
+        listLock.withLock {
+            if (origin != pb.baseUrl || principal != sessionUserId || targetList != prefs.snapshot().activeListId) return@withLock CategoryCommandResult(CommandStatus.FAILED, error = "SCOPE_CHANGED")
+            val clean = name.trim()
+            if (_isGuest.value) return@withLock CategoryCommandResult(CommandStatus.FAILED, error = "PERMISSION")
+            if (clean.isBlank() || clean.codePointCount(0, clean.length) > 80 || icon.codePointCount(0, icon.length) > 20) return@withLock CategoryCommandResult(CommandStatus.VALIDATION_ERROR, error = "NAME_REQUIRED")
+            val key = Normalizer.normalize(clean.lowercase(), Normalizer.Form.NFD).replace("\\p{M}".toRegex(), "").replace("[^a-z0-9]+".toRegex(), "_").trim('_').take(70).ifBlank { "category_${newCatalogId()}" }
+            if (currentCategories().containsKey(key)) return@withLock CategoryCommandResult(CommandStatus.DUPLICATE, key, "DUPLICATE")
+            val id = newCatalogId()
+            database.withTransaction {
+                persistCatalogMutationLocked("list_categories", buildJsonObject { put("key", key); put("icon", icon); put("name", clean) }, id)
+                categoryDao.upsertCategory(CustomCategoryEntity(key, icon, clean, id))
+            }
+            launchPendingWrites()
+            CategoryCommandResult(savedStatus(), key)
+        }
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        CategoryCommandResult(CommandStatus.FAILED, error = "PERSISTENCE")
+    }
+
+    suspend fun setProductHidden(item: LocalizedItem, hidden: Boolean, expectedListId: String? = null): ProductCommandResult = productCommand(expectedListId) {
+        if (_isGuest.value) return@productCommand ProductCommandResult(CommandStatus.FAILED, error = "PERMISSION")
+        setProductHiddenLocked(item, hidden)
+        launchPendingWrites()
+        ProductCommandResult(savedStatus())
+    }
+
+    suspend fun retryPendingCatalog(): ProductCommandResult {
+      return try {
+        val origin = pb.baseUrl
+        val principal = sessionUserId
+        val state = prefs.snapshot()
+        if (origin.isNotBlank()) {
+            val capability = runCatching { pb.catalogRequest("GET", "/api/shoplist/health", null, origin, null)["supports_quantity"]?.jsonPrimitive?.booleanOrNull ?: false }.getOrNull()
+            val applied = listLock.withLock {
+                val current = prefs.snapshot()
+                if (origin != pb.baseUrl || principal != sessionUserId || state.activeListId != current.activeListId) false
+                else {
+                    if (capability != null) {
+                        quantitySupported.value = capability
+                        prefs.setQuantityCapability(origin, capability)
+                    }
+                    true
+                }
+            }
+            if (!applied) return ProductCommandResult(CommandStatus.FAILED, error = "SCOPE_CHANGED")
+        }
+        catalogMutationDao.retry(origin, state.activeListId)
+        flushCatalogMutations()
+        if (origin != pb.baseUrl || principal != sessionUserId || prefs.snapshot().activeListId != state.activeListId) return ProductCommandResult(CommandStatus.FAILED, error = "SCOPE_CHANGED")
+        _sync.value.recordId?.takeIf { _sync.value.connected }?.let { pushPending(it) }
+        itemQueue.flush()
+        listLock.withLock {
+            val current = prefs.snapshot()
+            if (origin == pb.baseUrl && principal == sessionUserId && current.activeListId == state.activeListId) refreshCatalogStatusLocked()
+        }
+        if (!quantitySupported.value && itemDao.getAll().any { it.quantity.isNotBlank() }) return ProductCommandResult(CommandStatus.FAILED, error = "QUANTITY_UNSUPPORTED")
+        val pending = catalogMutationDao.forList(pb.baseUrl, state.activeListId).any { it.revision > it.acknowledgedRevision } || itemDao.getAll().any { it.dirty || it.id.startsWith("local_") }
+        val blocked = catalogMutationDao.forList(pb.baseUrl, state.activeListId).firstOrNull { it.revision > it.acknowledgedRevision && it.lastError.startsWith("HTTP_") }
+        if (blocked != null) ProductCommandResult(CommandStatus.FAILED, error = blocked.lastError) else ProductCommandResult(if (pending) savedStatus() else CommandStatus.SYNCED)
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        ProductCommandResult(CommandStatus.FAILED, error = "PERSISTENCE")
+      }
+    }
+
+    private suspend fun productCommand(expectedListId: String? = null, block: suspend () -> ProductCommandResult): ProductCommandResult = try {
+        val origin = pb.baseUrl
+        val principal = sessionUserId
+        val targetList = expectedListId ?: prefs.snapshot().activeListId
+        listLock.withLock {
+            if (origin != pb.baseUrl || principal != sessionUserId || targetList != prefs.snapshot().activeListId) ProductCommandResult(CommandStatus.FAILED, error = "SCOPE_CHANGED")
+            else if (_isGuest.value) block() else database.withTransaction { ensureLegacyCatalogMutationsLocked(); block() }.also { refreshCatalogStatusLocked() }
+        }
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        Log.e(TAG, "Product command failed", e)
+        ProductCommandResult(CommandStatus.FAILED, error = "PERSISTENCE")
+    }
+
+    private fun savedStatus() = if (pb.hasServer) CommandStatus.PENDING_SYNC else CommandStatus.SAVED_LOCAL
+    private fun newCatalogId() = UUID.randomUUID().toString().replace("-", "").take(15)
+    private suspend fun currentCategories() = buildCategories(serverCatalog.value, categoryDao.getCategories(), categoryDao.getItems())
+
+    private fun editableItemFields(item: ItemEntity): Map<String, Any?> = mapOf(
+        "name" to item.name, "category" to item.category, "quantity" to item.quantity, "note" to item.note,
+        "catalog_source_id" to item.sourceId, "catalog_source_kind" to item.sourceKind, "catalog_source_category" to item.sourceCategory,
+    )
+
+    private suspend fun addShoppingProductLocked(name: String, category: String, quantity: String, note: String, sourceId: String, sourceKind: String, sourceCategory: String): String {
+        val existing = itemDao.getAll().firstOrNull { normalizeProductName(it.name) == normalizeProductName(name) }
+        val entity = if (existing != null) existing.copy(inList = true, checked = false, category = category, quantity = quantity.ifBlank { existing.quantity }, note = note.ifBlank { existing.note }, sourceId = sourceId, sourceKind = sourceKind, sourceCategory = sourceCategory, updatedAt = now(), dirty = !existing.id.startsWith("local_"))
+        else ItemEntity("local_${UUID.randomUUID()}", name, false, note, category, true, 0, now(), false, quantity = quantity, sourceId = sourceId, sourceKind = sourceKind, sourceCategory = sourceCategory)
+        itemDao.upsert(entity)
+        if (!entity.id.startsWith("local_")) pushFieldUpdate(entity, editableItemFields(entity) + mapOf("in_list" to true, "checked" to false))
+        notifyWidgets()
+        return entity.id
+    }
+
+    private fun launchPendingWrites() {
+        scope.launch {
+            flushCatalogMutations()
+            _sync.value.recordId?.takeIf { _sync.value.connected }?.let { pushPending(it) }
+        }
+    }
+
+    private suspend fun setProductHiddenLocked(item: LocalizedItem, hidden: Boolean) {
+        val key = com.bor_devs.shoplist.domain.catalogVisibilityKey(item)
+        if (key.isBlank()) return
+        val state = prefs.snapshot()
+        val rows = catalogMutationDao.forList(pb.baseUrl, state.activeListId)
+        val existing = rows.firstOrNull { it.collection == "list_disabled_products" && catalogPayload(it)["name"]?.jsonPrimitive?.content == key }
+        persistCatalogMutationLocked("list_disabled_products", buildJsonObject { put("name", key) }, existing?.entityId, deleted = !hidden)
+        if (hidden) disabledDao.insert(DisabledProductEntity(key)) else {
+            disabledDao.deleteByName(key)
+            val legacy = canonicalKey(item)
+            if (legacy != key && disabledDao.getAll().any { it.name == legacy }) {
+                val old = rows.firstOrNull { it.collection == "list_disabled_products" && catalogPayload(it)["name"]?.jsonPrimitive?.content == legacy }
+                persistCatalogMutationLocked("list_disabled_products", buildJsonObject { put("name", legacy) }, old?.entityId, deleted = true)
+                disabledDao.deleteByName(legacy)
+            }
+        }
+    }
+
+    private fun catalogPayload(row: CatalogMutationEntity): JsonObject = pb.json.decodeFromString(row.payload)
+
+    private suspend fun persistCatalogMutationLocked(collection: String, payload: JsonObject, entityId: String? = null, deleted: Boolean = false, remoteId: String = ""): CatalogMutationEntity {
+        val state = prefs.snapshot()
+        val rows = catalogMutationDao.forList(pb.baseUrl, state.activeListId)
+        val existing = entityId?.let { id -> rows.firstOrNull { it.entityId == id || it.remoteId == id } }
+        val id = existing?.entityId ?: entityId ?: newCatalogId()
+        val row = CatalogMutationEntity(pb.baseUrl, state.activeListId, id, collection, payload.toString(), existing?.remoteId ?: remoteId, existing?.remoteListId?.ifBlank { _sync.value.recordId.orEmpty() } ?: _sync.value.recordId.orEmpty(), deleted, (existing?.revision ?: 0) + 1, existing?.acknowledgedRevision ?: 0, principalId = existing?.principalId?.ifBlank { sessionUserId.orEmpty() } ?: sessionUserId.orEmpty())
+        catalogMutationDao.upsert(row)
+        refreshCatalogStatusLocked()
+        return row
+    }
+
+    /** Upgrade older custom caches before a remote refresh can replace them. */
+    private suspend fun ensureLegacyCatalogMutationsLocked() {
+        categoryDao.getCategories().filter { it.sourceId.isBlank() }.forEach { category ->
+            val id = newCatalogId()
+            persistCatalogMutationLocked("list_categories", buildJsonObject { put("key", category.key); put("icon", category.icon); put("name", category.displayName.ifBlank { category.key }) }, id)
+            categoryDao.upsertCategory(category.copy(sourceId = id))
+        }
+        categoryDao.getItems().filter { it.sourceId.isBlank() }.forEach { item ->
+            val id = newCatalogId()
+            persistCatalogMutationLocked("list_items", buildJsonObject { put("category_key", item.categoryKey); put("name", item.name) }, id)
+            categoryDao.insertItem(item.copy(sourceId = id))
+        }
+    }
+
+    /** Replay durable mutations onto the active projection after a restart/fetch/list switch. */
+    private suspend fun restorePendingCatalogLocked() {
+        val state = prefs.snapshot()
+        normalizeBuiltinVisibilityLocked()
+        val aliases = catalogMutationDao.forList(pb.baseUrl, state.activeListId).filter { it.collection == "list_items" && it.remoteId.isNotBlank() && it.remoteId != it.entityId && it.acknowledgedRevision > 0 }
+        aliases.forEach { remapCatalogSourceLocked(it.entityId, it.remoteId) }
+        val rows = catalogMutationDao.forList(pb.baseUrl, state.activeListId).filter { it.revision > it.acknowledgedRevision }
+        rows.sortedBy { if (it.collection == "list_categories") 0 else 1 }.forEach { row ->
+            val data = catalogPayload(row)
+            fun value(key: String) = data[key]?.jsonPrimitive?.content.orEmpty()
+            when (row.collection) {
+                "list_categories" -> if (row.deleted) categoryDao.deleteCategory(value("key")) else categoryDao.upsertCategory(CustomCategoryEntity(value("key"), value("icon"), value("name"), row.remoteId.ifBlank { row.entityId }))
+                "list_items" -> {
+                    categoryDao.getItems().filter { it.sourceId == row.entityId || it.sourceId == row.remoteId && row.remoteId.isNotBlank() }.forEach { categoryDao.deleteItem(it) }
+                    if (!row.deleted) addCustomItemLocal(value("category_key"), value("name"), row.remoteId.ifBlank { row.entityId })
+                }
+                "list_disabled_products" -> if (row.deleted) disabledDao.deleteByName(value("name")) else disabledDao.insert(DisabledProductEntity(value("name")))
+                "list_disabled_categories" -> _disabledCategories.update { if (row.deleted) it - value("key") else it + value("key") }
+            }
+        }
+        refreshCatalogStatusLocked()
+    }
+
+    /** A local built-in suggestion gets the server identity on its first connection. */
+    private suspend fun normalizeBuiltinVisibilityLocked() {
+        if (serverCatalog.value.isEmpty()) return
+        val hidden = disabledDao.getAll().map { it.name }.filter { it.startsWith("source:global:builtin_") }
+        if (hidden.isEmpty()) return
+        val current = serverCatalog.value.associateBy { it.key }
+        for (category in DefaultCatalog.categories) for (item in category.items) {
+            val from = "source:global:${builtinSourceId(category.key, item)}"
+            if (from !in hidden) continue
+            val names = localizedVariants(item).map(::normalizeProductName).toSet()
+            val remote = current[category.key]?.items?.firstOrNull { candidate -> localizedVariants(candidate).any { normalizeProductName(it) in names } } ?: continue
+            if (remote.sourceId.isBlank()) continue
+            val to = "source:global:${remote.sourceId}"
+            val state = prefs.snapshot()
+            val old = catalogMutationDao.forList(pb.baseUrl, state.activeListId).firstOrNull { it.collection == "list_disabled_products" && catalogPayload(it)["name"]?.jsonPrimitive?.content == from }
+            if (old != null) catalogMutationDao.upsert(old.copy(payload = buildJsonObject { put("name", to) }.toString(), revision = old.revision + 1, nextAttemptAt = 0, lastError = ""))
+            else {
+                persistCatalogMutationLocked("list_disabled_products", buildJsonObject { put("name", to) })
+                persistCatalogMutationLocked("list_disabled_products", buildJsonObject { put("name", from) }, deleted = true)
+            }
+            disabledDao.deleteByName(from)
+            disabledDao.insert(DisabledProductEntity(to))
+        }
+    }
+
+    private fun builtinSourceId(key: String, item: LocalizedItem) = "builtin_" + UUID.nameUUIDFromBytes((key + "|" + canonicalKey(item)).toByteArray()).toString().replace("-", "")
+
+    private suspend fun refreshCatalogStatusLocked() {
+        val state = prefs.snapshot()
+        val pending = catalogMutationDao.forList(pb.baseUrl, state.activeListId).filter { it.revision > it.acknowledgedRevision }
+        catalogPendingCount.value = pending.size
+        catalogSyncError.value = pending.firstOrNull { it.lastError.startsWith("HTTP_") }?.lastError
+            ?: if (!quantitySupported.value && itemDao.getAll().any { it.quantity.isNotBlank() }) "QUANTITY_UNSUPPORTED" else null
+    }
+
+    private suspend fun remapCatalogSourceLocked(oldId: String, remoteId: String) {
+        categoryDao.getItems().filter { it.sourceId == oldId }.forEach { categoryDao.insertItem(it.copy(sourceId = remoteId)) }
+        itemDao.getAll().filter { it.sourceId == oldId && it.sourceKind == "custom" }.forEach {
+            val updated = it.copy(sourceId = remoteId, dirty = !it.id.startsWith("local_"))
+            itemDao.upsert(updated)
+            pushFieldUpdate(updated, mapOf("catalog_source_id" to remoteId))
+        }
+        val state = prefs.snapshot()
+        val from = "source:custom:$oldId"
+        val to = "source:custom:$remoteId"
+        catalogMutationDao.forList(pb.baseUrl, state.activeListId).filter { it.collection == "list_disabled_products" && catalogPayload(it)["name"]?.jsonPrimitive?.content == from }.forEach {
+            catalogMutationDao.upsert(it.copy(payload = buildJsonObject { put("name", to) }.toString(), revision = it.revision + 1, nextAttemptAt = 0))
+        }
+        if (disabledDao.getAll().any { it.name == from }) { disabledDao.deleteByName(from); disabledDao.insert(DisabledProductEntity(to)) }
+    }
+
+    /** Captured origin/token plus revision acknowledgements keep retries isolated. */
+    private suspend fun flushCatalogMutations() {
+        catalogFlushLock.withLock {
+            val origin = pb.baseUrl
+            val token = pb.token
+            val state = prefs.snapshot()
+            val listId = state.activeListId
+            val remoteListId = _sync.value.recordId ?: return
+            val connection = activeConnection
+            if (!_sync.value.connected || _isGuest.value || !isNetworkAvailable()) return
+            val rows = catalogMutationDao.forList(origin, listId).filter { it.revision > it.acknowledgedRevision && it.nextAttemptAt <= now() }
+            for (row in rows.sortedBy { if (it.collection == "list_categories") 0 else 1 }) {
+                if (!isActiveConnection(remoteListId, origin, connection) || prefs.snapshot().activeListId != listId) return
+                if (row.remoteListId.isNotBlank() && row.remoteListId != remoteListId || row.principalId.isNotBlank() && row.principalId != sessionUserId) {
+                    catalogMutationDao.fail(origin, listId, row.entityId, row.revision, Long.MAX_VALUE, "HTTP_403")
+                    listLock.withLock { refreshCatalogStatusLocked() }
+                    continue
+                }
+                try {
+                    val id = com.bor_devs.shoplist.data.sync.CatalogMutationSync({ method, path, body, targetOrigin, authToken -> pb.catalogRequest(method, path, body, targetOrigin, authToken) }, pb.json).sync(row, remoteListId, token)
+                    listLock.withLock {
+                        catalogMutationDao.acknowledge(origin, listId, row.entityId, id, remoteListId, row.revision)
+                        if (isActiveConnection(remoteListId, origin, connection) && prefs.snapshot().activeListId == listId) {
+                            if (row.collection == "list_items" && id != row.entityId) remapCatalogSourceLocked(row.entityId, id)
+                            refreshCatalogStatusLocked()
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    val status = (e as? com.bor_devs.shoplist.data.remote.PbException)?.status ?: 0
+                    val permanent = status in 400..499 && status != 429 && status != 401
+                    val delayMs = if (permanent) Long.MAX_VALUE else now() + minOf(300_000L, 1000L shl minOf(row.attempts, 8))
+                    catalogMutationDao.fail(origin, listId, row.entityId, row.revision, delayMs, if (permanent) "HTTP_$status" else "PENDING")
+                    listLock.withLock { if (pb.baseUrl == origin && prefs.snapshot().activeListId == listId) refreshCatalogStatusLocked() }
+                    if (!permanent || row.collection == "list_categories") return
+                }
+            }
+        }
+    }
+
     // ---- Category actions ----
 
-    fun addCategory(key: String, icon: String) = scope.launch {
-      listLock.withLock {
-        categoryDao.upsertCategory(CustomCategoryEntity(key, icon))
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching { pb.createListCategory(recordId, key, icon) }
-      }
-    }
+    fun addCategory(key: String, icon: String) = scope.launch { createCategory(key, icon) }
 
-    fun removeCategory(key: String) = scope.launch {
-      listLock.withLock {
-        categoryDao.deleteCategory(key)
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching {
-            pb.getListCategories(recordId).firstOrNull { it.key == key }?.let { pb.deleteListCategory(it.id) }
-        }
-      }
-    }
+    fun removeCategory(key: String) = scope.launch { setCategoryHidden(key, true) }
 
-    fun addCategoryItem(catKey: String, name: String) = scope.launch {
-      listLock.withLock {
-        addCustomItemLocal(catKey, name)
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching { pb.createListItem(recordId, catKey, name) }
-      }
-    }
+    fun addCategoryItem(catKey: String, name: String) = scope.launch { createProduct(name, catKey, addToList = false) }
 
     fun removeCategoryItem(catKey: String, name: String) = scope.launch {
-      listLock.withLock {
-        categoryDao.deleteItemByName(catKey, name)
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching {
-            pb.getListItems(recordId).firstOrNull { it.categoryKey == catKey && it.name == name }?.let { pb.deleteListItem(it.id) }
-        }
-      }
+        val product = currentCategories()[catKey]?.items?.firstOrNull { localizedVariants(it).contains(name.trim().lowercase()) }
+        if (product != null) setProductHidden(product, true)
     }
-
-    // ---- Per-list product deactivation (synced) ----
 
     private fun canonicalKey(item: LocalizedItem): String =
         item.en.ifBlank { item.es.ifBlank { item.ca } }.trim().lowercase()
@@ -622,29 +984,9 @@ class ShopRepository @Inject constructor(
     private fun localizedVariants(item: LocalizedItem): Set<String> =
         setOf(item.en, item.es, item.ca).filter { it.isNotBlank() }.map { it.trim().lowercase() }.toSet()
 
-    /** Deactivate a product for the active list: translucent in settings, removed from the list, synced. */
-    fun deactivateProduct(item: LocalizedItem) = scope.launch {
-      listLock.withLock {
-        val key = canonicalKey(item)
-        if (key.isBlank()) return@launch
-        disabledDao.insert(DisabledProductEntity(key))
-        val variants = localizedVariants(item)
-        itemDao.getAll().filter { variants.contains(it.name.trim().lowercase()) }.forEach { deleteItemLocked(it.id) }
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching { pb.createDisabledProduct(recordId, key) }
-      }
-    }
-
-    fun reactivateProduct(item: LocalizedItem) = scope.launch {
-      listLock.withLock {
-        val key = canonicalKey(item)
-        disabledDao.deleteByName(key)
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching {
-            pb.getListDisabledProducts(recordId).firstOrNull { it.name == key }?.let { pb.deleteDisabledProduct(it.id) }
-        }
-      }
-    }
+    /** Hiding a catalog suggestion never removes a current purchase. */
+    fun deactivateProduct(item: LocalizedItem) = scope.launch { setProductHidden(item, true) }
+    fun reactivateProduct(item: LocalizedItem) = scope.launch { setProductHidden(item, false) }
 
     private suspend fun loadListDisabled(recordId: String) {
         val origin = pb.baseUrl
@@ -652,35 +994,30 @@ class ShopRepository @Inject constructor(
         runCatching {
             val records = pb.getListDisabledProducts(recordId)
             listLock.withLock {
-                if (isActiveConnection(recordId, origin, connection)) disabledDao.replaceAll(records.map { DisabledProductEntity(it.name) })
+                if (isActiveConnection(recordId, origin, connection)) { disabledDao.replaceAll(records.map { DisabledProductEntity(it.name) }); restorePendingCatalogLocked() }
             }
         }
         runCatching {
             val records = pb.getListDisabledCategories(recordId)
             listLock.withLock {
-                if (isActiveConnection(recordId, origin, connection)) _disabledCategories.value = records.map { it.key }.toSet()
+                if (isActiveConnection(recordId, origin, connection)) { _disabledCategories.value = records.map { it.key }.toSet(); restorePendingCatalogLocked() }
             }
         }
     }
 
-    /** Hide a default category for the active list (synced). */
-    fun deactivateCategory(key: String) = scope.launch {
-      listLock.withLock {
-        if (key.isBlank() || _disabledCategories.value.contains(key)) return@launch
-        _disabledCategories.update { it + key }
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching { pb.createDisabledCategory(recordId, key) }
-      }
-    }
+    /** Hide a category in this list without removing its purchases. */
+    fun deactivateCategory(key: String) = scope.launch { setCategoryHidden(key, true) }
+    fun reactivateCategory(key: String) = scope.launch { setCategoryHidden(key, false) }
 
-    fun reactivateCategory(key: String) = scope.launch {
-      listLock.withLock {
-        _disabledCategories.update { it - key }
-        val recordId = _sync.value.recordId
-        if (_sync.value.connected && recordId != null) runCatching {
-            pb.getListDisabledCategories(recordId).firstOrNull { it.key == key }?.let { pb.deleteDisabledCategory(it.id) }
+    private suspend fun setCategoryHidden(key: String, hidden: Boolean) = productCommand {
+        val state = prefs.snapshot()
+        val existing = catalogMutationDao.forList(pb.baseUrl, state.activeListId).firstOrNull {
+            it.collection == "list_disabled_categories" && catalogPayload(it)["key"]?.jsonPrimitive?.content == key
         }
-      }
+        persistCatalogMutationLocked("list_disabled_categories", buildJsonObject { put("key", key) }, existing?.entityId, deleted = !hidden)
+        _disabledCategories.update { if (hidden) it + key else it - key }
+        launchPendingWrites()
+        ProductCommandResult(savedStatus())
     }
 
     // ---- Multi-list switching ----
@@ -795,6 +1132,8 @@ class ShopRepository @Inject constructor(
         categoryDao.replaceAll(extras.categories, extras.items)
         disabledDao.replaceAll(extras.disabledProducts)
         _disabledCategories.value = extras.disabledCategories
+        ensureLegacyCatalogMutationsLocked()
+        restorePendingCatalogLocked()
     }
 
     /** Stop realtime/presence and mark the active list local (optionally keeping linkage for re-join). */
@@ -879,7 +1218,7 @@ class ShopRepository @Inject constructor(
             val id = existing?.id ?: ("list_" + UUID.randomUUID())
             val target = (s.listCaches[id] ?: emptyList()).map { it.toEntity() }
             val copies = if (replace) emptyList() else sourceItems.map {
-                it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false)
+                it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false, sourceId = "", sourceKind = "", sourceCategory = "")
             }
             prefs.setLists(if (existing != null) s.lists.map {
                 if (it.id == id && it.role == "guest") it.copy(role = "admin") else it
@@ -1050,10 +1389,11 @@ class ShopRepository @Inject constructor(
                     listLock.withLock {
                     if (activeConnection !== connection || guestToken() != token || pb.baseUrl != origin) return@withLock
                     _shareMode.value = snap.mode
+                quantitySupported.value = snap.quantitySupported
                     _listName.value = snap.list.name.ifBlank { null }
                     prefs.setListName(snap.list.name.ifBlank { null })
                     itemDao.replaceAll(snap.items.map {
-                        ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy)
+                        ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy, it.quantity)
                     })
                     notifyWidgets()
                     }
@@ -1092,8 +1432,10 @@ class ShopRepository @Inject constructor(
         connectJob?.cancel()
         connectJob = scope.launch {
             runCatching {
+                listLock.withLock { ensureLegacyCatalogMutationsLocked(); restorePendingCatalogLocked() }
                 fetchAndMerge(recordId)
                 pushPending(recordId)
+                flushCatalogMutations()
                 loadListCustomData(recordId)
             }.onFailure { Log.e(TAG, "connect failed", it); setMsg("Sync Error", MsgType.ERROR) }
         }
@@ -1110,7 +1452,7 @@ class ShopRepository @Inject constructor(
         memberPollJob = scope.launch {
             while (true) {
                 delay(25_000)
-                runCatching { fetchAndMerge(recordId); pushPending(recordId); itemQueue.flush() }
+                runCatching { fetchAndMerge(recordId); pushPending(recordId); itemQueue.flush(); flushCatalogMutations(); loadListCustomData(recordId) }
             }
         }
     }
@@ -1127,9 +1469,10 @@ class ShopRepository @Inject constructor(
                 listLock.withLock {
                 if (activeConnection !== connection || guestToken() != token || pb.baseUrl != origin) return@withLock
                 _shareMode.value = snap.mode
+                quantitySupported.value = snap.quantitySupported
                 _listName.value = snap.list.name.ifBlank { null }
                 itemDao.replaceAll(snap.items.map {
-                    ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy)
+                    ItemEntity(it.id, it.name, it.checked, it.note, it.category.ifBlank { "other" }, true, 0, now(), false, it.addedBy, it.checkedBy, it.quantity)
                 })
                 notifyWidgets()
                 }
@@ -1139,7 +1482,7 @@ class ShopRepository @Inject constructor(
         }
         val recordId = _sync.value.recordId ?: return@launch
         _refreshing.value = true
-        runCatching { fetchAndMerge(recordId); pushPending(recordId); itemQueue.flush() }
+        runCatching { fetchAndMerge(recordId); pushPending(recordId); itemQueue.flush(); flushCatalogMutations(); loadListCustomData(recordId) }
         _refreshing.value = false
     }
 
@@ -1179,11 +1522,16 @@ class ShopRepository @Inject constructor(
         val offline = listLock.withLock {
             if (!isActiveConnection(recordId, origin, connection)) return
             pendingDeleteDao.forList(recordId).forEach { itemQueue.enqueueDelete("shopping_items", it.id) }
-            val all = itemDao.getAll()
+            val allItems = itemDao.getAll()
+            val blocked = allItems.filter { !canSyncQuantity(it.quantity, quantitySupported.value) }
+            blocked.filter { !it.id.startsWith("local_") && !it.dirty }.forEach { itemDao.upsert(it.copy(dirty = true)) }
+            if (blocked.isNotEmpty()) catalogSyncError.value = "QUANTITY_UNSUPPORTED"
+            val all = allItems.filter { canSyncQuantity(it.quantity, quantitySupported.value) }
             all.filter { it.dirty && !it.id.startsWith("local_") }.forEach {
                 itemQueue.enqueueUpdate(
                     "shopping_items", it.id,
-                    mapOf("name" to it.name, "category" to it.category, "checked" to it.checked, "note" to it.note, "in_list" to it.inList),
+                    mapOf("name" to it.name, "category" to it.category, "checked" to it.checked, "note" to it.note, "in_list" to it.inList,
+                    "quantity" to it.quantity, "catalog_source_id" to it.sourceId, "catalog_source_kind" to it.sourceKind, "catalog_source_category" to it.sourceCategory),
                 )
             }
             all.filter { it.id.startsWith("local_") && syncMeta.pendingCreates.add(it.id) }
@@ -1192,7 +1540,7 @@ class ShopRepository @Inject constructor(
         try {
             if (!isActiveConnection(recordId, origin, connection)) return
             if (offline.size > 1) {
-                val bodies = offline.map { createBody(recordId, it.name, it.category, it.checked, it.note, it.inList, it.id) }
+                val bodies = offline.map { createBody(recordId, it.name, it.category, it.checked, it.note, it.inList, it.id, it.quantity, it.sourceId, it.sourceKind, it.sourceCategory) }
                 val results = runCatching { pb.batchCreateItems(bodies) }.getOrNull()
                 if (!isActiveConnection(recordId, origin, connection)) return
                 if (results != null && results.size == offline.size) {
@@ -1201,7 +1549,7 @@ class ShopRepository @Inject constructor(
                     offline.forEach { item ->
                         if (!isActiveConnection(recordId, origin, connection)) return
                         runCatching {
-                            val rec = pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id))
+                            val rec = pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id, item.quantity, item.sourceId, item.sourceKind, item.sourceCategory))
                             if (isActiveConnection(recordId, origin, connection)) swapTempId(item.id, rec)
                         }
                     }
@@ -1209,7 +1557,7 @@ class ShopRepository @Inject constructor(
             } else {
                 val item = offline[0]
                 runCatching {
-                    val rec = pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id))
+                    val rec = pb.createItem(createBody(recordId, item.name, item.category, item.checked, item.note, item.inList, item.id, item.quantity, item.sourceId, item.sourceKind, item.sourceCategory))
                     if (isActiveConnection(recordId, origin, connection)) swapTempId(item.id, rec)
                 }
             }
@@ -1226,8 +1574,8 @@ class ShopRepository @Inject constructor(
             val its = pb.getListItems(recordId)
             listLock.withLock {
                 if (!isActiveConnection(recordId, origin, connection)) return@withLock
-                cats.forEach { categoryDao.upsertCategory(CustomCategoryEntity(it.key, it.icon)) }
-                its.forEach { addCustomItemLocal(it.categoryKey, it.name) }
+                categoryDao.replaceAll(cats.map { CustomCategoryEntity(it.key, it.icon, it.name, it.id) }, its.map { CustomItemEntity(categoryKey = it.categoryKey, name = it.name, sourceId = it.id) })
+                restorePendingCatalogLocked()
             }
         }
         if (isActiveConnection(recordId, origin, connection)) loadListDisabled(recordId)
@@ -1244,7 +1592,7 @@ class ShopRepository @Inject constructor(
                 val rec = pb.json.decodeFromJsonElement(com.bor_devs.shoplist.data.remote.CategoryRecord.serializer(), e.record)
                 if (rec.list != recordId) return
                 when (e.action) {
-                    "create" -> categoryDao.upsertCategory(CustomCategoryEntity(rec.key, rec.icon))
+                    "create", "update" -> categoryDao.upsertCategory(CustomCategoryEntity(rec.key, rec.icon, rec.name, rec.id))
                     "delete" -> categoryDao.deleteCategory(rec.key)
                 }
             }
@@ -1252,7 +1600,7 @@ class ShopRepository @Inject constructor(
                 val rec = pb.json.decodeFromJsonElement(com.bor_devs.shoplist.data.remote.ListItemRecord.serializer(), e.record)
                 if (rec.list != recordId) return
                 when (e.action) {
-                    "create" -> addCustomItemLocal(rec.categoryKey, rec.name)
+                    "create", "update" -> addCustomItemLocal(rec.categoryKey, rec.name, rec.id)
                     "delete" -> categoryDao.deleteItemByName(rec.categoryKey, rec.name)
                 }
             }
@@ -1283,6 +1631,7 @@ class ShopRepository @Inject constructor(
                 }
             }
         }
+        if (e.collection != "shopping_items") restorePendingCatalogLocked()
       }
     }
 
@@ -1450,7 +1799,7 @@ class ShopRepository @Inject constructor(
             BackupData.serializer(),
             BackupData(
                 listName = _listName.value,
-                items = its.map { BackupItem(it.id, it.name, it.checked, it.note, it.category, it.inList) },
+                items = its.map { BackupItem(it.id, it.name, it.checked, it.note, it.category, it.inList, it.quantity) },
             ),
         )
     }
@@ -1463,7 +1812,7 @@ class ShopRepository @Inject constructor(
                 // Backups carry content, not ids owned by a different list/server.
                 id = "local_" + UUID.randomUUID(),
                 name = it.name, checked = it.checked, note = it.note,
-                category = it.category, inList = it.inList, serverUpdated = 0, updatedAt = now(), dirty = false,
+                category = it.category, inList = it.inList, serverUpdated = 0, updatedAt = now(), dirty = false, quantity = it.quantity,
             )
         })
         true
@@ -1477,8 +1826,18 @@ class ShopRepository @Inject constructor(
       listLock.withLock {
         val clean = url.trim().trimEnd('/')
         authLock.withLock {
-            if (clean != pb.baseUrl) detachServer()
+            if (clean != pb.baseUrl && pb.baseUrl.isNotBlank()) detachServer()
             pb.setBaseUrl(clean)
+            serverCatalog.value = prefs.snapshot().catalogSnapshots[clean].orEmpty()
+            if (clean.isNotBlank()) {
+                val state = prefs.snapshot()
+                state.lists.forEach { list ->
+                    catalogMutationDao.forList("", list.id).filter { it.remoteListId.isBlank() }.forEach { row ->
+                        catalogMutationDao.upsert(row.copy(origin = clean, principalId = ""))
+                        catalogMutationDao.delete("", list.id, row.entityId)
+                    }
+                }
+            }
             prefs.setServerUrl(clean)
             prefs.setWizardDone(true)
         }
@@ -1514,12 +1873,15 @@ class ShopRepository @Inject constructor(
         _sync.update { it.copy(syncHistory = emptyList()) }
         val s = prefs.snapshot()
         itemDao.replaceAll(itemDao.getAll().map {
-            it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false)
+            it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false, sourceId = "", sourceKind = "", sourceCategory = "")
         })
         prefs.setListCaches(s.listCaches.mapValues { (_, items) -> items.map {
-            it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false)
+            it.copy(id = "local_" + UUID.randomUUID(), serverUpdated = 0, dirty = false, sourceId = "", sourceKind = "", sourceCategory = "")
         } })
         prefs.setLists(s.lists.map { it.copy(code = null, recordId = null, isLocal = true, role = "owner") })
+        categoryDao.replaceAll(categoryDao.getCategories().map { it.copy(sourceId = "") }, categoryDao.getItems().map { it.copy(sourceId = "") })
+        prefs.setListExtras(s.listExtras.mapValues { (_, extras) -> extras.copy(categories = extras.categories.map { it.copy(sourceId = "") }, items = extras.items.map { it.copy(sourceId = "") }) })
+        quantitySupported.value = true
         serverCatalog.value = emptyList()
         _invites.value = emptyList()
         _avatarUrl.value = null
@@ -1535,6 +1897,7 @@ class ShopRepository @Inject constructor(
     private suspend fun pushFieldUpdate(item: ItemEntity, body: Map<String, Any?>) {
         if (item.id.startsWith("local_")) return
         markDirty(item.id)
+        if (!canSyncQuantity(item.quantity, quantitySupported.value)) { catalogSyncError.value = "QUANTITY_UNSUPPORTED"; return }
         if (_sync.value.connected) itemQueue.enqueueUpdate("shopping_items", item.id, body)
     }
 
@@ -1563,14 +1926,15 @@ class ShopRepository @Inject constructor(
             pushFieldUpdate(item, mapOf(
                 "name" to item.name, "category" to item.category,
                 "checked" to item.checked, "note" to item.note, "in_list" to item.inList,
+                "quantity" to item.quantity, "catalog_source_id" to item.sourceId, "catalog_source_kind" to item.sourceKind, "catalog_source_category" to item.sourceCategory,
             ))
         }
     }
 
-    private suspend fun addCustomItemLocal(categoryKey: String, name: String) {
-        if (categoryDao.findItem(categoryKey, name) == null) {
-            categoryDao.insertItem(CustomItemEntity(categoryKey = categoryKey, name = name))
-        }
+    private suspend fun addCustomItemLocal(categoryKey: String, name: String, sourceId: String = "") {
+        val existing = categoryDao.getItems().firstOrNull { (sourceId.isNotBlank() && it.sourceId == sourceId) || it.categoryKey == categoryKey && it.name == name }
+        if (existing == null) categoryDao.insertItem(CustomItemEntity(categoryKey = categoryKey, name = name, sourceId = sourceId))
+        else if (sourceId.isNotBlank()) categoryDao.insertItem(existing.copy(categoryKey = categoryKey, name = name, sourceId = sourceId))
     }
 
     private suspend fun addToHistory(code: String) {
@@ -1602,23 +1966,25 @@ class ShopRepository @Inject constructor(
         return prim.content.equals("true", ignoreCase = true) || prim.content == "1"
     }
 
-    private fun ItemEntity.toCached() = CachedItem(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty, addedBy, checkedBy)
-    private fun CachedItem.toEntity() = ItemEntity(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty, addedBy, checkedBy)
+    private fun ItemEntity.toCached() = CachedItem(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty, addedBy, checkedBy, quantity, sourceId, sourceKind, sourceCategory)
+    private fun CachedItem.toEntity() = ItemEntity(id, name, checked, note, category, inList, serverUpdated, updatedAt, dirty, addedBy, checkedBy, quantity, sourceId, sourceKind, sourceCategory)
 
     private fun ItemRecord.toEntity(local: ItemEntity?): ItemEntity = ItemEntity(
         id = id, name = name, checked = checked, note = note,
         category = category.ifBlank { "other" }, inList = inList,
         serverUpdated = SyncMeta.parsePbDate(updated), updatedAt = local?.updatedAt ?: now(), dirty = false,
-        addedBy = addedBy, checkedBy = checkedBy,
+        addedBy = addedBy, checkedBy = checkedBy, quantity = quantity ?: local?.quantity.orEmpty(),
+        sourceId = sourceId ?: local?.sourceId.orEmpty(), sourceKind = sourceKind ?: local?.sourceKind.orEmpty(), sourceCategory = sourceCategory ?: local?.sourceCategory.orEmpty(),
     )
 
     /** This user's display name for public-link attribution ("" → server uses "External"). */
     private fun myName(): String = settingsCache?.auth?.username?.takeIf { it.isNotBlank() } ?: ""
 
-    private fun createBody(recordId: String, name: String, category: String, checked: Boolean, note: String, inList: Boolean, externalId: String): JsonObject =
+    private fun createBody(recordId: String, name: String, category: String, checked: Boolean, note: String, inList: Boolean, externalId: String, quantity: String = "", sourceId: String = "", sourceKind: String = "", sourceCategory: String = ""): JsonObject =
         buildJsonObject {
             put("list", recordId); put("name", name); put("category", category)
             put("checked", checked); put("note", note); put("in_list", inList); put("external_id", externalId)
+            if (quantitySupported.value) put("quantity", quantity); put("catalog_source_id", sourceId); put("catalog_source_kind", sourceKind); put("catalog_source_category", sourceCategory)
         }
 
     private fun mapToJson(map: Map<String, Any?>): JsonObject = buildJsonObject {
@@ -1640,11 +2006,15 @@ class ShopRepository @Inject constructor(
     ): Map<String, Category> {
         val base = server.ifEmpty { DefaultCatalog.categories }
         val map = LinkedHashMap<String, Category>()
-        base.forEach { map[it.key] = it }
-        customCats.forEach { cc -> if (!map.containsKey(cc.key)) map[cc.key] = Category(cc.key, cc.icon, emptyList()) }
+        base.forEach { category ->
+            map[category.key] = category.copy(items = category.items.map { item ->
+                item.copy(sourceId = item.sourceId.ifBlank { builtinSourceId(category.key, item) }, sourceCategory = category.key)
+            })
+        }
+        customCats.forEach { cc -> if (!map.containsKey(cc.key)) map[cc.key] = Category(cc.key, cc.icon, emptyList(), displayName = cc.displayName.ifBlank { null }) }
         customItems.forEach { ci ->
             map[ci.categoryKey]?.let { cat ->
-                map[ci.categoryKey] = cat.copy(items = cat.items + LocalizedItem(ci.name, ci.name, ci.name))
+                map[ci.categoryKey] = cat.copy(items = cat.items + LocalizedItem(ci.name, ci.name, ci.name, ci.sourceId, "custom", ci.categoryKey))
             }
         }
         return map
@@ -1661,7 +2031,7 @@ class ShopRepository @Inject constructor(
     @kotlinx.serialization.Serializable
     private data class BackupItem(
         val id: String, val name: String, val checked: Boolean,
-        val note: String, val category: String, val inList: Boolean,
+        val note: String, val category: String, val inList: Boolean, val quantity: String = "",
     )
 
     companion object { private const val TAG = "ShopRepository" }

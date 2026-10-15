@@ -6,7 +6,11 @@ import com.bor_devs.shoplist.data.remote.ItemRecord
 /** Compare the editable fields before clearing a durable pending change. */
 internal fun ItemEntity.matches(record: ItemRecord): Boolean =
     name == record.name && checked == record.checked && note == record.note &&
-        category == record.category.ifBlank { "other" } && inList == record.inList
+        category == record.category.ifBlank { "other" } && inList == record.inList &&
+        (if (record.quantity == null) quantity.isBlank() else quantity == record.quantity) &&
+        (record.sourceId == null || sourceId == record.sourceId) &&
+        (record.sourceKind == null || sourceKind == record.sourceKind) &&
+        (record.sourceCategory == null || sourceCategory == record.sourceCategory)
 
 /** A create response acknowledges its original body, not edits made while waiting. */
 internal fun reconcileCreatedItem(local: ItemEntity, record: ItemRecord): ItemEntity =
@@ -38,9 +42,14 @@ internal fun reconcileItemSnapshot(
                 id = record.id, name = record.name, checked = record.checked, note = record.note,
                 category = record.category.ifBlank { "other" }, inList = record.inList,
                 serverUpdated = SyncMeta.parsePbDate(record.updated), updatedAt = existing?.updatedAt ?: nowMillis,
-                dirty = false, addedBy = record.addedBy, checkedBy = record.checkedBy,
+                dirty = record.quantity == null && !existing?.quantity.isNullOrBlank(), addedBy = record.addedBy, checkedBy = record.checkedBy,
+                quantity = record.quantity ?: existing?.quantity.orEmpty(), sourceId = record.sourceId ?: existing?.sourceId.orEmpty(),
+                sourceKind = record.sourceKind ?: existing?.sourceKind.orEmpty(), sourceCategory = record.sourceCategory ?: existing?.sourceCategory.orEmpty(),
             )
         }
     }
     return offline + merged
 }
+
+/** A client must retain a quantity edit until the server explicitly supports it. */
+internal fun canSyncQuantity(quantity: String, supported: Boolean): Boolean = quantity.isBlank() || supported

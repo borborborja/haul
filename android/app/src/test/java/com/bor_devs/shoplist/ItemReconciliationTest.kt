@@ -24,6 +24,33 @@ class ItemReconciliationTest {
         assertTrue(merged.dirty)
     }
 
+    @Test fun quantityAndCatalogProvenanceSurviveOfflineAcknowledgementsAndOlderServers() {
+        val edited = local.copy(quantity = "2 cartons", sourceId = "custom-id", sourceKind = "custom", sourceCategory = "dairy")
+        assertTrue(reconcileCreatedItem(edited, record.copy(quantity = "1 carton")).dirty)
+        val oldServer = reconcileItemSnapshot(listOf(edited.copy(id = record.id)), listOf(record), emptySet(), { false }, 99).single()
+        assertEquals("2 cartons", oldServer.quantity)
+        assertEquals("custom-id", oldServer.sourceId)
+        val modern = record.copy(quantity = "3 cartons", sourceId = "new-id", sourceKind = "custom", sourceCategory = "drinks")
+        val refreshed = reconcileItemSnapshot(listOf(edited.copy(id = record.id)), listOf(modern), emptySet(), { false }, 99).single()
+        assertEquals("3 cartons", refreshed.quantity)
+        assertEquals("new-id", refreshed.sourceId)
+    }
+
+    @Test fun olderServerNeverAcknowledgesOrDropsAQuantityCreatedOffline() {
+        val offline = local.copy(quantity = "2 cartons")
+        assertFalse(com.bor_devs.shoplist.data.sync.canSyncQuantity(offline.quantity, false))
+        assertTrue(com.bor_devs.shoplist.data.sync.canSyncQuantity(offline.quantity, true))
+        assertTrue(com.bor_devs.shoplist.data.sync.canSyncQuantity("", false))
+        val acknowledged = reconcileCreatedItem(offline, record)
+        assertEquals("2 cartons", acknowledged.quantity)
+        assertTrue(acknowledged.dirty)
+        val refreshed = reconcileItemSnapshot(listOf(offline.copy(id = record.id)), listOf(record), emptySet(), { false }, 99).single()
+        assertEquals("2 cartons", refreshed.quantity)
+        assertTrue(refreshed.dirty)
+        val corrected = refreshed.copy(quantity = "")
+        assertTrue(corrected.matches(record))
+    }
+
     @Test fun unchangedCreateAcknowledgementIsClean() {
         assertFalse(reconcileCreatedItem(local, record).dirty)
     }

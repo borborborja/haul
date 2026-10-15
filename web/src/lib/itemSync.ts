@@ -7,6 +7,10 @@ export interface ItemRecord {
     category: string;
     checked: boolean;
     note?: string;
+    quantity?: string;
+    catalog_source_id?: string;
+    catalog_source_kind?: 'custom' | 'global' | '';
+    catalog_source_category?: string;
     in_list?: boolean;
     updated?: string;
     added_by?: string;
@@ -18,6 +22,10 @@ export const itemWriteBody = (item: ShopItem) => ({
     category: item.category,
     checked: item.checked,
     note: item.note,
+    quantity: item.quantity || '',
+    catalog_source_id: item.catalogSourceId || '',
+    catalog_source_kind: item.catalogSourceKind || '',
+    catalog_source_category: item.catalogSourceCategory || '',
     in_list: item.inList !== false,
 });
 
@@ -29,7 +37,9 @@ export function reconcileCreatedItem(items: ShopItem[], tempId: string, record: 
     if (!local) return { items, deleted: !real, update: undefined };
     const body = itemWriteBody(local);
     const changed = body.name !== record.name || body.category !== record.category ||
-        body.checked !== record.checked || body.note !== (record.note ?? '') ||
+        body.checked !== record.checked || body.note !== (record.note ?? '') || body.quantity !== (record.quantity ?? '') ||
+        body.catalog_source_id !== (record.catalog_source_id || '') || body.catalog_source_kind !== (record.catalog_source_kind || '') ||
+        body.catalog_source_category !== (record.catalog_source_category || '') ||
         body.in_list !== (record.in_list !== false);
     return {
         items: items.filter(i => i.id !== record.id).map(i => i.id === tempId
@@ -57,6 +67,10 @@ export function mergeRemoteItems(
             name: record.name,
             checked: record.checked,
             note: record.note ?? '',
+            quantity: record.quantity ?? local?.quantity ?? '',
+            catalogSourceId: record.catalog_source_id || local?.catalogSourceId || '',
+            catalogSourceKind: record.catalog_source_kind || local?.catalogSourceKind || '',
+            catalogSourceCategory: record.catalog_source_category || local?.catalogSourceCategory || '',
             category: record.category,
             addedBy: record.added_by,
             checkedBy: record.checked_by,

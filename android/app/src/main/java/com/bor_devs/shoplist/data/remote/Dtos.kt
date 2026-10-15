@@ -72,6 +72,7 @@ data class PublicItemDto(
     val note: String = "",
     val addedBy: String = "",
     val checkedBy: String = "",
+    val quantity: String = "",
 )
 
 @Serializable
@@ -83,10 +84,11 @@ data class PublicSnapshot(
     val mode: String = "",
     val items: List<PublicItemDto> = emptyList(),
     val categories: List<PublicCatDto> = emptyList(),
+    val quantitySupported: Boolean = false,
 )
 
 @Serializable
-data class HealthResponse(val status: String = "")
+data class HealthResponse(val status: String = "", @SerialName("supports_quantity") val supportsQuantity: Boolean = false)
 
 @Serializable
 data class PresenceDto(
@@ -110,6 +112,10 @@ data class ItemRecord(
     val updated: String = "",
     val created: String = "",
     val collectionName: String? = null,
+    val quantity: String? = null,
+    @SerialName("catalog_source_id") val sourceId: String? = null,
+    @SerialName("catalog_source_kind") val sourceKind: String? = null,
+    @SerialName("catalog_source_category") val sourceCategory: String? = null,
 )
 
 @Serializable

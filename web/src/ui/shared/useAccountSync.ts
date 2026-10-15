@@ -75,6 +75,8 @@ export function useAccountSync() {
             if (!isConnectionCurrent(scope)) return;
             const { listName } = useShopStore.getState();
             const rec = await scope.client.send<{ id: string; name: string; inviteCode: string }>('/api/shoplist/lists', { method: 'POST', body: { name: listName || 'Shopping list' } });
+            if (!isConnectionCurrent(scope)) return;
+            if (!scope.recordId) useShopStore.getState().bindLocalCatalog(rec.id);
             finishListConnection(rec.id, rec.inviteCode, { items: [], listName }, scope, true);
         } catch (e: any) {
             setError(e?.response?.message || e?.message || (lang === 'ca' ? 'No s’ha pogut crear la llista' : 'No se pudo crear la lista'));

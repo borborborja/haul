@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.bor_devs.shoplist.domain.AppMode
 import com.bor_devs.shoplist.domain.AuthState
+import com.bor_devs.shoplist.domain.Category
 import com.bor_devs.shoplist.domain.CachedItem
 import com.bor_devs.shoplist.domain.SavedList
 import com.bor_devs.shoplist.domain.SortOrder
@@ -31,6 +32,8 @@ class SettingsDataStore @Inject constructor(
     private val json: Json,
 ) {
     private object Keys {
+        val CATALOG_SNAPSHOTS = stringPreferencesKey("catalog_snapshots_json")
+        val QUANTITY_CAPABILITIES = stringPreferencesKey("quantity_capabilities_json")
         val SERVER_URL = stringPreferencesKey("server_url")
         val WIZARD_DONE = booleanPreferencesKey("wizard_done")
         val THEME = stringPreferencesKey("theme")
@@ -72,6 +75,8 @@ class SettingsDataStore @Inject constructor(
     val data: Flow<Settings> = context.appDataStore.data.map { p ->
         Settings(
             serverUrl = p[Keys.SERVER_URL] ?: "",
+            catalogSnapshots = p[Keys.CATALOG_SNAPSHOTS]?.let { runCatching { json.decodeFromString<Map<String, List<Category>>>(it) }.getOrNull() } ?: emptyMap(),
+            quantityCapabilities = p[Keys.QUANTITY_CAPABILITIES]?.let { runCatching { json.decodeFromString<Map<String, Boolean>>(it) }.getOrNull() } ?: emptyMap(),
             wizardDone = p[Keys.WIZARD_DONE] ?: false,
             theme = runCatching { ThemeMode.valueOf(p[Keys.THEME] ?: "LIGHT") }.getOrDefault(ThemeMode.LIGHT),
             appLang = p[Keys.APP_LANG],
@@ -108,6 +113,16 @@ class SettingsDataStore @Inject constructor(
     }
 
     suspend fun snapshot(): Settings = data.first()
+
+    suspend fun setCatalogSnapshot(origin: String, categories: List<Category>) = edit {
+        val old = it[Keys.CATALOG_SNAPSHOTS]?.let { value -> runCatching { json.decodeFromString<Map<String, List<Category>>>(value) }.getOrNull() } ?: emptyMap()
+        it[Keys.CATALOG_SNAPSHOTS] = json.encodeToString(old + (origin to categories))
+    }
+
+    suspend fun setQuantityCapability(origin: String, supported: Boolean) = edit {
+        val old = it[Keys.QUANTITY_CAPABILITIES]?.let { value -> runCatching { json.decodeFromString<Map<String, Boolean>>(value) }.getOrNull() } ?: emptyMap()
+        it[Keys.QUANTITY_CAPABILITIES] = json.encodeToString(old + (origin to supported))
+    }
 
     suspend fun setServerUrl(url: String) = edit { it[Keys.SERVER_URL] = url }
     suspend fun setWizardDone(done: Boolean) = edit { it[Keys.WIZARD_DONE] = done }
@@ -194,6 +209,8 @@ data class Settings(
     val lists: List<SavedList> = emptyList(),
     val listCaches: Map<String, List<CachedItem>> = emptyMap(),
     val listExtras: Map<String, CachedListExtras> = emptyMap(),
+    val quantityCapabilities: Map<String, Boolean> = emptyMap(),
+    val catalogSnapshots: Map<String, List<Category>> = emptyMap(),
 )
 
 /** The active list's extras live in Room; inactive lists retain their own copy. */

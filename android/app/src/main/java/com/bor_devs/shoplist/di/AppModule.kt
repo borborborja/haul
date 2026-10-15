@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.bor_devs.shoplist.data.local.AppDatabase
+import com.bor_devs.shoplist.data.local.CatalogMutationDao
 import com.bor_devs.shoplist.data.local.CategoryDao
 import com.bor_devs.shoplist.data.local.DisabledDao
 import com.bor_devs.shoplist.data.local.ItemDao
@@ -48,6 +49,18 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        for (name in listOf("quantity", "sourceId", "sourceKind", "sourceCategory")) {
+            db.execSQL("ALTER TABLE items ADD COLUMN `$name` TEXT NOT NULL DEFAULT ''")
+        }
+        db.execSQL("ALTER TABLE custom_categories ADD COLUMN displayName TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE custom_categories ADD COLUMN sourceId TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE custom_items ADD COLUMN sourceId TEXT NOT NULL DEFAULT ''")
+        db.execSQL("CREATE TABLE IF NOT EXISTS catalog_mutations (origin TEXT NOT NULL, localListId TEXT NOT NULL, entityId TEXT NOT NULL, collection TEXT NOT NULL, payload TEXT NOT NULL, remoteId TEXT NOT NULL, remoteListId TEXT NOT NULL, deleted INTEGER NOT NULL, revision INTEGER NOT NULL, acknowledgedRevision INTEGER NOT NULL, attempts INTEGER NOT NULL, nextAttemptAt INTEGER NOT NULL, lastError TEXT NOT NULL, principalId TEXT NOT NULL, PRIMARY KEY(origin, localListId, entityId))")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -79,9 +92,12 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "shoplist.db")
             // Additive: keep local data on upgrade (adds the disabled_products table).
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .fallbackToDestructiveMigration()
             .build()
+
+    @Provides
+    fun provideCatalogMutationDao(db: AppDatabase): CatalogMutationDao = db.catalogMutationDao()
 
     @Provides
     fun provideItemDao(db: AppDatabase): ItemDao = db.itemDao()

@@ -20,6 +20,7 @@ data class WItem(
     val name: String,
     val category: String = "other",
     val checked: Boolean = false,
+    val quantity: String = "",
 )
 
 data class WearSnapshot(val listName: String, val items: List<WItem>)

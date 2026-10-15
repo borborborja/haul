@@ -255,3 +255,79 @@ func TestAnonymousEditClearsPreviousUserAttribution(t *testing.T) {
 		t.Fatalf("anonymous edit still points to previous account: %s / %s", saved.GetString("last_edited_by"), saved.GetString("last_editor"))
 	}
 }
+
+func TestOptionalQuantityAndCatalogCreationIdentity(t *testing.T) {
+	app := regressionApp(t)
+	user, list := regressionList(t, app)
+	token, err := user.NewAuthToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := regressionRouter(t, app)
+	path := "/api/collections/shopping_items/records"
+	body := `{"list":"` + list.Id + `","name":"Milk","category":"dairy","quantity":"2 cartons","catalog_source_id":"catalogmilk1234","catalog_source_kind":"custom","in_list":true}`
+	response := regressionRequest(handler, http.MethodPost, path, token, body)
+	if response.Code != http.StatusOK {
+		t.Fatalf("create: %d %s", response.Code, response.Body.String())
+	}
+	var created struct {
+		Id string `json:"id"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	response = regressionRequest(handler, http.MethodPatch, path+"/"+created.Id, token, `{"note":"old client edit"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("patch: %d %s", response.Code, response.Body.String())
+	}
+	item, err := app.FindRecordById("shopping_items", created.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.GetString("quantity") != "2 cartons" || item.GetString("catalog_source_kind") != "custom" {
+		t.Fatal("old client erased optional fields")
+	}
+	response = regressionRequest(handler, http.MethodPatch, path+"/"+created.Id, token, `{"quantity":"`+strings.Repeat("x", 81)+`"}`)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("quantity limit: %d", response.Code)
+	}
+	custom := `{"id":"stablecatalog01","list":"` + list.Id + `","category_key":"dairy","name":"Milk"}`
+	path = "/api/collections/list_items/records"
+	response = regressionRequest(handler, http.MethodPost, path, token, custom)
+	if response.Code != http.StatusOK {
+		t.Fatalf("custom stable identity: %d %s", response.Code, response.Body.String())
+	}
+	response = regressionRequest(handler, http.MethodPost, path, token, custom)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("duplicate identity accepted: %d", response.Code)
+	}
+	response = regressionRequest(handler, http.MethodGet, path+"/stablecatalog01", token, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("lost response reconciliation: %d", response.Code)
+	}
+}
+
+func TestPublicQuantityRoundTrip(t *testing.T) {
+	app := regressionApp(t)
+	registerRoutes(app, t.TempDir())
+	_, list := regressionList(t, app)
+	list.Set("share_token", "quantity-public-test")
+	list.Set("share_mode", "plan")
+	if err := app.Save(list); err != nil {
+		t.Fatal(err)
+	}
+	handler := regressionRouter(t, app)
+	response := regressionRequest(handler, http.MethodGet, "/api/shoplist/health", "", "")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"supports_quantity":true`) {
+		t.Fatalf("capability: %d %s", response.Code, response.Body.String())
+	}
+	path := "/api/shoplist/public/quantity-public-test"
+	response = regressionRequest(handler, http.MethodPost, path+"/items", "", `{"name":"Milk","category":"dairy","quantity":"2 cartons","note":"Oat"}`)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("public add: %d %s", response.Code, response.Body.String())
+	}
+	response = regressionRequest(handler, http.MethodGet, path, "", "")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"quantity":"2 cartons"`) {
+		t.Fatalf("snapshot: %d %s", response.Code, response.Body.String())
+	}
+}

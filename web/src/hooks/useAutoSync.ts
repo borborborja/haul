@@ -50,6 +50,7 @@ export function useAutoSync() {
                 const st = useShopStore.getState();
                 // A real connect may have landed while we were creating; don't double up.
                 if (st.activeListId !== activeListId || st.sync.connected || st.sync.recordId || st.sync.code) return;
+                st.bindLocalCatalog(rec.id);
                 st.setSyncState({ connected: true, code: rec.inviteCode, recordId: rec.id, msg: '', msgType: 'success' });
                 st.registerActiveListSync({ code: rec.inviteCode, recordId: rec.id });
                 st.addToSyncHistory(rec.inviteCode);

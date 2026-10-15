@@ -1,0 +1,6 @@
+Añade productos dentro de su categoría sin salir de la lista.
+Crea varios productos a la vez y añade artículos mientras compras.
+Edita nombres, categorías, cantidades y notas.
+La búsqueda ignora acentos y espacios sobrantes y evita añadidos duplicados.
+Oculta productos o categorías del catálogo con Deshacer sin perder las compras.
+Mejoras de accesibilidad y sincronización del catálogo sin conexión.

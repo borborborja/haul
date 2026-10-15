@@ -40,6 +40,8 @@ export default function ShareView() {
     const [loading, setLoading] = useState(true);
     const [draft, setDraft] = useState('');
     const [draftCat, setDraftCat] = useState('');
+    const [draftQuantity, setDraftQuantity] = useState('');
+    const [addError, setAddError] = useState('');
     const pending = useRef(0);
     const revision = useRef(0);
     const latestLoad = useRef(0);
@@ -185,19 +187,24 @@ export default function ShareView() {
         const name = draft.trim();
         if (!name || !canEdit) return;
         setDraft('');
+        setAddError('');
+        const quantity = snap?.quantitySupported ? draftQuantity.trim() : undefined;
+        setDraftQuantity('');
         const cat = draftCat;
-        const temp: ShareItem = { id: `tmp_${crypto.randomUUID()}`, name, category: cat, checked: false, note: '' };
+        const temp: ShareItem = { id: `tmp_${crypto.randomUUID()}`, name, category: cat, checked: false, note: '', quantity };
         pendingIds.current.add(temp.id);
         setBusyItems(new Set(pendingIds.current));
         revision.current++;
         setItems((prev) => [temp, ...prev]);
         pending.current++;
         try {
-            const record = await addItem(token, name, cat, viewerName);
+            const record = await addItem(token, name, cat, viewerName, quantity);
             setItems(prev => prev.map(i => i.id === temp.id ? { ...i, id: record.id } : i));
         } catch {
             setItems(prev => prev.filter(i => i.id !== temp.id));
             setDraft(current => current || name);
+            setDraftQuantity(current => current || quantity || '');
+            setAddError(t.errorSaving);
         } finally {
             pending.current--;
             pendingIds.current.delete(temp.id);
@@ -301,16 +308,18 @@ export default function ShareView() {
 
             {canEdit && (
                 <form onSubmit={submitAdd} style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'rgba(251,250,246,0.92)', backdropFilter: 'blur(8px)', borderTop: '1px solid rgba(6,35,26,0.08)', padding: '12px 14px' }}>
-                    <div style={{ maxWidth: 620, margin: '0 auto', display: 'flex', gap: 8 }}>
-                        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={L.addPh} style={{ flex: 1, border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '11px 14px', fontSize: 15, outline: 'none', background: '#fff', color: INK }} />
+                    <div style={{ maxWidth: 620, margin: '0 auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <input aria-label={t.productName} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={L.addPh} style={{ flex: 1, border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '11px 14px', fontSize: 15, outline: 'none', background: '#fff', color: INK }} />
                         {addCategories.length > 0 && (
-                            <select value={draftCat} onChange={(e) => setDraftCat(e.target.value)} style={{ border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '0 10px', fontSize: 14, background: '#fff', color: INK, maxWidth: 140 }}>
+                            <select aria-label={t.category} value={draftCat} onChange={(e) => setDraftCat(e.target.value)} style={{ border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '0 10px', fontSize: 14, background: '#fff', color: INK, maxWidth: 140 }}>
                                 <option value="">—</option>
                                 {addCategories.map((c) => <option key={c.key} value={c.key}>{labelFor(c.key)}</option>)}
                             </select>
                         )}
+                        {snap.quantitySupported && <input aria-label={t.quantity} value={draftQuantity} onChange={(e) => setDraftQuantity(e.target.value)} placeholder={t.quantity} maxLength={80} style={{ width: 90, minHeight: 44, border: '1px solid rgba(6,35,26,0.15)', borderRadius: 12, padding: '0 10px', font: 'inherit' }} />}
                         <button type="submit" style={{ border: 'none', background: MINT, color: '#fff', borderRadius: 12, padding: '0 18px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>{t.add}</button>
                     </div>
+                    {addError && <div role="alert" style={{ maxWidth: 620, margin: '8px auto 0', color: '#B42330' }}>{addError}</div>}
                 </form>
             )}
         </div>
@@ -338,6 +347,7 @@ function ShareItemRow({ it, canCheck, canEdit, busy, onToggle, onRemove, t }: {
             }}>{it.checked ? '✓' : ''}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 15, textDecoration: it.checked ? 'line-through' : 'none' }}>{it.name}</div>
+                {it.quantity && <div style={{ fontSize: 12, opacity: 0.7 }}>{t.quantity}: {it.quantity}</div>}
                 {it.note && <div style={{ fontSize: 12, opacity: 0.5 }}>{it.note}</div>}
                 {attribution(it, t) && <div style={{ fontSize: 12, color: MINT, fontWeight: 600 }}>{attribution(it, t)}</div>}
             </div>

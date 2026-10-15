@@ -11,7 +11,7 @@ plugins {
 
 // Derive versionName/versionCode from a single source so they stay in sync with
 // the web app's semantic version (major*10000 + minor*100 + patch).
-val appVersionName = "1.12.3"
+val appVersionName = "1.13.0"
 val appVersionCode = appVersionName.split(".").let { (maj, min, patch) ->
     maj.toInt() * 10000 + min.toInt() * 100 + patch.toInt()
 }
@@ -133,4 +133,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

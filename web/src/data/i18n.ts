@@ -56,6 +56,18 @@ export interface UIDict {
     inviteTitle: string; inviteBody: string; inviteAccept: string; inviteDecline: string;
     addedByLabel: string; boughtByLabel: string; yourNamePrompt: string; continueLabel: string;
     installApp: string;
+    productName: string; quantity: string; notes: string; createProduct: string; createCategory: string;
+    createAndAdd: string; createAnother: string; addToList: string; cancel: string; close: string;
+    bulkProducts: string; bulkHint: string; alreadyInList: string; noResults: string; editProduct: string;
+    updateCatalog: string; updateCatalogHint: string; hide: string; hidden: string; showHidden: string;
+    undo: string; pendingSync: string; retry: string; saved: string; errorSaving: string;
+    duplicateProduct: string; addedToList: string; productCreated: string; categoryCreated: string;
+    productHidden: string; categoryHidden: string; productRestored: string; invalidName: string;
+    done: string; quantityChecking: string;
+    quantityUnavailable: string; permissionDenied: string;
+    invalidQuantity: string; bulkResults: string; created: string; existing: string; failed: string;
+    saveChanges: string; purchased: string; edit: string; searchResults: string; categoryName: string;
+    categoryIcon: string; catalogVariantHint: string; dismiss: string; catalogOnly: string; namePerLine: string;
     cats: Record<CatKey, string>;
 }
 
@@ -87,6 +99,18 @@ const en: UIDict = {
     inviteTitle: 'List invitation', inviteBody: '{who} invited you to administer “{list}”.', inviteAccept: 'Accept', inviteDecline: 'Decline',
     addedByLabel: 'Added by {x}', boughtByLabel: 'Bought by {x}', yourNamePrompt: 'What’s your name?', continueLabel: 'Continue',
     installApp: 'Install app',
+    productName: 'Product name', quantity: 'Quantity', notes: 'Notes', createProduct: 'New product', createCategory: 'New category',
+    createAndAdd: 'Create and add', createAnother: 'Create and add another', addToList: 'Add to this shopping list', cancel: 'Cancel', close: 'Close',
+    bulkProducts: 'Add several products', bulkHint: 'One product per line. They will use the selected category.', alreadyInList: 'Already in the list', noResults: 'No matching products', editProduct: 'Edit product',
+    updateCatalog: 'Also update the catalog for this list', updateCatalogHint: 'For a shared catalog product, this creates your own variant.', hide: 'Hide', hidden: 'Hidden', showHidden: 'Show hidden',
+    undo: 'Undo', pendingSync: 'Saved on this device · waiting to sync', retry: 'Retry', saved: 'Changes saved', errorSaving: 'Could not save the changes',
+    duplicateProduct: 'This product already exists', addedToList: 'Added to the list', productCreated: 'Product created', categoryCreated: 'Category created',
+    productHidden: 'Product hidden from the catalog', categoryHidden: 'Category hidden from the catalog', productRestored: 'Visible in the catalog again', invalidName: 'Enter a product name',
+    done: 'Done', quantityChecking: 'Checking quantity support…',
+    quantityUnavailable: 'This server does not support quantities yet', permissionDenied: 'You do not have permission to change this list',
+    invalidQuantity: 'Enter a quantity greater than zero', bulkResults: 'Results', created: 'Created', existing: 'Already exists', failed: 'Failed',
+    saveChanges: 'Save changes', purchased: 'Bought', edit: 'Edit', searchResults: 'Search results', categoryName: 'Category name',
+    categoryIcon: 'Category icon', catalogVariantHint: 'The shared catalog stays available to everyone.', dismiss: 'Dismiss', catalogOnly: 'Save in the catalog', namePerLine: 'Product names',
     cats: { fruit: 'Fruit', veg: 'Vegetables', meat: 'Meat/Fish', dairy: 'Dairy', pantry: 'Pantry/Bread', cleaning: 'Cleaning/Hygiene', home: 'Home', snacks: 'Snacks/Sweets', frozen: 'Frozen', processed: 'Processed', drinks: 'Drinks', spices: 'Spices', other: 'General/Other' },
 };
 
@@ -94,6 +118,18 @@ type Over = Partial<Omit<UIDict, 'cats'>> & { cats?: Partial<Record<CatKey, stri
 
 const overrides: Record<Exclude<Lang, 'en'>, Over> = {
     es: {
+        productName: 'Nombre del producto', quantity: 'Cantidad', notes: 'Notas', createProduct: 'Nuevo producto', createCategory: 'Nueva categoría',
+        createAndAdd: 'Crear y añadir', createAnother: 'Crear y añadir otro', addToList: 'Añadir a esta lista de compra', cancel: 'Cancelar', close: 'Cerrar',
+        bulkProducts: 'Añadir varios productos', bulkHint: 'Un producto por línea. Se usará la categoría seleccionada.', alreadyInList: 'Ya está en la lista', noResults: 'No hay productos coincidentes', editProduct: 'Editar producto',
+        updateCatalog: 'Actualizar también el catálogo de esta lista', updateCatalogHint: 'Si es un producto del catálogo compartido, se crea una variante propia.', hide: 'Ocultar', hidden: 'Ocultos', showHidden: 'Mostrar ocultos',
+        undo: 'Deshacer', pendingSync: 'Guardado en el dispositivo · pendiente de sincronizar', retry: 'Reintentar', saved: 'Cambios guardados', errorSaving: 'No se han podido guardar los cambios',
+        duplicateProduct: 'Este producto ya existe', addedToList: 'Añadido a la lista', productCreated: 'Producto creado', categoryCreated: 'Categoría creada',
+        productHidden: 'Producto oculto del catálogo', categoryHidden: 'Categoría oculta del catálogo', productRestored: 'Vuelve a ser visible en el catálogo', invalidName: 'Escribe el nombre del producto',
+        done: 'Hecho', quantityChecking: 'Comprobando si el servidor admite cantidades…',
+        quantityUnavailable: 'Este servidor todavía no admite cantidades', permissionDenied: 'No tienes permiso para modificar esta lista',
+        invalidQuantity: 'Escribe una cantidad mayor que cero', bulkResults: 'Resultados', created: 'Creado', existing: 'Ya existe', failed: 'Error',
+        saveChanges: 'Guardar cambios', purchased: 'Comprado', edit: 'Editar', searchResults: 'Resultados de búsqueda', categoryName: 'Nombre de la categoría',
+        categoryIcon: 'Icono de la categoría', catalogVariantHint: 'El catálogo compartido sigue disponible para todos.', dismiss: 'Cerrar aviso', catalogOnly: 'Guardar en el catálogo', namePerLine: 'Nombres de productos',
         plan: 'Planificar', shop: 'Comprar', settings: 'Ajustes', myList: 'Mi lista',
         searchProduct: 'Busca un producto…', add: 'Añadir', addProducts: 'Añadir productos', chooseCategory: 'Elige una categoría', manage: 'Gestionar', newItem: 'Nuevo', category: 'Categoría', newProduct: 'Producto nuevo…',
         view: 'Vista', completed: 'Completados', clear: 'Limpiar', previouslyUsed: 'Usados anteriormente',
@@ -124,6 +160,18 @@ const overrides: Record<Exclude<Lang, 'en'>, Over> = {
         cats: { fruit: 'Fruta', veg: 'Verdura', meat: 'Carne/Pescado', dairy: 'Lácteos', pantry: 'Despensa/Pan', cleaning: 'Higiene/Limpieza', home: 'Hogar', snacks: 'Snacks/Dulces', frozen: 'Congelados', processed: 'Procesados', drinks: 'Bebidas', spices: 'Especias', other: 'General/Otros' },
     },
     ca: {
+        productName: 'Nom del producte', quantity: 'Quantitat', notes: 'Notes', createProduct: 'Nou producte', createCategory: 'Nova categoria',
+        createAndAdd: 'Crea i afegeix', createAnother: 'Crea i afegeix-ne un altre', addToList: 'Afegeix a aquesta llista de compra', cancel: 'Cancel·la', close: 'Tanca',
+        bulkProducts: 'Afegeix diversos productes', bulkHint: 'Un producte per línia. Es faran servir la categoria seleccionada.', alreadyInList: 'Ja és a la llista', noResults: 'No hi ha productes coincidents', editProduct: 'Edita el producte',
+        updateCatalog: 'Actualitza també el catàleg d’aquesta llista', updateCatalogHint: 'Si és un producte del catàleg compartit, es crea una variant pròpia.', hide: 'Amaga', hidden: 'Amagats', showHidden: 'Mostra els amagats',
+        undo: 'Desfés', pendingSync: 'Desat al dispositiu · pendent de sincronitzar', retry: 'Torna-ho a provar', saved: 'Canvis desats', errorSaving: 'No s’han pogut desar els canvis',
+        duplicateProduct: 'Aquest producte ja existeix', addedToList: 'Afegit a la llista', productCreated: 'Producte creat', categoryCreated: 'Categoria creada',
+        productHidden: 'Producte amagat del catàleg', categoryHidden: 'Categoria amagada del catàleg', productRestored: 'Torna a ser visible al catàleg', invalidName: 'Escriu el nom del producte',
+        done: 'Fet', quantityChecking: 'S’està comprovant si el servidor admet quantitats…',
+        quantityUnavailable: 'Aquest servidor encara no admet quantitats', permissionDenied: 'No tens permís per modificar aquesta llista',
+        invalidQuantity: 'Escriu una quantitat superior a zero', bulkResults: 'Resultats', created: 'Creat', existing: 'Ja existeix', failed: 'Error',
+        saveChanges: 'Desa els canvis', purchased: 'Comprat', edit: 'Edita', searchResults: 'Resultats de cerca', categoryName: 'Nom de la categoria',
+        categoryIcon: 'Icona de la categoria', catalogVariantHint: 'El catàleg compartit continua disponible per a tothom.', dismiss: 'Tanca l’avís', catalogOnly: 'Desa al catàleg', namePerLine: 'Noms dels productes',
         plan: 'Planificar', shop: 'Comprar', settings: 'Ajustos', myList: 'La meva llista',
         searchProduct: 'Cerca un producte…', add: 'Afegeix', addProducts: 'Afegir productes', chooseCategory: 'Tria una categoria', manage: 'Gestiona', newItem: 'Nou', category: 'Categoria', newProduct: 'Producte nou…',
         view: 'Vista', completed: 'Completats', clear: 'Netejar', previouslyUsed: 'Utilitzats anteriorment',
